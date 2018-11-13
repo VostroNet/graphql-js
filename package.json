@@ -1,5 +1,5 @@
 {
-  "name": "graphql",
+  "name": "@vostro/graphql",
   "version": "14.0.2",
   "description": "A Query Language and Runtime which can target any service.",
   "license": "MIT",
