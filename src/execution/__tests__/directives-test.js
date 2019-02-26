@@ -3,6 +3,8 @@
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
+ *
+ * @flow strict
  */
 
 import { expect } from 'chai';
@@ -21,7 +23,7 @@ const schema = new GraphQLSchema({
   }),
 });
 
-const data = {
+const rootValue = {
   a() {
     return 'a';
   },
@@ -30,8 +32,9 @@ const data = {
   },
 };
 
-function executeTestQuery(doc) {
-  return execute(schema, parse(doc), data);
+function executeTestQuery(query) {
+  const document = parse(query);
+  return execute({ schema, document, rootValue });
 }
 
 describe('Execute: handles directives', () => {

@@ -3,6 +3,8 @@
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
+ *
+ * @flow strict
  */
 
 import { expect } from 'chai';
@@ -19,6 +21,9 @@ import {
 } from '../../';
 
 class Dog {
+  name: string;
+  woofs: boolean;
+
   constructor(name, woofs) {
     this.name = name;
     this.woofs = woofs;
@@ -26,6 +31,9 @@ class Dog {
 }
 
 class Cat {
+  name: string;
+  meows: boolean;
+
   constructor(name, meows) {
     this.name = name;
     this.meows = meows;
@@ -33,6 +41,8 @@ class Cat {
 }
 
 class Human {
+  name: string;
+
   constructor(name) {
     this.name = name;
   }
@@ -265,10 +275,10 @@ describe('Execute: Handles execution of abstract types with promises', () => {
           obj instanceof Dog
             ? DogType
             : obj instanceof Cat
-              ? CatType
-              : obj instanceof Human
-                ? HumanType
-                : null,
+            ? CatType
+            : obj instanceof Human
+            ? HumanType
+            : null,
         );
       },
       fields: {
@@ -390,10 +400,10 @@ describe('Execute: Handles execution of abstract types with promises', () => {
           obj instanceof Dog
             ? DogType
             : obj instanceof Cat
-              ? CatType
-              : obj instanceof Human
-                ? HumanType
-                : null,
+            ? CatType
+            : obj instanceof Human
+            ? HumanType
+            : null,
         );
       },
       types: [DogType, CatType],
