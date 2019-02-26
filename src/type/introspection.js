@@ -7,8 +7,8 @@
  * @flow strict
  */
 
-import isInvalid from '../jsutils/isInvalid';
-import objectValues from '../jsutils/objectValues';
+import objectValues from '../polyfills/objectValues';
+import inspect from '../jsutils/inspect';
 import { astFromValue } from '../utilities/astFromValue';
 import { print } from '../language/printer';
 import {
@@ -218,7 +218,10 @@ export const __Type = new GraphQLObjectType({
         } else if (isNonNullType(type)) {
           return TypeKind.NON_NULL;
         }
-        throw new Error('Unknown kind of type: ' + type);
+
+        // Not reachable. All possible types have been considered.
+        /* istanbul ignore next */
+        throw new Error(`Unexpected type: "${inspect((type: empty))}".`);
       },
     },
     name: {
@@ -348,10 +351,10 @@ export const __InputValue = new GraphQLObjectType({
       description:
         'A GraphQL-formatted string representing the default value for this ' +
         'input value.',
-      resolve: inputVal =>
-        isInvalid(inputVal.defaultValue)
-          ? null
-          : print(astFromValue(inputVal.defaultValue, inputVal.type)),
+      resolve(inputVal) {
+        const valueAST = astFromValue(inputVal.defaultValue, inputVal.type);
+        return valueAST ? print(valueAST) : null;
+      },
     },
   }),
 });

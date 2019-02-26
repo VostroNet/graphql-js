@@ -104,6 +104,8 @@ export {
   isIntrospectionType,
   isSpecifiedDirective,
   // Assertions
+  assertSchema,
+  assertDirective,
   assertType,
   assertScalarType,
   assertObjectType,
@@ -279,6 +281,7 @@ export type {
 export {
   execute,
   defaultFieldResolver,
+  defaultTypeResolver,
   responsePathAsArray,
   getDirectiveValues,
 } from './execution';

@@ -4,12 +4,14 @@
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  *
- * @noflow
+ * @flow strict
  */
 
 import { expect } from 'chai';
 import { describe, it } from 'mocha';
 import inspect from '../inspect';
+import invariant from '../invariant';
+import nodejsCustomInspectSymbol from '../nodejsCustomInspectSymbol';
 
 describe('inspect', () => {
   it('undefined', () => {
@@ -28,6 +30,7 @@ describe('inspect', () => {
   it('string', () => {
     expect(inspect('')).to.equal('""');
     expect(inspect('abc')).to.equal('"abc"');
+    // $FlowFixMe
     expect(inspect('"')).to.equal(String.raw`"\""`);
   });
 
@@ -73,5 +76,41 @@ describe('inspect', () => {
     };
 
     expect(inspect(object)).to.equal('<custom inspect>');
+  });
+
+  it('custom symbol inspect is take precedence', () => {
+    invariant(nodejsCustomInspectSymbol);
+
+    const object = {
+      inspect() {
+        return '<custom inspect>';
+      },
+      [String(nodejsCustomInspectSymbol)]() {
+        return '<custom symbol inspect>';
+      },
+    };
+
+    expect(inspect(object)).to.equal('<custom symbol inspect>');
+  });
+
+  it('custom inspect returning object values', () => {
+    const object = {
+      inspect() {
+        return { custom: 'inspect' };
+      },
+    };
+
+    expect(inspect(object)).to.equal('{ custom: "inspect" }');
+  });
+
+  it('custom inspect function that uses this', () => {
+    const object = {
+      str: 'Hello World!',
+      inspect() {
+        return this.str;
+      },
+    };
+
+    expect(inspect(object)).to.equal('Hello World!');
   });
 });

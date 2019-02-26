@@ -7,10 +7,11 @@
  * @flow strict
  */
 
+import defineToJSON from '../jsutils/defineToJSON';
 import type { Token } from './ast';
 import type { Source } from './source';
 import { syntaxError } from '../error';
-import blockStringValue from './blockStringValue';
+import { dedentBlockStringValue } from './blockString';
 
 /**
  * Given a Source object, this returns a Lexer for that source.
@@ -162,14 +163,14 @@ function Tok(
 }
 
 // Print a simplified form when appearing in JSON/util.inspect.
-Tok.prototype.toJSON = Tok.prototype.inspect = function toJSON() {
+defineToJSON(Tok, function() {
   return {
     kind: this.kind,
     value: this.value,
     line: this.line,
     column: this.column,
   };
-};
+});
 
 function printCharCode(code) {
   return (
@@ -177,10 +178,10 @@ function printCharCode(code) {
     isNaN(code)
       ? TokenKind.EOF
       : // Trust JSON for ASCII.
-        code < 0x007f
-        ? JSON.stringify(String.fromCharCode(code))
-        : // Otherwise print the escaped form.
-          `"\\u${('00' + code.toString(16).toUpperCase()).slice(-4)}"`
+      code < 0x007f
+      ? JSON.stringify(String.fromCharCode(code))
+      : // Otherwise print the escaped form.
+        `"\\u${('00' + code.toString(16).toUpperCase()).slice(-4)}"`
   );
 }
 
@@ -333,7 +334,7 @@ function readToken(lexer: Lexer<*>, prev: Token): Token {
         charCodeAt.call(body, pos + 1) === 34 &&
         charCodeAt.call(body, pos + 2) === 34
       ) {
-        return readBlockString(source, pos, line, col, prev);
+        return readBlockString(source, pos, line, col, prev, lexer);
       }
       return readString(source, pos, line, col, prev);
   }
@@ -624,7 +625,7 @@ function readString(source, start, line, col, prev): Token {
  *
  * """("?"?(\\"""|\\(?!=""")|[^"\\]))*"""
  */
-function readBlockString(source, start, line, col, prev): Token {
+function readBlockString(source, start, line, col, prev, lexer): Token {
   const body = source.body;
   let position = start + 3;
   let chunkStart = position;
@@ -649,7 +650,7 @@ function readBlockString(source, start, line, col, prev): Token {
         line,
         col,
         prev,
-        blockStringValue(rawValue),
+        dedentBlockStringValue(rawValue),
       );
     }
 
@@ -667,8 +668,22 @@ function readBlockString(source, start, line, col, prev): Token {
       );
     }
 
-    // Escape Triple-Quote (\""")
-    if (
+    if (code === 10) {
+      // new line
+      ++position;
+      ++lexer.line;
+      lexer.lineStart = position;
+    } else if (code === 13) {
+      // carriage return
+      if (charCodeAt.call(body, position + 1) === 10) {
+        position += 2;
+      } else {
+        ++position;
+      }
+      ++lexer.line;
+      lexer.lineStart = position;
+    } else if (
+      // Escape Triple-Quote (\""")
       code === 92 &&
       charCodeAt.call(body, position + 1) === 34 &&
       charCodeAt.call(body, position + 2) === 34 &&
@@ -713,10 +728,10 @@ function char2hex(a) {
   return a >= 48 && a <= 57
     ? a - 48 // 0-9
     : a >= 65 && a <= 70
-      ? a - 55 // A-F
-      : a >= 97 && a <= 102
-        ? a - 87 // a-f
-        : -1;
+    ? a - 55 // A-F
+    : a >= 97 && a <= 102
+    ? a - 87 // a-f
+    : -1;
 }
 
 /**

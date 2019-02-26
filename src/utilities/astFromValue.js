@@ -9,15 +9,15 @@
 
 import { forEach, isCollection } from 'iterall';
 
+import objectValues from '../polyfills/objectValues';
 import inspect from '../jsutils/inspect';
 import isNullish from '../jsutils/isNullish';
 import isInvalid from '../jsutils/isInvalid';
-import objectValues from '../jsutils/objectValues';
 import type { ValueNode } from '../language/ast';
 import { Kind } from '../language/kinds';
 import type { GraphQLInputType } from '../type/definition';
 import {
-  isScalarType,
+  isLeafType,
   isEnumType,
   isInputObjectType,
   isListType,
@@ -99,7 +99,7 @@ export function astFromValue(value: mixed, type: GraphQLInputType): ?ValueNode {
     return { kind: Kind.OBJECT, fields: fieldNodes };
   }
 
-  if (isScalarType(type) || isEnumType(type)) {
+  if (isLeafType(type)) {
     // Since value is an internally represented value, it must be serialized
     // to an externally represented value before converting into an AST.
     const serialized = type.serialize(value);
@@ -140,8 +140,9 @@ export function astFromValue(value: mixed, type: GraphQLInputType): ?ValueNode {
     throw new TypeError(`Cannot convert value to AST: ${inspect(serialized)}`);
   }
 
+  // Not reachable. All possible input types have been considered.
   /* istanbul ignore next */
-  throw new Error(`Unknown type: ${(type: empty)}.`);
+  throw new Error(`Unexpected input type: "${inspect((type: empty))}".`);
 }
 
 /**

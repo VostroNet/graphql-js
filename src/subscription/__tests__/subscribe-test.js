@@ -111,7 +111,7 @@ async function createSubscription(pubsub, schema = emailSchema, ast, vars) {
     });
   }
 
-  const defaultAst = parse(`
+  const defaultAST = parse(`
     subscription ($priority: Int = 0) {
       importantEmail(priority: $priority) {
         email {
@@ -129,7 +129,7 @@ async function createSubscription(pubsub, schema = emailSchema, ast, vars) {
   // `subscribe` returns Promise<AsyncIterator | ExecutionResult>
   return {
     sendImportantEmail,
-    subscription: await subscribe(schema, ast || defaultAst, data, null, vars),
+    subscription: await subscribe(schema, ast || defaultAST, data, null, vars),
   };
 }
 
@@ -475,8 +475,7 @@ describe('Subscription Initialization Phase', () => {
       errors: [
         {
           message:
-            'Variable "$priority" got invalid value "meow"; Expected ' +
-            'type Int; Int cannot represent non-integer value: "meow"',
+            'Variable "$priority" got invalid value "meow"; Expected type Int; Int cannot represent non-integer value: "meow"',
           locations: [{ line: 2, column: 21 }],
         },
       ],

@@ -4,10 +4,10 @@
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  *
- * @noflow
+ * @flow strict
  */
 
-import { inspect } from 'util';
+import inspect from '../../jsutils/inspect';
 import { expect } from 'chai';
 import { describe, it } from 'mocha';
 import { execute } from '../execute';
@@ -81,7 +81,7 @@ function fieldWithInputArg(inputArg) {
     args: { input: inputArg },
     resolve(_, args) {
       if (args.hasOwnProperty('input')) {
-        return inspect(args.input, { depth: null });
+        return inspect(args.input);
       }
     },
   };
@@ -143,7 +143,7 @@ describe('Execute: Handles inputs', () => {
 
         expect(result).to.deep.equal({
           data: {
-            fieldWithObjectInput: "{ a: 'foo', b: [ 'bar' ], c: 'baz' }",
+            fieldWithObjectInput: '{ a: "foo", b: ["bar"], c: "baz" }',
           },
         });
       });
@@ -157,7 +157,7 @@ describe('Execute: Handles inputs', () => {
 
         expect(result).to.deep.equal({
           data: {
-            fieldWithObjectInput: "{ a: 'foo', b: [ 'bar' ], c: 'baz' }",
+            fieldWithObjectInput: '{ a: "foo", b: ["bar"], c: "baz" }',
           },
         });
       });
@@ -171,7 +171,7 @@ describe('Execute: Handles inputs', () => {
 
         expect(result).to.deep.equal({
           data: {
-            fieldWithObjectInput: "{ a: null, b: null, c: 'C', d: null }",
+            fieldWithObjectInput: '{ a: null, b: null, c: "C", d: null }',
           },
         });
       });
@@ -185,7 +185,7 @@ describe('Execute: Handles inputs', () => {
 
         expect(result).to.deep.equal({
           data: {
-            fieldWithObjectInput: "{ b: [ 'A', null, 'C' ], c: 'C' }",
+            fieldWithObjectInput: '{ b: ["A", null, "C"], c: "C" }',
           },
         });
       });
@@ -221,7 +221,7 @@ describe('Execute: Handles inputs', () => {
 
         expect(result).to.deep.equal({
           data: {
-            fieldWithObjectInput: "{ c: 'foo', d: 'DeserializedValue' }",
+            fieldWithObjectInput: '{ c: "foo", d: "DeserializedValue" }',
           },
         });
       });
@@ -240,7 +240,7 @@ describe('Execute: Handles inputs', () => {
 
         expect(result).to.deep.equal({
           data: {
-            fieldWithObjectInput: "{ a: 'foo', b: [ 'bar' ], c: 'baz' }",
+            fieldWithObjectInput: '{ a: "foo", b: ["bar"], c: "baz" }',
           },
         });
       });
@@ -288,7 +288,7 @@ describe('Execute: Handles inputs', () => {
 
         expect(result).to.deep.equal({
           data: {
-            fieldWithObjectInput: "{ a: 'foo', b: [ 'bar' ], c: 'baz' }",
+            fieldWithObjectInput: '{ a: "foo", b: ["bar"], c: "baz" }',
           },
         });
       });
@@ -303,7 +303,7 @@ describe('Execute: Handles inputs', () => {
 
         expect(result).to.deep.equal({
           data: {
-            fieldWithNullableStringInput: "'Variable value'",
+            fieldWithNullableStringInput: '"Variable value"',
           },
         });
       });
@@ -348,7 +348,7 @@ describe('Execute: Handles inputs', () => {
 
         expect(result).to.deep.equal({
           data: {
-            fieldWithObjectInput: "{ a: 'foo', b: [ 'bar' ], c: 'baz' }",
+            fieldWithObjectInput: '{ a: "foo", b: ["bar"], c: "baz" }',
           },
         });
       });
@@ -359,7 +359,7 @@ describe('Execute: Handles inputs', () => {
 
         expect(result).to.deep.equal({
           data: {
-            fieldWithObjectInput: "{ c: 'foo', d: 'DeserializedValue' }",
+            fieldWithObjectInput: '{ c: "foo", d: "DeserializedValue" }',
           },
         });
       });
@@ -372,9 +372,7 @@ describe('Execute: Handles inputs', () => {
           errors: [
             {
               message:
-                'Variable "$input" got invalid value ' +
-                '{ a: "foo", b: "bar", c: null }; ' +
-                'Expected non-nullable type String! not to be null at value.c.',
+                'Variable "$input" got invalid value { a: "foo", b: "bar", c: null }; Expected non-nullable type String! not to be null at value.c.',
               locations: [{ line: 2, column: 16 }],
             },
           ],
@@ -388,8 +386,7 @@ describe('Execute: Handles inputs', () => {
           errors: [
             {
               message:
-                'Variable "$input" got invalid value "foo bar"; ' +
-                'Expected type TestInputObject to be an object.',
+                'Variable "$input" got invalid value "foo bar"; Expected type TestInputObject to be an object.',
               locations: [{ line: 2, column: 16 }],
             },
           ],
@@ -403,8 +400,7 @@ describe('Execute: Handles inputs', () => {
           errors: [
             {
               message:
-                'Variable "$input" got invalid value { a: "foo", b: "bar" }; ' +
-                'Field value.c of required type String! was not provided.',
+                'Variable "$input" got invalid value { a: "foo", b: "bar" }; Field value.c of required type String! was not provided.',
               locations: [{ line: 2, column: 16 }],
             },
           ],
@@ -423,14 +419,12 @@ describe('Execute: Handles inputs', () => {
           errors: [
             {
               message:
-                'Variable "$input" got invalid value { na: { a: "foo" } }; ' +
-                'Field value.na.c of required type String! was not provided.',
+                'Variable "$input" got invalid value { na: { a: "foo" } }; Field value.na.c of required type String! was not provided.',
               locations: [{ line: 2, column: 18 }],
             },
             {
               message:
-                'Variable "$input" got invalid value { na: { a: "foo" } }; ' +
-                'Field value.nb of required type String! was not provided.',
+                'Variable "$input" got invalid value { na: { a: "foo" } }; Field value.nb of required type String! was not provided.',
               locations: [{ line: 2, column: 18 }],
             },
           ],
@@ -447,9 +441,7 @@ describe('Execute: Handles inputs', () => {
           errors: [
             {
               message:
-                'Variable "$input" got invalid value ' +
-                '{ a: "foo", b: "bar", c: "baz", extra: "dog" }; ' +
-                'Field "extra" is not defined by type TestInputObject.',
+                'Variable "$input" got invalid value { a: "foo", b: "bar", c: "baz", extra: "dog" }; Field "extra" is not defined by type TestInputObject.',
               locations: [{ line: 2, column: 16 }],
             },
           ],
@@ -475,8 +467,8 @@ describe('Execute: Handles inputs', () => {
           null: 'null',
           NaN: 'NaN',
           false: 'false',
-          customValue: "'custom value'",
-          defaultValue: "'DEFAULT_VALUE'",
+          customValue: '"custom value"',
+          defaultValue: '"DEFAULT_VALUE"',
         },
       });
     });
@@ -564,7 +556,7 @@ describe('Execute: Handles inputs', () => {
 
       expect(result).to.deep.equal({
         data: {
-          fieldWithNullableStringInput: "'a'",
+          fieldWithNullableStringInput: '"a"',
         },
       });
     });
@@ -578,7 +570,7 @@ describe('Execute: Handles inputs', () => {
 
       expect(result).to.deep.equal({
         data: {
-          fieldWithNullableStringInput: "'a'",
+          fieldWithNullableStringInput: '"a"',
         },
       });
     });
@@ -594,7 +586,7 @@ describe('Execute: Handles inputs', () => {
 
       expect(result).to.deep.equal({
         data: {
-          fieldWithNonNullableStringInput: "'default'",
+          fieldWithNonNullableStringInput: '"default"',
         },
       });
     });
@@ -646,7 +638,7 @@ describe('Execute: Handles inputs', () => {
 
       expect(result).to.deep.equal({
         data: {
-          fieldWithNonNullableStringInput: "'a'",
+          fieldWithNonNullableStringInput: '"a"',
         },
       });
     });
@@ -660,7 +652,7 @@ describe('Execute: Handles inputs', () => {
 
       expect(result).to.deep.equal({
         data: {
-          fieldWithNonNullableStringInput: "'a'",
+          fieldWithNonNullableStringInput: '"a"',
         },
       });
     });
@@ -695,14 +687,13 @@ describe('Execute: Handles inputs', () => {
         errors: [
           {
             message:
-              'Variable "$value" got invalid value [1, 2, 3]; Expected type ' +
-              'String; String cannot represent a non string value: [1, 2, 3]',
+              'Variable "$value" got invalid value [1, 2, 3]; Expected type String; String cannot represent a non string value: [1, 2, 3]',
             locations: [{ line: 2, column: 16 }],
           },
         ],
       });
 
-      expect(result.errors[0].originalError).not.to.equal(undefined);
+      expect(result).to.have.nested.property('errors[0].originalError');
     });
 
     it('reports error for non-provided variables for non-nullable inputs', () => {
@@ -724,8 +715,7 @@ describe('Execute: Handles inputs', () => {
         errors: [
           {
             message:
-              'Argument "input" of required type "String!" was provided the ' +
-              'variable "$foo" which was not provided a runtime value.',
+              'Argument "input" of required type "String!" was provided the variable "$foo" which was not provided a runtime value.',
             locations: [{ line: 3, column: 50 }],
             path: ['fieldWithNonNullableStringInput'],
           },
@@ -754,7 +744,7 @@ describe('Execute: Handles inputs', () => {
       `;
       const result = executeQuery(doc, { input: ['A'] });
 
-      expect(result).to.deep.equal({ data: { list: "[ 'A' ]" } });
+      expect(result).to.deep.equal({ data: { list: '["A"]' } });
     });
 
     it('allows lists to contain null', () => {
@@ -765,7 +755,7 @@ describe('Execute: Handles inputs', () => {
       `;
       const result = executeQuery(doc, { input: ['A', null, 'B'] });
 
-      expect(result).to.deep.equal({ data: { list: "[ 'A', null, 'B' ]" } });
+      expect(result).to.deep.equal({ data: { list: '["A", null, "B"]' } });
     });
 
     it('does not allow non-null lists to be null', () => {
@@ -795,7 +785,7 @@ describe('Execute: Handles inputs', () => {
       `;
       const result = executeQuery(doc, { input: ['A'] });
 
-      expect(result).to.deep.equal({ data: { nnList: "[ 'A' ]" } });
+      expect(result).to.deep.equal({ data: { nnList: '["A"]' } });
     });
 
     it('allows non-null lists to contain null', () => {
@@ -806,7 +796,7 @@ describe('Execute: Handles inputs', () => {
       `;
       const result = executeQuery(doc, { input: ['A', null, 'B'] });
 
-      expect(result).to.deep.equal({ data: { nnList: "[ 'A', null, 'B' ]" } });
+      expect(result).to.deep.equal({ data: { nnList: '["A", null, "B"]' } });
     });
 
     it('allows lists of non-nulls to be null', () => {
@@ -828,7 +818,7 @@ describe('Execute: Handles inputs', () => {
       `;
       const result = executeQuery(doc, { input: ['A'] });
 
-      expect(result).to.deep.equal({ data: { listNN: "[ 'A' ]" } });
+      expect(result).to.deep.equal({ data: { listNN: '["A"]' } });
     });
 
     it('does not allow lists of non-nulls to contain null', () => {
@@ -843,8 +833,7 @@ describe('Execute: Handles inputs', () => {
         errors: [
           {
             message:
-              'Variable "$input" got invalid value ["A", null, "B"]; ' +
-              'Expected non-nullable type String! not to be null at value[1].',
+              'Variable "$input" got invalid value ["A", null, "B"]; Expected non-nullable type String! not to be null at value[1].',
             locations: [{ line: 2, column: 16 }],
           },
         ],
@@ -878,7 +867,7 @@ describe('Execute: Handles inputs', () => {
       `;
       const result = executeQuery(doc, { input: ['A'] });
 
-      expect(result).to.deep.equal({ data: { nnListNN: "[ 'A' ]" } });
+      expect(result).to.deep.equal({ data: { nnListNN: '["A"]' } });
     });
 
     it('does not allow non-null lists of non-nulls to contain null', () => {
@@ -893,8 +882,7 @@ describe('Execute: Handles inputs', () => {
         errors: [
           {
             message:
-              'Variable "$input" got invalid value ["A", null, "B"]; ' +
-              'Expected non-nullable type String! not to be null at value[1].',
+              'Variable "$input" got invalid value ["A", null, "B"]; Expected non-nullable type String! not to be null at value[1].',
             locations: [{ line: 2, column: 16 }],
           },
         ],
@@ -913,8 +901,7 @@ describe('Execute: Handles inputs', () => {
         errors: [
           {
             message:
-              'Variable "$input" expected value of type "TestType!" which ' +
-              'cannot be used as an input type.',
+              'Variable "$input" expected value of type "TestType!" which cannot be used as an input type.',
             locations: [{ line: 2, column: 24 }],
           },
         ],
@@ -933,8 +920,7 @@ describe('Execute: Handles inputs', () => {
         errors: [
           {
             message:
-              'Variable "$input" expected value of type "UnknownType!" which ' +
-              'cannot be used as an input type.',
+              'Variable "$input" expected value of type "UnknownType!" which cannot be used as an input type.',
             locations: [{ line: 2, column: 24 }],
           },
         ],
@@ -948,7 +934,7 @@ describe('Execute: Handles inputs', () => {
 
       expect(result).to.deep.equal({
         data: {
-          fieldWithDefaultArgumentValue: "'Hello World'",
+          fieldWithDefaultArgumentValue: '"Hello World"',
         },
       });
     });
@@ -962,7 +948,7 @@ describe('Execute: Handles inputs', () => {
 
       expect(result).to.deep.equal({
         data: {
-          fieldWithDefaultArgumentValue: "'Hello World'",
+          fieldWithDefaultArgumentValue: '"Hello World"',
         },
       });
     });
@@ -998,7 +984,7 @@ describe('Execute: Handles inputs', () => {
       expect(result).to.deep.equal({
         data: {
           fieldWithNonNullableStringInputAndDefaultArgumentValue:
-            "'Hello World'",
+            '"Hello World"',
         },
       });
     });

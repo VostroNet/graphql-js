@@ -4,7 +4,7 @@
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  *
- * @noflow
+ * @flow strict
  */
 
 import { describe, it } from 'mocha';
@@ -13,6 +13,7 @@ import dedent from '../../jsutils/dedent';
 import { printSchema, printIntrospectionSchema } from '../schemaPrinter';
 import { buildSchema } from '../buildASTSchema';
 import {
+  assertObjectType,
   GraphQLSchema,
   GraphQLInputObjectType,
   GraphQLScalarType,
@@ -125,20 +126,11 @@ describe('Type System Printer', () => {
       fields: { str: { type: GraphQLString } },
     });
 
-    const Query = new GraphQLObjectType({
-      name: 'Query',
-      fields: { foo: { type: FooType } },
-    });
-
-    const Schema = new GraphQLSchema({ query: Query });
+    const Schema = new GraphQLSchema({ types: [FooType] });
     const output = printForTest(Schema);
     expect(output).to.equal(dedent`
       type Foo {
         str: String
-      }
-
-      type Query {
-        foo: Foo
       }
     `);
   });
@@ -173,6 +165,7 @@ describe('Type System Printer', () => {
       args: { argOne: { type: GraphQLString, defaultValue: 'tes\t de\fault' } },
     });
     expect(output).to.equal(
+      // $FlowFixMe
       dedent(String.raw`
         type Query {
           singleField(argOne: String = "tes\t de\fault"): String
@@ -301,15 +294,7 @@ describe('Type System Printer', () => {
       interfaces: [FooType],
     });
 
-    const Query = new GraphQLObjectType({
-      name: 'Query',
-      fields: { bar: { type: BarType } },
-    });
-
-    const Schema = new GraphQLSchema({
-      query: Query,
-      types: [BarType],
-    });
+    const Schema = new GraphQLSchema({ types: [BarType] });
     const output = printForTest(Schema);
     expect(output).to.equal(dedent`
       type Bar implements Foo {
@@ -318,10 +303,6 @@ describe('Type System Printer', () => {
 
       interface Foo {
         str: String
-      }
-
-      type Query {
-        bar: Bar
       }
     `);
   });
@@ -346,15 +327,7 @@ describe('Type System Printer', () => {
       interfaces: [FooType, BaazType],
     });
 
-    const Query = new GraphQLObjectType({
-      name: 'Query',
-      fields: { bar: { type: BarType } },
-    });
-
-    const Schema = new GraphQLSchema({
-      query: Query,
-      types: [BarType],
-    });
+    const Schema = new GraphQLSchema({ types: [BarType] });
     const output = printForTest(Schema);
     expect(output).to.equal(dedent`
       interface Baaz {
@@ -368,10 +341,6 @@ describe('Type System Printer', () => {
 
       interface Foo {
         str: String
-      }
-
-      type Query {
-        bar: Bar
       }
     `);
   });
@@ -401,15 +370,7 @@ describe('Type System Printer', () => {
       types: [FooType, BarType],
     });
 
-    const Query = new GraphQLObjectType({
-      name: 'Query',
-      fields: {
-        single: { type: SingleUnion },
-        multiple: { type: MultipleUnion },
-      },
-    });
-
-    const Schema = new GraphQLSchema({ query: Query });
+    const Schema = new GraphQLSchema({ types: [SingleUnion, MultipleUnion] });
     const output = printForTest(Schema);
     expect(output).to.equal(dedent`
       type Bar {
@@ -421,11 +382,6 @@ describe('Type System Printer', () => {
       }
 
       union MultipleUnion = Foo | Bar
-
-      type Query {
-        single: SingleUnion
-        multiple: MultipleUnion
-      }
 
       union SingleUnion = Foo
     `);
@@ -439,25 +395,11 @@ describe('Type System Printer', () => {
       },
     });
 
-    const Query = new GraphQLObjectType({
-      name: 'Query',
-      fields: {
-        str: {
-          type: GraphQLString,
-          args: { argOne: { type: InputType } },
-        },
-      },
-    });
-
-    const Schema = new GraphQLSchema({ query: Query });
+    const Schema = new GraphQLSchema({ types: [InputType] });
     const output = printForTest(Schema);
     expect(output).to.equal(dedent`
       input InputType {
         int: Int
-      }
-
-      type Query {
-        str(argOne: InputType): String
       }
     `);
   });
@@ -465,26 +407,13 @@ describe('Type System Printer', () => {
   it('Custom Scalar', () => {
     const OddType = new GraphQLScalarType({
       name: 'Odd',
-      serialize(value) {
-        return value % 2 === 1 ? value : null;
-      },
+      serialize() {},
     });
 
-    const Query = new GraphQLObjectType({
-      name: 'Query',
-      fields: {
-        odd: { type: OddType },
-      },
-    });
-
-    const Schema = new GraphQLSchema({ query: Query });
+    const Schema = new GraphQLSchema({ types: [OddType] });
     const output = printForTest(Schema);
     expect(output).to.equal(dedent`
       scalar Odd
-
-      type Query {
-        odd: Odd
-      }
     `);
   });
 
@@ -492,26 +421,15 @@ describe('Type System Printer', () => {
     const RGBType = new GraphQLEnumType({
       name: 'RGB',
       values: {
-        RED: { value: 0 },
-        GREEN: { value: 1 },
-        BLUE: { value: 2 },
+        RED: {},
+        GREEN: {},
+        BLUE: {},
       },
     });
 
-    const Query = new GraphQLObjectType({
-      name: 'Query',
-      fields: {
-        rgb: { type: RGBType },
-      },
-    });
-
-    const Schema = new GraphQLSchema({ query: Query });
+    const Schema = new GraphQLSchema({ types: [RGBType] });
     const output = printForTest(Schema);
     expect(output).to.equal(dedent`
-      type Query {
-        rgb: RGB
-      }
-
       enum RGB {
         RED
         GREEN
@@ -520,30 +438,41 @@ describe('Type System Printer', () => {
     `);
   });
 
-  it('Prints custom directives', () => {
-    const Query = new GraphQLObjectType({
-      name: 'Query',
-      fields: {
-        field: { type: GraphQLString },
-      },
+  it('Prints empty types', () => {
+    const Schema = new GraphQLSchema({
+      types: [
+        new GraphQLEnumType({ name: 'SomeEnum', values: {} }),
+        new GraphQLInputObjectType({ name: 'SomeInputObject', fields: {} }),
+        new GraphQLInterfaceType({ name: 'SomeInterface', fields: {} }),
+        new GraphQLObjectType({ name: 'SomeObject', fields: {} }),
+        new GraphQLUnionType({ name: 'SomeUnion', types: [] }),
+      ],
     });
 
+    const output = printForTest(Schema);
+    expect(output).to.equal(dedent`
+      enum SomeEnum
+
+      input SomeInputObject
+
+      interface SomeInterface
+
+      type SomeObject
+
+      union SomeUnion
+    `);
+  });
+
+  it('Prints custom directives', () => {
     const CustomDirective = new GraphQLDirective({
       name: 'customDirective',
       locations: [DirectiveLocation.FIELD],
     });
 
-    const Schema = new GraphQLSchema({
-      query: Query,
-      directives: [CustomDirective],
-    });
+    const Schema = new GraphQLSchema({ directives: [CustomDirective] });
     const output = printForTest(Schema);
     expect(output).to.equal(dedent`
       directive @customDirective on FIELD
-
-      type Query {
-        field: String
-      }
     `);
   });
 
@@ -559,56 +488,14 @@ describe('Type System Printer', () => {
         singleField: String
       }
     `);
-    const recreatedRoot = buildSchema(output).getTypeMap()['Query'];
-    const recreatedField = recreatedRoot.getFields()['singleField'];
-    expect(recreatedField.description).to.equal(description);
-  });
-
-  it('Does not one-line print a description that ends with a quote', () => {
-    const description = 'This field is "awesome"';
-    const output = printSingleFieldSchema({
-      type: GraphQLString,
-      description,
-    });
-    expect(output).to.equal(dedent`
-      type Query {
-        """
-        This field is "awesome"
-        """
-        singleField: String
-      }
-    `);
-    const recreatedRoot = buildSchema(output).getTypeMap()['Query'];
-    const recreatedField = recreatedRoot.getFields()['singleField'];
-    expect(recreatedField.description).to.equal(description);
-  });
-
-  it('Preserves leading spaces when printing a description', () => {
-    const description = '    This field is "awesome"';
-    const output = printSingleFieldSchema({
-      type: GraphQLString,
-      description,
-    });
-    expect(output).to.equal(dedent`
-      type Query {
-        """    This field is "awesome"
-        """
-        singleField: String
-      }
-    `);
-    const recreatedRoot = buildSchema(output).getTypeMap()['Query'];
-    const recreatedField = recreatedRoot.getFields()['singleField'];
-    expect(recreatedField.description).to.equal(description);
+    const schema = buildSchema(output);
+    const recreatedRoot = assertObjectType(schema.getTypeMap().Query);
+    const recreatedField = recreatedRoot.getFields().singleField;
+    expect(recreatedField).to.include({ description });
   });
 
   it('Print Introspection Schema', () => {
-    const Query = new GraphQLObjectType({
-      name: 'Query',
-      fields: {
-        onlyField: { type: GraphQLString },
-      },
-    });
-    const Schema = new GraphQLSchema({ query: Query });
+    const Schema = new GraphQLSchema({});
     const output = printIntrospectionSchema(Schema);
     const introspectionSchema = dedent`
       """
@@ -841,13 +728,7 @@ describe('Type System Printer', () => {
   });
 
   it('Print Introspection Schema with comment descriptions', () => {
-    const Query = new GraphQLObjectType({
-      name: 'Query',
-      fields: {
-        onlyField: { type: GraphQLString },
-      },
-    });
-    const Schema = new GraphQLSchema({ query: Query });
+    const Schema = new GraphQLSchema({});
     const output = printIntrospectionSchema(Schema, {
       commentDescriptions: true,
     });

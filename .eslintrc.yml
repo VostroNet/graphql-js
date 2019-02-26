@@ -35,7 +35,7 @@ rules:
   # https://github.com/prettier/eslint-plugin-prettier#installation
   prettier/prettier: error
 
-  # `eslint-plugin-flowtype` rule list based on `v3.1.0`
+  # `eslint-plugin-flowtype` rule list based on `v3.4.x`
   # https://github.com/gajus/eslint-plugin-flowtype#eslint-plugin-flowtype
 
   flowtype/array-style-complex-type: [error, verbose]
@@ -48,11 +48,12 @@ rules:
   flowtype/no-dupe-keys: error
   flowtype/no-existential-type: off
   flowtype/no-flow-fix-me-comments: off
+  flowtype/no-mixed: off
   flowtype/no-mutable-array: off
   flowtype/no-primitive-constructor-types: error
   flowtype/no-types-missing-file-annotation: error
   #flowtype/no-unused-expressions: undecided
-  flowtype/no-weak-types: [error, { any: false, mixed: false }]
+  flowtype/no-weak-types: [error, { any: false }]
   flowtype/object-type-delimiter: off
   #flowtype/require-compound-type-alias: undecided
   flowtype/require-exact-type: off
@@ -73,7 +74,7 @@ rules:
   flowtype/valid-syntax: off
 
   ##################################################
-  # ESLint builtin rules list based on `v5.8.0`
+  # ESLint builtin rules list based on `v5.14.x`
   ##################################################
 
   # Possible Errors
@@ -114,7 +115,6 @@ rules:
   no-unsafe-negation: error
   require-atomic-updates: error
   use-isnan: error
-  valid-jsdoc: off
   valid-typeof: error
 
   # Best Practices
@@ -180,6 +180,7 @@ rules:
   no-unused-expressions: error
   no-unused-labels: error
   no-useless-call: error
+  no-useless-catch: error
   no-useless-concat: error
   no-useless-escape: error
   no-useless-return: error
@@ -309,7 +310,6 @@ rules:
   prefer-object-spread: error
   quote-props: off
   quotes: off
-  #require-jsdoc: undecided
   semi: off
   semi-spacing: off
   semi-style: off

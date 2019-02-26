@@ -7,9 +7,9 @@
  * @flow strict
  */
 
+import isFinite from '../polyfills/isFinite';
+import isInteger from '../polyfills/isInteger';
 import inspect from '../jsutils/inspect';
-import isFinite from '../jsutils/isFinite';
-import isInteger from '../jsutils/isInteger';
 import { GraphQLScalarType, isNamedType } from './definition';
 import { Kind } from '../language/kinds';
 
@@ -107,7 +107,7 @@ export const GraphQLFloat = new GraphQLScalarType({
   description:
     'The `Float` scalar type represents signed double-precision fractional ' +
     'values as specified by ' +
-    '[IEEE 754](http://en.wikipedia.org/wiki/IEEE_floating_point). ',
+    '[IEEE 754](https://en.wikipedia.org/wiki/IEEE_floating_point). ',
   serialize: serializeFloat,
   parseValue: coerceFloat,
   parseLiteral(ast) {
@@ -129,6 +129,7 @@ function serializeObject(value: mixed): mixed {
       }
     }
     if (typeof value.toJSON === 'function') {
+      // $FlowFixMe(>=0.90.0)
       return value.toJSON();
     }
   }
