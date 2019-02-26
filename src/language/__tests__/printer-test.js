@@ -3,23 +3,20 @@
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
+ *
+ * @noflow
  */
 
 import { expect } from 'chai';
 import { describe, it } from 'mocha';
 import { parse } from '../parser';
-import { readFileSync } from 'fs';
 import { print } from '../printer';
-import { join } from 'path';
 import dedent from '../../jsutils/dedent';
+import { kitchenSinkQuery } from '../../__fixtures__';
 
 describe('Printer: Query document', () => {
-  const kitchenSink = readFileSync(join(__dirname, '/kitchen-sink.graphql'), {
-    encoding: 'utf8',
-  });
-
   it('does not alter ast', () => {
-    const ast = parse(kitchenSink);
+    const ast = parse(kitchenSinkQuery);
     const astBefore = JSON.stringify(ast);
     print(ast);
     expect(JSON.stringify(ast)).to.equal(astBefore);
@@ -75,10 +72,9 @@ describe('Printer: Query document', () => {
     `);
   });
 
-  it('Experimental: prints query with variable directives', () => {
+  it('prints query with variable directives', () => {
     const queryAstWithVariableDirective = parse(
       'query ($foo: TestType = {a: 123} @testDirective(if: true) @test) { id }',
-      { experimentalVariableDefinitionDirectives: true },
     );
     expect(print(queryAstWithVariableDirective)).to.equal(dedent`
       query ($foo: TestType = {a: 123} @testDirective(if: true) @test) {
@@ -92,7 +88,6 @@ describe('Printer: Query document', () => {
       'fragment Foo($foo: TestType @test) on TestType @testDirective { id }',
       {
         experimentalFragmentVariables: true,
-        experimentalVariableDefinitionDirectives: true,
       },
     );
     expect(print(queryAstWithVariableDirective)).to.equal(dedent`
@@ -168,21 +163,19 @@ describe('Printer: Query document', () => {
   });
 
   it('prints kitchen sink', () => {
-    const ast = parse(kitchenSink);
-
-    const printed = print(ast);
+    const printed = print(parse(kitchenSinkQuery));
 
     expect(printed).to.equal(
       dedent(String.raw`
-      query queryName($foo: ComplexType, $site: Site = MOBILE) {
+      query queryName($foo: ComplexType, $site: Site = MOBILE) @onQuery {
         whoever123is: node(id: [123, 456]) {
           id
-          ... on User @defer {
+          ... on User @onInlineFragment {
             field2 {
               id
               alias: field1(first: 10, after: $foo) @include(if: $foo) {
                 id
-                ...frag
+                ...frag @onFragmentSpread
               }
             }
           }
@@ -195,15 +188,15 @@ describe('Printer: Query document', () => {
         }
       }
 
-      mutation likeStory {
-        like(story: 123) @defer {
+      mutation likeStory @onMutation {
+        like(story: 123) @onField {
           story {
-            id
+            id @onField
           }
         }
       }
 
-      subscription StoryLikeSubscription($input: StoryLikeSubscribeInput) {
+      subscription StoryLikeSubscription($input: StoryLikeSubscribeInput) @onSubscription {
         storyLikeSubscribe(input: $input) {
           story {
             likers {
@@ -216,7 +209,7 @@ describe('Printer: Query document', () => {
         }
       }
 
-      fragment frag on Friend {
+      fragment frag on Friend @onFragmentDefinition {
         foo(size: $size, bar: $b, obj: {key: "value", block: """
           block string uses \"""
         """})
@@ -225,6 +218,10 @@ describe('Printer: Query document', () => {
       {
         unnamed(truthy: true, falsey: false, nullish: null)
         query
+      }
+
+      {
+        __typename
       }
     `),
     );

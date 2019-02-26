@@ -3,129 +3,116 @@
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
+ *
+ * @flow strict
  */
 
 import { describe, it } from 'mocha';
 import { expect } from 'chai';
+import dedent from '../../jsutils/dedent';
+import invariant from '../../jsutils/invariant';
 import { buildClientSchema } from '../buildClientSchema';
 import { introspectionFromSchema } from '../introspectionFromSchema';
 import {
+  buildSchema,
+  printSchema,
   graphqlSync,
+  isEnumType,
   GraphQLSchema,
-  GraphQLScalarType,
   GraphQLObjectType,
-  GraphQLInterfaceType,
-  GraphQLUnionType,
   GraphQLEnumType,
-  GraphQLInputObjectType,
-  GraphQLList,
-  GraphQLNonNull,
   GraphQLInt,
   GraphQLFloat,
   GraphQLString,
   GraphQLBoolean,
   GraphQLID,
-  GraphQLDirective,
 } from '../../';
 
-// Test property:
-// Given a server's schema, a client may query that server with introspection,
-// and use the result to produce a client-side representation of the schema
-// by using "buildClientSchema". If the client then runs the introspection
-// query against the client-side schema, it should get a result identical to
-// what was returned by the server.
-function testSchema(serverSchema) {
+/**
+ * This function does a full cycle of going from a string with the contents of
+ * the SDL, build in-memory GraphQLSchema from it, produce a client-side
+ * representation of the schema by using "buildClientSchema"and then finally
+ * printing that that schema into the SDL
+ */
+function cycleIntrospection(sdlString) {
+  const serverSchema = buildSchema(sdlString);
   const initialIntrospection = introspectionFromSchema(serverSchema);
   const clientSchema = buildClientSchema(initialIntrospection);
+
+  /**
+   * If the client then runs the introspection query against the client-side
+   * schema, it should get a result identical to what was returned by the server
+   */
   const secondIntrospection = introspectionFromSchema(clientSchema);
   expect(secondIntrospection).to.deep.equal(initialIntrospection);
+
+  return printSchema(clientSchema);
 }
 
 describe('Type System: build schema from introspection', () => {
   it('builds a simple schema', () => {
-    const schema = new GraphQLSchema({
-      query: new GraphQLObjectType({
-        name: 'Simple',
-        description: 'This is a simple type',
-        fields: {
-          string: {
-            type: GraphQLString,
-            description: 'This is a string field',
-          },
-        },
-      }),
-    });
+    const sdl = dedent`
+      schema {
+        query: Simple
+      }
 
-    testSchema(schema);
+      """This is simple type"""
+      type Simple {
+        """This is a string field"""
+        string: String
+      }
+    `;
+
+    expect(cycleIntrospection(sdl)).to.equal(sdl);
   });
 
   it('builds a simple schema with all operation types', () => {
-    const queryType = new GraphQLObjectType({
-      name: 'QueryType',
-      description: 'This is a simple query type',
-      fields: {
-        string: {
-          type: GraphQLString,
-          description: 'This is a string field',
-        },
-      },
-    });
+    const sdl = dedent`
+      schema {
+        query: QueryType
+        mutation: MutationType
+        subscription: SubscriptionType
+      }
 
-    const mutationType = new GraphQLObjectType({
-      name: 'MutationType',
-      description: 'This is a simple mutation type',
-      fields: {
-        setString: {
-          type: GraphQLString,
-          description: 'Set the string field',
-          args: {
-            value: { type: GraphQLString },
-          },
-        },
-      },
-    });
+      """This is a simple mutation type"""
+      type MutationType {
+        """Set the string field"""
+        string: String
+      }
 
-    const subscriptionType = new GraphQLObjectType({
-      name: 'SubscriptionType',
-      description: 'This is a simple subscription type',
-      fields: {
-        string: {
-          type: GraphQLString,
-          description: 'This is a string field',
-        },
-      },
-    });
+      """This is a simple query type"""
+      type QueryType {
+        """This is a string field"""
+        string: String
+      }
 
-    const schema = new GraphQLSchema({
-      query: queryType,
-      mutation: mutationType,
-      subscription: subscriptionType,
-    });
+      """This is a simple subscription type"""
+      type SubscriptionType {
+        """This is a string field"""
+        string: String
+      }
+    `;
 
-    testSchema(schema);
+    expect(cycleIntrospection(sdl)).to.equal(sdl);
   });
 
   it('uses built-in scalars when possible', () => {
-    const customScalar = new GraphQLScalarType({
-      name: 'CustomScalar',
-      serialize: () => null,
-    });
-    const schema = new GraphQLSchema({
-      query: new GraphQLObjectType({
-        name: 'Scalars',
-        fields: {
-          int: { type: GraphQLInt },
-          float: { type: GraphQLFloat },
-          string: { type: GraphQLString },
-          boolean: { type: GraphQLBoolean },
-          id: { type: GraphQLID },
-          custom: { type: customScalar },
-        },
-      }),
-    });
+    const sdl = dedent`
+      scalar CustomScalar
 
-    testSchema(schema);
+      type Query {
+        int: Int
+        float: Float
+        string: String
+        boolean: Boolean
+        id: ID
+        custom: CustomScalar
+      }
+    `;
 
+    expect(cycleIntrospection(sdl)).to.equal(sdl);
+
+    const schema = buildSchema(sdl);
     const introspection = introspectionFromSchema(schema);
     const clientSchema = buildClientSchema(introspection);
 
@@ -137,225 +124,152 @@ describe('Type System: build schema from introspection', () => {
     expect(clientSchema.getType('ID')).to.equal(GraphQLID);
 
     // Custom are built
+    const customScalar = schema.getType('CustomScalar');
     expect(clientSchema.getType('CustomScalar')).not.to.equal(customScalar);
   });
 
   it('builds a schema with a recursive type reference', () => {
-    const recurType = new GraphQLObjectType({
-      name: 'Recur',
-      fields: () => ({
-        recur: { type: recurType },
-      }),
-    });
-    const schema = new GraphQLSchema({
-      query: recurType,
-    });
+    const sdl = dedent`
+      schema {
+        query: Recur
+      }
 
-    testSchema(schema);
+      type Recur {
+        recur: Recur
+      }
+    `;
+
+    expect(cycleIntrospection(sdl)).to.equal(sdl);
   });
 
   it('builds a schema with a circular type reference', () => {
-    const dogType = new GraphQLObjectType({
-      name: 'Dog',
-      fields: () => ({
-        bestFriend: { type: humanType },
-      }),
-    });
-    const humanType = new GraphQLObjectType({
-      name: 'Human',
-      fields: () => ({
-        bestFriend: { type: dogType },
-      }),
-    });
-    const schema = new GraphQLSchema({
-      query: new GraphQLObjectType({
-        name: 'Circular',
-        fields: {
-          dog: { type: dogType },
-          human: { type: humanType },
-        },
-      }),
-    });
+    const sdl = dedent`
+      type Dog {
+        bestFriend: Human
+      }
 
-    testSchema(schema);
+      type Human {
+        bestFriend: Dog
+      }
+
+      type Query {
+        dog: Dog
+        human: Human
+      }
+    `;
+
+    expect(cycleIntrospection(sdl)).to.equal(sdl);
   });
 
   it('builds a schema with an interface', () => {
-    const friendlyType = new GraphQLInterfaceType({
-      name: 'Friendly',
-      fields: () => ({
-        bestFriend: {
-          type: friendlyType,
-          description: 'The best friend of this friendly thing',
-        },
-      }),
-    });
-    const dogType = new GraphQLObjectType({
-      name: 'Dog',
-      interfaces: [friendlyType],
-      fields: () => ({
-        bestFriend: { type: friendlyType },
-      }),
-    });
-    const humanType = new GraphQLObjectType({
-      name: 'Human',
-      interfaces: [friendlyType],
-      fields: () => ({
-        bestFriend: { type: friendlyType },
-      }),
-    });
-    const schema = new GraphQLSchema({
-      query: new GraphQLObjectType({
-        name: 'WithInterface',
-        fields: {
-          friendly: { type: friendlyType },
-        },
-      }),
-      types: [dogType, humanType],
-    });
+    const sdl = dedent`
+      type Dog implements Friendly {
+        bestFriend: Friendly
+      }
 
-    testSchema(schema);
+      interface Friendly {
+        """The best friend of this friendly thing"""
+        bestFriend: Friendly
+      }
+
+      type Human implements Friendly {
+        bestFriend: Friendly
+      }
+
+      type Query {
+        friendly: Friendly
+      }
+    `;
+
+    expect(cycleIntrospection(sdl)).to.equal(sdl);
   });
 
   it('builds a schema with an implicit interface', () => {
-    const friendlyType = new GraphQLInterfaceType({
-      name: 'Friendly',
-      fields: () => ({
-        bestFriend: {
-          type: friendlyType,
-          description: 'The best friend of this friendly thing',
-        },
-      }),
-    });
-    const dogType = new GraphQLObjectType({
-      name: 'Dog',
-      interfaces: [friendlyType],
-      fields: () => ({
-        bestFriend: { type: dogType },
-      }),
-    });
-    const schema = new GraphQLSchema({
-      query: new GraphQLObjectType({
-        name: 'WithInterface',
-        fields: {
-          dog: { type: dogType },
-        },
-      }),
-    });
+    const sdl = dedent`
+      type Dog implements Friendly {
+        bestFriend: Friendly
+      }
 
-    testSchema(schema);
+      interface Friendly {
+        """The best friend of this friendly thing"""
+        bestFriend: Friendly
+      }
+
+      type Query {
+        dog: Dog
+      }
+    `;
+
+    expect(cycleIntrospection(sdl)).to.equal(sdl);
   });
 
   it('builds a schema with a union', () => {
-    const dogType = new GraphQLObjectType({
-      name: 'Dog',
-      fields: () => ({
-        bestFriend: { type: friendlyType },
-      }),
-    });
-    const humanType = new GraphQLObjectType({
-      name: 'Human',
-      fields: () => ({
-        bestFriend: { type: friendlyType },
-      }),
-    });
-    const friendlyType = new GraphQLUnionType({
-      name: 'Friendly',
-      types: [dogType, humanType],
-    });
-    const schema = new GraphQLSchema({
-      query: new GraphQLObjectType({
-        name: 'WithUnion',
-        fields: {
-          friendly: { type: friendlyType },
-        },
-      }),
-    });
+    const sdl = dedent`
+      type Dog {
+        bestFriend: Friendly
+      }
 
-    testSchema(schema);
+      union Friendly = Dog | Human
+
+      type Human {
+        bestFriend: Friendly
+      }
+
+      type Query {
+        friendly: Friendly
+      }
+    `;
+
+    expect(cycleIntrospection(sdl)).to.equal(sdl);
   });
 
   it('builds a schema with complex field values', () => {
-    const schema = new GraphQLSchema({
-      query: new GraphQLObjectType({
-        name: 'ComplexFields',
-        fields: {
-          string: { type: GraphQLString },
-          listOfString: { type: GraphQLList(GraphQLString) },
-          nonNullString: {
-            type: GraphQLNonNull(GraphQLString),
-          },
-          nonNullListOfString: {
-            type: GraphQLNonNull(GraphQLList(GraphQLString)),
-          },
-          nonNullListOfNonNullString: {
-            type: GraphQLNonNull(GraphQLList(GraphQLNonNull(GraphQLString))),
-          },
-        },
-      }),
-    });
+    const sdl = dedent`
+      type Query {
+        string: String
+        listOfString: [String]
+        nonNullString: String!
+        nonNullListOfString: [String]!
+        nonNullListOfNonNullString: [String!]!
+      }
+    `;
 
-    testSchema(schema);
+    expect(cycleIntrospection(sdl)).to.equal(sdl);
   });
 
   it('builds a schema with field arguments', () => {
-    const schema = new GraphQLSchema({
-      query: new GraphQLObjectType({
-        name: 'ArgFields',
-        fields: {
-          one: {
-            description: 'A field with a single arg',
-            type: GraphQLString,
-            args: {
-              intArg: {
-                description: 'This is an int arg',
-                type: GraphQLInt,
-              },
-            },
-          },
-          two: {
-            description: 'A field with a two args',
-            type: GraphQLString,
-            args: {
-              listArg: {
-                description: 'This is an list of int arg',
-                type: GraphQLList(GraphQLInt),
-              },
-              requiredArg: {
-                description: 'This is a required arg',
-                type: GraphQLNonNull(GraphQLBoolean),
-              },
-            },
-          },
-        },
-      }),
-    });
+    const sdl = dedent`
+      type Query {
+        """A field with a single arg"""
+        one(
+          """This is an int arg"""
+          intArg: Int
+        ): String
 
-    testSchema(schema);
+        """A field with a two args"""
+        two(
+          """This is an list of int arg"""
+          listArg: [Int]
+
+          """This is a required arg"""
+          requiredArg: Boolean!
+        ): String
+      }
+    `;
+
+    expect(cycleIntrospection(sdl)).to.equal(sdl);
   });
 
   it('builds a schema with default value on custom scalar field', () => {
-    const schema = new GraphQLSchema({
-      query: new GraphQLObjectType({
-        name: 'ArgFields',
-        fields: {
-          testField: {
-            type: GraphQLString,
-            args: {
-              testArg: {
-                type: new GraphQLScalarType({
-                  name: 'CustomScalar',
-                  serialize: value => value,
-                }),
-                defaultValue: 'default',
-              },
-            },
-          },
-        },
-      }),
-    });
+    const sdl = dedent`
+      scalar CustomScalar
 
-    testSchema(schema);
+      type Query {
+        testField(testArg: CustomScalar = "default"): String
+      }
+    `;
+
+    expect(cycleIntrospection(sdl)).to.equal(sdl);
   });
 
   it('builds a schema with an enum', () => {
@@ -403,14 +317,15 @@ describe('Type System: build schema from introspection', () => {
       }),
     });
 
-    testSchema(schema);
-
     const introspection = introspectionFromSchema(schema);
     const clientSchema = buildClientSchema(introspection);
+    const secondIntrospection = introspectionFromSchema(clientSchema);
+    expect(secondIntrospection).to.deep.equal(introspection);
+
     const clientFoodEnum = clientSchema.getType('Food');
 
     // It's also an Enum type on the client.
-    expect(clientFoodEnum).to.be.an.instanceOf(GraphQLEnumType);
+    invariant(isEnumType(clientFoodEnum));
 
     // Client types do not get server-only values, so `value` mirrors `name`,
     // rather than using the integers defined in the "server" schema.
@@ -459,327 +374,358 @@ describe('Type System: build schema from introspection', () => {
   });
 
   it('builds a schema with an input object', () => {
-    const addressType = new GraphQLInputObjectType({
-      name: 'Address',
-      description: 'An input address',
-      fields: {
-        street: {
-          description: 'What street is this address?',
-          type: GraphQLNonNull(GraphQLString),
-        },
-        city: {
-          description: 'The city the address is within?',
-          type: GraphQLNonNull(GraphQLString),
-        },
-        country: {
-          description: 'The country (blank will assume USA).',
-          type: GraphQLString,
-          defaultValue: 'USA',
-        },
-      },
-    });
-    const schema = new GraphQLSchema({
-      query: new GraphQLObjectType({
-        name: 'HasInputObjectFields',
-        fields: {
-          geocode: {
-            description: 'Get a geocode from an address',
-            type: GraphQLString,
-            args: {
-              address: {
-                description: 'The address to lookup',
-                type: addressType,
-              },
-            },
-          },
-        },
-      }),
-    });
+    const sdl = dedent`
+      """An input address"""
+      input Address {
+        """What street is this address?"""
+        street: String!
 
-    testSchema(schema);
+        """The city the address is within?"""
+        city: String!
+
+        """The country (blank will assume USA)."""
+        country: String = "USA"
+      }
+
+      type Query {
+        """Get a geocode from an address"""
+        geocode(
+          """The address to lookup"""
+          address: Address
+        ): String
+      }
+    `;
+
+    expect(cycleIntrospection(sdl)).to.equal(sdl);
   });
 
   it('builds a schema with field arguments with default values', () => {
-    const geoType = new GraphQLInputObjectType({
-      name: 'Geo',
-      fields: {
-        lat: { type: GraphQLFloat },
-        lon: { type: GraphQLFloat },
-      },
-    });
+    const sdl = dedent`
+      input Geo {
+        lat: Float
+        lon: Float
+      }
 
-    const schema = new GraphQLSchema({
-      query: new GraphQLObjectType({
-        name: 'ArgFields',
-        fields: {
-          defaultInt: {
-            type: GraphQLString,
-            args: {
-              intArg: {
-                type: GraphQLInt,
-                defaultValue: 10,
-              },
-            },
-          },
-          defaultList: {
-            type: GraphQLString,
-            args: {
-              listArg: {
-                type: GraphQLList(GraphQLInt),
-                defaultValue: [1, 2, 3],
-              },
-            },
-          },
-          defaultObject: {
-            type: GraphQLString,
-            args: {
-              objArg: {
-                type: geoType,
-                defaultValue: { lat: 37.485, lon: -122.148 },
-              },
-            },
-          },
-          defaultNull: {
-            type: GraphQLString,
-            args: {
-              intArg: {
-                type: GraphQLInt,
-                defaultValue: null,
-              },
-            },
-          },
-          noDefault: {
-            type: GraphQLString,
-            args: {
-              intArg: {
-                type: GraphQLInt,
-              },
-            },
-          },
-        },
-      }),
-    });
+      type Query {
+        defaultInt(intArg: Int = 30): String
+        defaultList(listArg: [Int] = [1, 2, 3]): String
+        defaultObject(objArg: Geo = {lat: 37.485, lon: -122.148}): String
+        defaultNull(intArg: Int = null): String
+        noDefault(intArg: Int): String
+      }
+    `;
 
-    testSchema(schema);
+    expect(cycleIntrospection(sdl)).to.equal(sdl);
   });
 
   it('builds a schema with custom directives', () => {
-    const schema = new GraphQLSchema({
-      query: new GraphQLObjectType({
-        name: 'Simple',
-        description: 'This is a simple type',
-        fields: {
-          string: {
-            type: GraphQLString,
-            description: 'This is a string field',
-          },
-        },
-      }),
-      directives: [
-        new GraphQLDirective({
-          name: 'customDirective',
-          description: 'This is a custom directive',
-          locations: ['FIELD'],
-        }),
-      ],
-    });
+    const sdl = dedent`
+      """This is a custom directive"""
+      directive @customDirective on FIELD
 
-    testSchema(schema);
+      type Query {
+        string: String
+      }
+    `;
+
+    expect(cycleIntrospection(sdl)).to.equal(sdl);
   });
 
   it('builds a schema with legacy names', () => {
-    const introspection = {
-      __schema: {
-        queryType: {
-          name: 'Query',
-        },
-        types: [
-          {
-            name: 'Query',
-            kind: 'OBJECT',
-            fields: [
-              {
-                name: '__badName',
-                args: [],
-                type: { name: 'String' },
-              },
-            ],
-            interfaces: [],
-          },
-        ],
-      },
-    };
-    const schema = buildClientSchema(introspection, {
-      allowedLegacyNames: ['__badName'],
+    const sdl = dedent`
+      type Query {
+        __badName: String
+      }
+    `;
+    const allowedLegacyNames = ['__badName'];
+    const schema = buildSchema(sdl, { allowedLegacyNames });
+
+    const introspection = introspectionFromSchema(schema);
+    const clientSchema = buildClientSchema(introspection, {
+      allowedLegacyNames,
     });
+
     expect(schema.__allowedLegacyNames).to.deep.equal(['__badName']);
+    expect(printSchema(clientSchema)).to.equal(sdl);
   });
 
   it('builds a schema aware of deprecation', () => {
-    const schema = new GraphQLSchema({
-      query: new GraphQLObjectType({
-        name: 'Simple',
-        description: 'This is a simple type',
-        fields: {
-          shinyString: {
-            type: GraphQLString,
-            description: 'This is a shiny string field',
-          },
-          deprecatedString: {
-            type: GraphQLString,
-            description: 'This is a deprecated string field',
-            deprecationReason: 'Use shinyString',
-          },
-          color: {
-            type: new GraphQLEnumType({
-              name: 'Color',
-              values: {
-                RED: { description: 'So rosy' },
-                GREEN: { description: 'So grassy' },
-                BLUE: { description: 'So calming' },
-                MAUVE: {
-                  description: 'So sickening',
-                  deprecationReason: 'No longer in fashion',
-                },
-              },
-            }),
-          },
-        },
-      }),
-    });
+    const sdl = dedent`
+      enum Color {
+        """So rosy"""
+        RED
 
-    testSchema(schema);
+        """So grassy"""
+        GREEN
+
+        """So calming"""
+        BLUE
+
+        """So sickening"""
+        MAUVE @deprecated(reason: "No longer in fashion")
+      }
+
+      type Query {
+        """This is a shiny string field"""
+        shinyString: String
+
+        """This is a deprecated string field"""
+        deprecatedString: String @deprecated(reason: "Use shinyString")
+        color: Color
+      }
+    `;
+
+    expect(cycleIntrospection(sdl)).to.equal(sdl);
   });
 
   it('can use client schema for limited execution', () => {
-    const customScalar = new GraphQLScalarType({
-      name: 'CustomScalar',
-      serialize: () => null,
-    });
+    const schema = buildSchema(`
+      scalar CustomScalar
 
-    const schema = new GraphQLSchema({
-      query: new GraphQLObjectType({
-        name: 'Query',
-        fields: {
-          foo: {
-            type: GraphQLString,
-            args: {
-              custom1: { type: customScalar },
-              custom2: { type: customScalar },
-            },
-          },
-        },
-      }),
-    });
+      type Query {
+        foo(custom1: CustomScalar, custom2: CustomScalar): String
+      }
+    `);
 
     const introspection = introspectionFromSchema(schema);
     const clientSchema = buildClientSchema(introspection);
 
-    const result = graphqlSync(
-      clientSchema,
-      'query Limited($v: CustomScalar) { foo(custom1: 123, custom2: $v) }',
-      { foo: 'bar', unused: 'value' },
-      null,
-      { v: 'baz' },
-    );
+    const result = graphqlSync({
+      schema: clientSchema,
+      source:
+        'query Limited($v: CustomScalar) { foo(custom1: 123, custom2: $v) }',
+      rootValue: { foo: 'bar', unused: 'value' },
+      variableValues: { v: 'baz' },
+    });
 
     expect(result.data).to.deep.equal({ foo: 'bar' });
   });
 
-  describe('throws when given incomplete introspection', () => {
-    it('throws when given empty types', () => {
-      const incompleteIntrospection = {
-        __schema: {
-          queryType: { name: 'QueryType' },
-          types: [],
-        },
-      };
+  describe('throws when given invalid introspection', () => {
+    const dummySchema = buildSchema(`
+      type Query {
+        foo(bar: String): String
+      }
 
-      expect(() => buildClientSchema(incompleteIntrospection)).to.throw(
-        'Invalid or incomplete schema, unknown type: QueryType. Ensure ' +
-          'that a full introspection query is used in order to build a ' +
-          'client schema.',
+      union SomeUnion = Query
+
+      enum SomeEnum { FOO }
+
+      input SomeInputObject {
+        foo: String
+      }
+
+      directive @SomeDirective on QUERY
+    `);
+
+    it('throws when referenced unknown type', () => {
+      const introspection = introspectionFromSchema(dummySchema);
+
+      // $DisableFlowOnNegativeTest
+      introspection.__schema.types = introspection.__schema.types.filter(
+        ({ name }) => name !== 'Query',
+      );
+
+      expect(() => buildClientSchema(introspection)).to.throw(
+        'Invalid or incomplete schema, unknown type: Query. Ensure that a ' +
+          'full introspection query is used in order to build a client schema.',
+      );
+    });
+
+    it('throws when type reference is missing name', () => {
+      const introspection = introspectionFromSchema(dummySchema);
+
+      expect(introspection).to.have.nested.property('__schema.queryType.name');
+      // $DisableFlowOnNegativeTest
+      delete introspection.__schema.queryType.name;
+
+      expect(() => buildClientSchema(introspection)).to.throw(
+        'Unknown type reference: {}',
       );
     });
 
     it('throws when missing kind', () => {
-      const incompleteIntrospection = {
-        __schema: {
-          queryType: { name: 'QueryType' },
-          types: [{ name: 'QueryType' }],
-        },
-      };
+      const introspection = introspectionFromSchema(dummySchema);
+      const queryTypeIntrospection = introspection.__schema.types.find(
+        ({ name }) => name === 'Query',
+      );
 
-      expect(() => buildClientSchema(incompleteIntrospection)).to.throw(
+      expect(queryTypeIntrospection).to.have.property('kind');
+      // $DisableFlowOnNegativeTest
+      delete queryTypeIntrospection.kind;
+
+      expect(() => buildClientSchema(introspection)).to.throw(
         'Invalid or incomplete introspection result. Ensure that a full ' +
           'introspection query is used in order to build a client schema',
       );
     });
 
     it('throws when missing interfaces', () => {
-      const nullInterfaceIntrospection = {
-        __schema: {
-          queryType: { name: 'QueryType' },
-          types: [
-            {
-              kind: 'OBJECT',
-              name: 'QueryType',
-              fields: [
-                {
-                  name: 'aString',
-                  args: [],
-                  type: { kind: 'SCALAR', name: 'String', ofType: null },
-                  isDeprecated: false,
-                },
-              ],
-            },
-          ],
-        },
-      };
+      const introspection = introspectionFromSchema(dummySchema);
+      const queryTypeIntrospection = introspection.__schema.types.find(
+        ({ name }) => name === 'Query',
+      );
 
-      expect(() => buildClientSchema(nullInterfaceIntrospection)).to.throw(
-        'Introspection result missing interfaces: ' +
-          '{ kind: "OBJECT", name: "QueryType", fields: [{ name: "aString", args: [], type: { kind: "SCALAR", name: "String", ofType: null }, isDeprecated: false }] }',
+      expect(queryTypeIntrospection).to.have.property('interfaces');
+      // $DisableFlowOnNegativeTest
+      delete queryTypeIntrospection.interfaces;
+
+      expect(() => buildClientSchema(introspection)).to.throw(
+        'Introspection result missing interfaces: { kind: "OBJECT", name: "Query",',
+      );
+    });
+
+    it('throws when missing fields', () => {
+      const introspection = introspectionFromSchema(dummySchema);
+      const queryTypeIntrospection = introspection.__schema.types.find(
+        ({ name }) => name === 'Query',
+      );
+
+      expect(queryTypeIntrospection).to.have.property('fields');
+      // $DisableFlowOnNegativeTest
+      delete queryTypeIntrospection.fields;
+
+      expect(() => buildClientSchema(introspection)).to.throw(
+        'Introspection result missing fields: { kind: "OBJECT", name: "Query",',
+      );
+    });
+
+    it('throws when missing field args', () => {
+      const introspection = introspectionFromSchema(dummySchema);
+      const queryTypeIntrospection = introspection.__schema.types.find(
+        ({ name }) => name === 'Query',
+      );
+
+      expect(queryTypeIntrospection).to.have.nested.property('fields[0].args');
+      // $DisableFlowOnNegativeTest
+      delete queryTypeIntrospection.fields[0].args;
+
+      expect(() => buildClientSchema(introspection)).to.throw(
+        'Introspection result missing field args: { name: "foo",',
+      );
+    });
+
+    it('throws when output type is used as an arg type', () => {
+      const introspection = introspectionFromSchema(dummySchema);
+      const queryTypeIntrospection = introspection.__schema.types.find(
+        ({ name }) => name === 'Query',
+      );
+
+      expect(queryTypeIntrospection).to.have.nested.property(
+        'fields[0].args[0].type.name',
+        'String',
+      );
+      // $DisableFlowOnNegativeTest
+      queryTypeIntrospection.fields[0].args[0].type.name = 'SomeUnion';
+
+      expect(() => buildClientSchema(introspection)).to.throw(
+        'Introspection must provide input type for arguments, but received: SomeUnion.',
+      );
+    });
+
+    it('throws when input type is used as a field type', () => {
+      const introspection = introspectionFromSchema(dummySchema);
+      const queryTypeIntrospection = introspection.__schema.types.find(
+        ({ name }) => name === 'Query',
+      );
+
+      expect(queryTypeIntrospection).to.have.nested.property(
+        'fields[0].type.name',
+        'String',
+      );
+      // $DisableFlowOnNegativeTest
+      queryTypeIntrospection.fields[0].type.name = 'SomeInputObject';
+
+      expect(() => buildClientSchema(introspection)).to.throw(
+        'Introspection must provide output type for fields, but received: SomeInputObject.',
+      );
+    });
+
+    it('throws when missing possibleTypes', () => {
+      const introspection = introspectionFromSchema(dummySchema);
+      const someUnionIntrospection = introspection.__schema.types.find(
+        ({ name }) => name === 'SomeUnion',
+      );
+
+      expect(someUnionIntrospection).to.have.property('possibleTypes');
+      // $DisableFlowOnNegativeTest
+      delete someUnionIntrospection.possibleTypes;
+
+      expect(() => buildClientSchema(introspection)).to.throw(
+        'Introspection result missing possibleTypes: { kind: "UNION", name: "SomeUnion",',
+      );
+    });
+
+    it('throws when missing enumValues', () => {
+      const introspection = introspectionFromSchema(dummySchema);
+      const someEnumIntrospection = introspection.__schema.types.find(
+        ({ name }) => name === 'SomeEnum',
+      );
+
+      expect(someEnumIntrospection).to.have.property('enumValues');
+      // $DisableFlowOnNegativeTest
+      delete someEnumIntrospection.enumValues;
+
+      expect(() => buildClientSchema(introspection)).to.throw(
+        'Introspection result missing enumValues: { kind: "ENUM", name: "SomeEnum",',
+      );
+    });
+
+    it('throws when missing inputFields', () => {
+      const introspection = introspectionFromSchema(dummySchema);
+      const someInputObjectIntrospection = introspection.__schema.types.find(
+        ({ name }) => name === 'SomeInputObject',
+      );
+
+      expect(someInputObjectIntrospection).to.have.property('inputFields');
+      // $DisableFlowOnNegativeTest
+      delete someInputObjectIntrospection.inputFields;
+
+      expect(() => buildClientSchema(introspection)).to.throw(
+        'Introspection result missing inputFields: { kind: "INPUT_OBJECT", name: "SomeInputObject",',
       );
     });
 
     it('throws when missing directive locations', () => {
-      const introspection = {
-        __schema: {
-          types: [],
-          directives: [{ name: 'test', args: [] }],
-        },
-      };
+      const introspection = introspectionFromSchema(dummySchema);
+
+      const someDirectiveIntrospection = introspection.__schema.directives[0];
+      expect(someDirectiveIntrospection).to.deep.include({
+        name: 'SomeDirective',
+        locations: ['QUERY'],
+      });
+      // $DisableFlowOnNegativeTest
+      delete someDirectiveIntrospection.locations;
 
       expect(() => buildClientSchema(introspection)).to.throw(
-        'Introspection result missing directive locations: ' +
-          '{ name: "test", args: [] }',
+        'Introspection result missing directive locations: { name: "SomeDirective",',
+      );
+    });
+
+    it('throws when missing directive args', () => {
+      const introspection = introspectionFromSchema(dummySchema);
+
+      const someDirectiveIntrospection = introspection.__schema.directives[0];
+      expect(someDirectiveIntrospection).to.deep.include({
+        name: 'SomeDirective',
+        args: [],
+      });
+      // $DisableFlowOnNegativeTest
+      delete someDirectiveIntrospection.args;
+
+      expect(() => buildClientSchema(introspection)).to.throw(
+        'Introspection result missing directive args: { name: "SomeDirective",',
       );
     });
   });
 
   describe('very deep decorators are not supported', () => {
     it('fails on very deep (> 7 levels) lists', () => {
-      const schema = new GraphQLSchema({
-        query: new GraphQLObjectType({
-          name: 'Query',
-          fields: {
-            foo: {
-              type: GraphQLList(
-                GraphQLList(
-                  GraphQLList(
-                    GraphQLList(
-                      GraphQLList(
-                        GraphQLList(GraphQLList(GraphQLList(GraphQLString))),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            },
-          },
-        }),
-      });
+      const schema = buildSchema(`
+        type Query {
+          foo: [[[[[[[[String]]]]]]]]
+        }
+      `);
 
       const introspection = introspectionFromSchema(schema);
       expect(() => buildClientSchema(introspection)).to.throw(
@@ -788,28 +734,11 @@ describe('Type System: build schema from introspection', () => {
     });
 
     it('fails on a very deep (> 7 levels) non-null', () => {
-      const schema = new GraphQLSchema({
-        query: new GraphQLObjectType({
-          name: 'Query',
-          fields: {
-            foo: {
-              type: GraphQLList(
-                GraphQLNonNull(
-                  GraphQLList(
-                    GraphQLNonNull(
-                      GraphQLList(
-                        GraphQLNonNull(
-                          GraphQLList(GraphQLNonNull(GraphQLString)),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            },
-          },
-        }),
-      });
+      const schema = buildSchema(`
+        type Query {
+          foo: [[[[String!]!]!]!]
+        }
+      `);
 
       const introspection = introspectionFromSchema(schema);
       expect(() => buildClientSchema(introspection)).to.throw(
@@ -818,64 +747,57 @@ describe('Type System: build schema from introspection', () => {
     });
 
     it('succeeds on deep (<= 7 levels) types', () => {
-      const schema = new GraphQLSchema({
-        query: new GraphQLObjectType({
-          name: 'Query',
-          fields: {
-            foo: {
-              // e.g., fully non-null 3D matrix
-              type: GraphQLNonNull(
-                GraphQLList(
-                  GraphQLNonNull(
-                    GraphQLList(
-                      GraphQLNonNull(
-                        GraphQLList(GraphQLNonNull(GraphQLString)),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            },
-          },
-        }),
-      });
+      // e.g., fully non-null 3D matrix
+      const sdl = dedent`
+        type Query {
+          foo: [[[String!]!]!]!
+        }
+      `;
 
-      const introspection = introspectionFromSchema(schema);
-      buildClientSchema(introspection);
+      expect(cycleIntrospection(sdl)).to.equal(sdl);
     });
   });
 
   describe('prevents infinite recursion on invalid introspection', () => {
     it('recursive interfaces', () => {
-      const introspection = {
-        __schema: {
-          types: [
-            {
-              name: 'Foo',
-              kind: 'OBJECT',
-              fields: [],
-              interfaces: [{ name: 'Foo' }],
-            },
-          ],
-        },
-      };
+      const sdl = `
+        type Query {
+          foo: Foo
+        }
+
+        type Foo implements Foo {
+          foo: String
+        }
+      `;
+      const schema = buildSchema(sdl, { assumeValid: true });
+      const introspection = introspectionFromSchema(schema);
+
+      expect(introspection.__schema.types[1]).to.deep.include({
+        name: 'Foo',
+        interfaces: [{ kind: 'OBJECT', name: 'Foo', ofType: null }],
+      });
+
       expect(() => buildClientSchema(introspection)).to.throw(
         'Expected Foo to be a GraphQL Interface type.',
       );
     });
 
     it('recursive union', () => {
-      const introspection = {
-        __schema: {
-          types: [
-            {
-              name: 'Foo',
-              kind: 'UNION',
-              possibleTypes: [{ name: 'Foo' }],
-            },
-          ],
-        },
-      };
+      const sdl = `
+        type Query {
+          foo: Foo
+        }
+
+        union Foo = Foo
+      `;
+      const schema = buildSchema(sdl, { assumeValid: true });
+      const introspection = introspectionFromSchema(schema);
+
+      expect(introspection.__schema.types[1]).to.deep.include({
+        name: 'Foo',
+        possibleTypes: [{ kind: 'UNION', name: 'Foo', ofType: null }],
+      });
+
       expect(() => buildClientSchema(introspection)).to.throw(
         'Expected Foo to be a GraphQL Object type.',
       );

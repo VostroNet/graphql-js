@@ -3,7 +3,11 @@
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
+ *
+ * @noflow
  */
+
+'use strict';
 
 const { Suite } = require('benchmark');
 const beautifyBenchmark = require('beautify-benchmark');
@@ -15,9 +19,11 @@ const path = require('path');
 // Like build:cjs, but includes __tests__ and copies other files.
 const BUILD_CMD = 'babel src --copy-files --out-dir dist/';
 const LOCAL = 'local';
+
 function LOCAL_DIR(...paths) {
   return path.join(__dirname, '..', ...paths);
 }
+
 function TEMP_DIR(...paths) {
   return path.join(os.tmpdir(), 'graphql-js-benchmark', ...paths);
 }
@@ -58,7 +64,9 @@ function prepareRevision(revision) {
       const to = path.join(dir, 'src', file);
       fs.copyFileSync(from, to);
     }
-    execSync(`cp -R "${LOCAL_DIR()}/src/__fixtures__/" "${dir}/src/__fixtures__/"`);
+    execSync(
+      `cp -R "${LOCAL_DIR()}/src/__fixtures__/" "${dir}/src/__fixtures__/"`
+    );
     execSync(`yarn run ${BUILD_CMD}`, { cwd: dir });
 
     return path.join(dir, 'dist');
@@ -71,9 +79,9 @@ function findFiles(cwd, pattern) {
 }
 
 // Run a given benchmark test with the provided revisions.
-function runBenchmark(benchmark, enviroments) {
-  const modules = enviroments.map(({distPath}) =>
-    require(path.join(distPath, benchmark)),
+function runBenchmark(benchmark, environments) {
+  const modules = environments.map(({ distPath }) =>
+    require(path.join(distPath, benchmark))
   );
   const suite = new Suite(modules[0].name, {
     onStart(event) {
@@ -90,8 +98,8 @@ function runBenchmark(benchmark, enviroments) {
       beautifyBenchmark.log();
     },
   });
-  for (let i = 0; i < enviroments.length; i++) {
-    suite.add(enviroments[i].revision, modules[i].measure);
+  for (let i = 0; i < environments.length; i++) {
+    suite.add(environments[i].revision, modules[i].measure);
   }
   suite.run({ async: false });
 }
@@ -101,25 +109,26 @@ function prepareAndRunBenchmarks(benchmarkPatterns, revisions) {
   // Find all benchmark tests to be run.
   let benchmarks = findFiles(LOCAL_DIR('src'), '*/__tests__/*-benchmark.js');
   if (benchmarkPatterns.length !== 0) {
-    benchmarks = benchmarks.filter(
-      benchmark => benchmarkPatterns.some(
-        pattern => path.join('src', benchmark).includes(pattern)
-      ),
+    benchmarks = benchmarks.filter(benchmark =>
+      benchmarkPatterns.some(pattern =>
+        path.join('src', benchmark).includes(pattern)
+      )
     );
   }
 
   if (benchmarks.length === 0) {
     console.warn(
       'No benchmarks matching: ' +
-        `\u001b[1m${benchmarkPatterns.join('\u001b[0m or \u001b[1m')}\u001b[0m`,
+        `\u001b[1m${benchmarkPatterns.join('\u001b[0m or \u001b[1m')}\u001b[0m`
     );
     return;
   }
 
-  const enviroments = revisions.map(
-    revision => ({ revision, distPath: prepareRevision(revision)})
-  );
-  benchmarks.forEach(benchmark => runBenchmark(benchmark, enviroments));
+  const environments = revisions.map(revision => ({
+    revision,
+    distPath: prepareRevision(revision),
+  }));
+  benchmarks.forEach(benchmark => runBenchmark(benchmark, environments));
 }
 
 function getArguments(argv) {
@@ -143,7 +152,7 @@ function getArguments(argv) {
   }
   if (assumeArgs) {
     console.warn(
-      `Assuming you meant: \u001b[1mbenchmark ${assumeArgs.join(' ')}\u001b[0m`,
+      `Assuming you meant: \u001b[1mbenchmark ${assumeArgs.join(' ')}\u001b[0m`
     );
   }
   return { benchmarkPatterns, revisions };

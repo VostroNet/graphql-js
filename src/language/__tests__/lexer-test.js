@@ -3,11 +3,17 @@
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
+ *
+ * @flow strict
  */
+
+import { inspect as nodeInspect } from 'util';
 
 import { expect } from 'chai';
 import { describe, it } from 'mocha';
 import dedent from '../../jsutils/dedent';
+import inspect from '../../jsutils/inspect';
+import { GraphQLError } from '../../error';
 import { Source } from '../source';
 import { createLexer, TokenKind } from '../lexer';
 
@@ -16,21 +22,23 @@ function lexOne(str) {
   return lexer.advance();
 }
 
+function lexSecond(str) {
+  const lexer = createLexer(new Source(str));
+  lexer.advance();
+  return lexer.advance();
+}
+
 function expectSyntaxError(text, message, location) {
-  try {
-    lexOne(text);
-    expect.fail('Expected to throw syntax error');
-  } catch (error) {
-    expect(error.message).to.contain(message);
-    expect(error.locations).to.deep.equal([location]);
-  }
+  expect(() => lexOne(text))
+    .to.throw('Syntax Error: ' + message)
+    .with.deep.property('locations', [location]);
 }
 
 describe('Lexer', () => {
   it('disallows uncommon control characters', () => {
     expectSyntaxError(
       '\u0007',
-      'Cannot contain the invalid character "\\u0007"',
+      'Cannot contain the invalid character "\\u0007".',
       { line: 1, column: 1 },
     );
   });
@@ -55,13 +63,16 @@ describe('Lexer', () => {
     });
   });
 
-  it('can be JSON.stringified or util.inspected', () => {
+  it('can be JSON.stringified, util.inspected or jsutils.inspect', () => {
     const token = lexOne('foo');
     expect(JSON.stringify(token)).to.equal(
       '{"kind":"Name","value":"foo","line":1,"column":1}',
     );
-    expect(require('util').inspect(token)).to.equal(
+    expect(nodeInspect(token)).to.equal(
       "{ kind: 'Name', value: 'foo', line: 1, column: 1 }",
+    );
+    expect(inspect(token)).to.equal(
+      '{ kind: "Name", value: "foo", line: 1, column: 1 }',
     );
   });
 
@@ -127,7 +138,7 @@ describe('Lexer', () => {
   it('updates line numbers in error for file context', () => {
     let caughtError;
     try {
-      const str = '' + '\n' + '\n' + '     ?\n' + '\n';
+      const str = ['', '', '     ?', ''].join('\n');
       const source = new Source(str, 'foo.js', { line: 11, column: 12 });
       createLexer(source).advance();
     } catch (error) {
@@ -232,12 +243,12 @@ describe('Lexer', () => {
       { line: 1, column: 19 },
     );
 
-    expectSyntaxError('"multi\nline"', 'Unterminated string', {
+    expectSyntaxError('"multi\nline"', 'Unterminated string.', {
       line: 1,
       column: 7,
     });
 
-    expectSyntaxError('"multi\rline"', 'Unterminated string', {
+    expectSyntaxError('"multi\rline"', 'Unterminated string.', {
       line: 1,
       column: 7,
     });
@@ -355,6 +366,44 @@ describe('Lexer', () => {
       start: 0,
       end: 68,
       value: 'spans\n  multiple\n    lines',
+    });
+  });
+
+  it('advance line after lexing multiline block string', () => {
+    expect(
+      lexSecond(`"""
+
+        spans
+          multiple
+            lines
+
+        \n """ second_token`),
+    ).to.contain({
+      kind: TokenKind.NAME,
+      start: 71,
+      end: 83,
+      line: 8,
+      column: 6,
+      value: 'second_token',
+    });
+
+    expect(
+      lexSecond(
+        [
+          '""" \n',
+          'spans \r\n',
+          'multiple \n\r',
+          'lines \n\n',
+          '"""\n second_token',
+        ].join(''),
+      ),
+    ).to.contain({
+      kind: TokenKind.NAME,
+      start: 37,
+      end: 49,
+      line: 8,
+      column: 2,
+      value: 'second_token',
     });
   });
 
@@ -659,8 +708,8 @@ describe('Lexer', () => {
   });
 
   it('lex reports useful information for dashes in names', () => {
-    const q = 'a-b';
-    const lexer = createLexer(new Source(q));
+    const source = new Source('a-b');
+    const lexer = createLexer(source);
     const firstToken = lexer.advance();
     expect(firstToken).to.contain({
       kind: TokenKind.NAME,
@@ -668,34 +717,32 @@ describe('Lexer', () => {
       end: 1,
       value: 'a',
     });
-    let caughtError;
-    try {
-      lexer.advance();
-    } catch (error) {
-      caughtError = error;
-    }
-    expect(caughtError.message).to.equal(
-      'Syntax Error: Invalid number, expected digit but got: "b".',
-    );
-    expect(caughtError.locations).to.deep.equal([{ line: 1, column: 3 }]);
+
+    expect(() => lexer.advance())
+      .throw(GraphQLError)
+      .that.deep.include({
+        message: 'Syntax Error: Invalid number, expected digit but got: "b".',
+        locations: [{ line: 1, column: 3 }],
+      });
   });
 
   it('produces double linked list of tokens, including comments', () => {
-    const lexer = createLexer(
-      new Source(`{
-      #comment
-      field
-    }`),
-    );
+    const source = new Source(`
+      {
+        #comment
+        field
+      }
+    `);
 
+    const lexer = createLexer(source);
     const startToken = lexer.token;
     let endToken;
     do {
       endToken = lexer.advance();
       // Lexer advances over ignored comment tokens to make writing parsers
       // easier, but will include them in the linked list result.
-      expect(endToken.kind).not.to.equal('Comment');
-    } while (endToken.kind !== '<EOF>');
+      expect(endToken.kind).not.to.equal(TokenKind.COMMENT);
+    } while (endToken.kind !== TokenKind.EOF);
 
     expect(startToken.prev).to.equal(null);
     expect(endToken.next).to.equal(null);
@@ -710,12 +757,12 @@ describe('Lexer', () => {
     }
 
     expect(tokens.map(tok => tok.kind)).to.deep.equal([
-      '<SOF>',
-      '{',
-      'Comment',
-      'Name',
-      '}',
-      '<EOF>',
+      TokenKind.SOF,
+      TokenKind.BRACE_L,
+      TokenKind.COMMENT,
+      TokenKind.NAME,
+      TokenKind.BRACE_R,
+      TokenKind.EOF,
     ]);
   });
 });
