@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2015-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -11,6 +11,7 @@ import { expect } from 'chai';
 import { describe, it } from 'mocha';
 import { execute } from '../execute';
 import { parse } from '../../language';
+import { buildSchema } from '../../utilities/buildASTSchema';
 import {
   GraphQLSchema,
   GraphQLObjectType,
@@ -93,22 +94,22 @@ const nullingData = {
   },
 };
 
-const dataType = new GraphQLObjectType({
-  name: 'DataType',
-  fields: () => ({
-    sync: { type: GraphQLString },
-    syncNonNull: { type: GraphQLNonNull(GraphQLString) },
-    promise: { type: GraphQLString },
-    promiseNonNull: { type: GraphQLNonNull(GraphQLString) },
-    syncNest: { type: dataType },
-    syncNonNullNest: { type: GraphQLNonNull(dataType) },
-    promiseNest: { type: dataType },
-    promiseNonNullNest: { type: GraphQLNonNull(dataType) },
-  }),
-});
-const schema = new GraphQLSchema({
-  query: dataType,
-});
+const schema = buildSchema(`
+  type DataType {
+    sync: String
+    syncNonNull: String!
+    promise: String
+    promiseNonNull: String!
+    syncNest: DataType
+    syncNonNullNest: DataType!
+    promiseNest: DataType
+    promiseNonNullNest: DataType!
+  }
+
+  schema {
+    query: DataType
+  }
+`);
 
 function executeQuery(query, rootValue) {
   return execute(schema, parse(query), rootValue);
@@ -683,8 +684,7 @@ describe('Execute: handles non-nullable types', () => {
         errors: [
           {
             message:
-              'Argument "cannotBeNull" of non-null type "String!" must ' +
-              'not be null.',
+              'Argument "cannotBeNull" of non-null type "String!" must not be null.',
             locations: [{ line: 3, column: 42 }],
             path: ['withNonNullArg'],
           },
@@ -714,9 +714,7 @@ describe('Execute: handles non-nullable types', () => {
         errors: [
           {
             message:
-              'Argument "cannotBeNull" of required type "String!" was ' +
-              'provided the variable "$testVar" which was not provided a ' +
-              'runtime value.',
+              'Argument "cannotBeNull" of required type "String!" was provided the variable "$testVar" which was not provided a runtime value.',
             locations: [{ line: 3, column: 42 }],
             path: ['withNonNullArg'],
           },

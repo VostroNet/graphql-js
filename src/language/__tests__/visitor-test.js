@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2015-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -17,15 +17,6 @@ import { testSchema } from '../../validation/__tests__/harness';
 import { getNamedType, isCompositeType } from '../../type';
 import { Kind } from '../kinds';
 import { kitchenSinkQuery } from '../../__fixtures__';
-
-function getNodeByPath(ast, path) {
-  let result = ast;
-  for (const key of path) {
-    expect(result).to.have.property(key);
-    result = result[key];
-  }
-  return result;
-}
 
 function checkVisitorFnArgs(ast, args, isEdited) {
   const [node, key, parent, path, ancestors] = args;
@@ -55,12 +46,16 @@ function checkVisitorFnArgs(ast, args, isEdited) {
   expect(ancestors.length).to.equal(path.length - 1);
 
   if (!isEdited) {
-    expect(parent[key]).to.equal(node);
-    expect(getNodeByPath(ast, path)).to.be.equal(node);
+    let currentNode = ast;
     for (let i = 0; i < ancestors.length; ++i) {
-      const ancestorPath = path.slice(0, i);
-      expect(ancestors[i]).to.equal(getNodeByPath(ast, ancestorPath));
+      expect(ancestors[i]).to.equal(currentNode);
+
+      currentNode = currentNode[path[i]];
+      expect(currentNode).to.not.equal(undefined);
     }
+
+    expect(parent).to.equal(currentNode);
+    expect(parent[key]).to.equal(node);
   }
 }
 
@@ -128,7 +123,7 @@ describe('Visitor', () => {
 
     let selectionSet;
 
-    const editedAst = visit(ast, {
+    const editedAST = visit(ast, {
       OperationDefinition: {
         enter(node) {
           checkVisitorFnArgs(ast, arguments);
@@ -153,7 +148,7 @@ describe('Visitor', () => {
       },
     });
 
-    expect(editedAst).to.deep.equal({
+    expect(editedAST).to.deep.equal({
       ...ast,
       definitions: [
         {
@@ -170,7 +165,7 @@ describe('Visitor', () => {
 
     const { definitions } = ast;
 
-    const editedAst = visit(ast, {
+    const editedAST = visit(ast, {
       Document: {
         enter(node) {
           checkVisitorFnArgs(ast, arguments);
@@ -191,7 +186,7 @@ describe('Visitor', () => {
       },
     });
 
-    expect(editedAst).to.deep.equal({
+    expect(editedAST).to.deep.equal({
       ...ast,
       didEnter: true,
       didLeave: true,
@@ -200,7 +195,7 @@ describe('Visitor', () => {
 
   it('allows for editing on enter', () => {
     const ast = parse('{ a, b, c { a, b, c } }', { noLocation: true });
-    const editedAst = visit(ast, {
+    const editedAST = visit(ast, {
       enter(node) {
         checkVisitorFnArgs(ast, arguments);
         if (node.kind === 'Field' && node.name.value === 'b') {
@@ -213,14 +208,14 @@ describe('Visitor', () => {
       parse('{ a, b, c { a, b, c } }', { noLocation: true }),
     );
 
-    expect(editedAst).to.deep.equal(
+    expect(editedAST).to.deep.equal(
       parse('{ a,    c { a,    c } }', { noLocation: true }),
     );
   });
 
   it('allows for editing on leave', () => {
     const ast = parse('{ a, b, c { a, b, c } }', { noLocation: true });
-    const editedAst = visit(ast, {
+    const editedAST = visit(ast, {
       leave(node) {
         checkVisitorFnArgs(ast, arguments, /* isEdited */ true);
         if (node.kind === 'Field' && node.name.value === 'b') {
@@ -233,7 +228,7 @@ describe('Visitor', () => {
       parse('{ a, b, c { a, b, c } }', { noLocation: true }),
     );
 
-    expect(editedAst).to.deep.equal(
+    expect(editedAST).to.deep.equal(
       parse('{ a,    c { a,    c } }', { noLocation: true }),
     );
   });
@@ -465,19 +460,24 @@ describe('Visitor', () => {
   it('visits kitchen sink', () => {
     const ast = parse(kitchenSinkQuery);
     const visited = [];
+    const argsStack = [];
 
     visit(ast, {
       enter(node, key, parent) {
-        checkVisitorFnArgs(ast, arguments);
         visited.push(['enter', node.kind, key, parent && parent.kind]);
+
+        checkVisitorFnArgs(ast, arguments);
+        argsStack.push([...arguments]);
       },
 
       leave(node, key, parent) {
-        checkVisitorFnArgs(ast, arguments);
         visited.push(['leave', node.kind, key, parent && parent.kind]);
+
+        expect(argsStack.pop()).to.deep.equal([...arguments]);
       },
     });
 
+    expect(argsStack).to.deep.equal([]);
     expect(visited).to.deep.equal([
       ['enter', 'Document', undefined, undefined],
       ['enter', 'OperationDefinition', 0, undefined],
@@ -1169,7 +1169,7 @@ describe('Visitor', () => {
       const visited = [];
 
       const ast = parse('{ a, b, c { a, b, c } }', { noLocation: true });
-      const editedAst = visit(
+      const editedAST = visit(
         ast,
         visitInParallel([
           {
@@ -1197,7 +1197,7 @@ describe('Visitor', () => {
         parse('{ a, b, c { a, b, c } }', { noLocation: true }),
       );
 
-      expect(editedAst).to.deep.equal(
+      expect(editedAST).to.deep.equal(
         parse('{ a,    c { a,    c } }', { noLocation: true }),
       );
 
@@ -1233,7 +1233,7 @@ describe('Visitor', () => {
       const visited = [];
 
       const ast = parse('{ a, b, c { a, b, c } }', { noLocation: true });
-      const editedAst = visit(
+      const editedAST = visit(
         ast,
         visitInParallel([
           {
@@ -1261,7 +1261,7 @@ describe('Visitor', () => {
         parse('{ a, b, c { a, b, c } }', { noLocation: true }),
       );
 
-      expect(editedAst).to.deep.equal(
+      expect(editedAST).to.deep.equal(
         parse('{ a,    c { a,    c } }', { noLocation: true }),
       );
 
@@ -1392,7 +1392,7 @@ describe('Visitor', () => {
       const typeInfo = new TypeInfo(testSchema);
 
       const ast = parse('{ human(id: 4) { name, pets }, alien }');
-      const editedAst = visit(
+      const editedAST = visit(
         ast,
         visitWithTypeInfo(typeInfo, {
           enter(node) {
@@ -1454,7 +1454,7 @@ describe('Visitor', () => {
         print(parse('{ human(id: 4) { name, pets }, alien }')),
       );
 
-      expect(print(editedAst)).to.deep.equal(
+      expect(print(editedAST)).to.deep.equal(
         print(
           parse(
             '{ human(id: 4) { name, pets { __typename } }, alien { __typename } }',

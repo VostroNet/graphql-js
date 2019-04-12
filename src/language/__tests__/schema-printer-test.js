@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2015-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -24,8 +24,9 @@ describe('Printer: SDL document', () => {
   });
 
   it('produces helpful error messages', () => {
-    const badAst1 = { random: 'Data' };
-    expect(() => print(badAst1)).to.throw(
+    const badAST = { random: 'Data' };
+    // $DisableFlowOnNegativeTest
+    expect(() => print(badAST)).to.throw(
       'Invalid AST Node: { random: "Data" }',
     );
   });
@@ -53,18 +54,12 @@ describe('Printer: SDL document', () => {
       type Foo implements Bar & Baz {
         "Description of the \`one\` field."
         one: Type
-        """
-        This is a description of the \`two\` field.
-        """
+        """This is a description of the \`two\` field."""
         two(
-          """
-          This is a description of the \`argument\` argument.
-          """
+          """This is a description of the \`argument\` argument."""
           argument: InputType!
         ): Type
-        """
-        This is a description of the \`three\` field.
-        """
+        """This is a description of the \`three\` field."""
         three(argument: InputType, other: String): Int
         four(argument: String = "string"): String
         five(argument: [String] = ["string", "string"]): String
@@ -120,13 +115,9 @@ describe('Printer: SDL document', () => {
       extend scalar CustomScalar @onScalar
 
       enum Site {
-        """
-        This is a description of the \`DESKTOP\` value
-        """
+        """This is a description of the \`DESKTOP\` value"""
         DESKTOP
-        """
-        This is a description of the \`MOBILE\` value
-        """
+        """This is a description of the \`MOBILE\` value"""
         MOBILE
         "This is a description of the \`WEB\` value"
         WEB
@@ -162,9 +153,7 @@ describe('Printer: SDL document', () => {
 
       extend input InputType @onInputObject
 
-      """
-      This is a description of the \`@skip\` directive
-      """
+      """This is a description of the \`@skip\` directive"""
       directive @skip(if: Boolean! @onArgumentDefinition) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
 
       directive @include(if: Boolean!) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT

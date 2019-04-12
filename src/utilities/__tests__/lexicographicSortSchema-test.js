@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2015-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -23,21 +23,21 @@ describe('lexicographicSortSchema', () => {
   it('sort fields', () => {
     const sorted = sortSDL(`
       input Bar {
-        barB: String
+        barB: String!
         barA: String
-        barC: String
+        barC: [String]
       }
 
       interface FooInterface {
-        fooB: String
+        fooB: String!
         fooA: String
-        fooC: String
+        fooC: [String]
       }
 
       type FooType implements FooInterface {
-        fooC: String
+        fooC: [String]
         fooA: String
-        fooB: String
+        fooB: String!
       }
 
       type Query {
@@ -48,20 +48,20 @@ describe('lexicographicSortSchema', () => {
     expect(sorted).to.equal(dedent`
       input Bar {
         barA: String
-        barB: String
-        barC: String
+        barB: String!
+        barC: [String]
       }
 
       interface FooInterface {
         fooA: String
-        fooB: String
-        fooC: String
+        fooB: String!
+        fooC: [String]
       }
 
       type FooType implements FooInterface {
         fooA: String
-        fooB: String
-        fooC: String
+        fooB: String!
+        fooC: [String]
       }
 
       type Query {
@@ -179,13 +179,13 @@ describe('lexicographicSortSchema', () => {
   it('sort field arguments', () => {
     const sorted = sortSDL(`
       type Query {
-        dummy(argB: Int, argA: String, argC: Float): ID
+        dummy(argB: Int!, argA: String, argC: [Float]): ID
       }
     `);
 
     expect(sorted).to.equal(dedent`
       type Query {
-        dummy(argA: String, argB: Int, argC: Float): ID
+        dummy(argA: String, argB: Int!, argC: [Float]): ID
       }
     `);
   });

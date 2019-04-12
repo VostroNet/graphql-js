@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2015-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -94,10 +94,9 @@ function guardedCheck() {
 function checkFiles(filepaths) {
   console.log('\u001b[2J');
 
-  return parseFiles(filepaths)
-    .then(() => runTests(filepaths))
+  return runTests(filepaths)
     .then(testSuccess =>
-      lintFiles(filepaths).then(lintSuccess =>
+      lintFiles().then(lintSuccess =>
         typecheckStatus().then(
           typecheckSuccess => testSuccess && lintSuccess && typecheckSuccess
         )
@@ -112,38 +111,12 @@ function checkFiles(filepaths) {
 }
 
 // Checking steps
-
-function parseFiles(filepaths) {
-  console.log('Checking Syntax');
-
-  return Promise.all(
-    filepaths.map(filepath => {
-      if (isJS(filepath) && !isTest(filepath)) {
-        return exec('babel', [
-          '--optional',
-          'runtime',
-          '--out-file',
-          '/dev/null',
-          srcPath(filepath),
-        ]);
-      }
-    })
-  );
-}
-
 function runTests(filepaths) {
   console.log('\nRunning Tests');
 
   return exec(
     'mocha',
-    [
-      '--reporter',
-      'progress',
-      '--require',
-      '@babel/register',
-      '--require',
-      '@babel/polyfill',
-    ].concat(
+    ['--reporter', 'progress'].concat(
       allTests(filepaths)
         ? filepaths.map(srcPath)
         : ['src/**/__tests__/**/*-test.js']
@@ -151,27 +124,9 @@ function runTests(filepaths) {
   ).catch(() => false);
 }
 
-function lintFiles(filepaths) {
+function lintFiles() {
   console.log('Linting Code\n');
-
-  return filepaths.reduce(
-    (prev, filepath) =>
-      prev.then(prevSuccess => {
-        if (isJS(filepath)) {
-          process.stdout.write('  ' + filepath + ' ...');
-          return exec('eslint', [srcPath(filepath)])
-            .catch(() => false)
-            .then(success => {
-              console.log(
-                CLEARLINE + '  ' + (success ? CHECK : X) + ' ' + filepath
-              );
-              return prevSuccess && success;
-            });
-        }
-        return prevSuccess;
-      }),
-    Promise.resolve(true)
-  );
+  return exec('eslint', ['--cache', 'src/']).catch(() => false);
 }
 
 function typecheckStatus() {
@@ -186,10 +141,6 @@ function srcPath(filepath) {
 }
 
 // Predicates
-
-function isJS(filepath) {
-  return filepath.indexOf('.js') === filepath.length - 3;
-}
 
 function allTests(filepaths) {
   return filepaths.length > 0 && filepaths.every(isTest);

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2015-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -292,8 +292,7 @@ describe('Type System: Enum Values', () => {
       errors: [
         {
           message:
-            'Variable "$color" of type "String!" used in position ' +
-            'expecting type "Color".',
+            'Variable "$color" of type "String!" used in position expecting type "Color".',
           locations: [{ line: 1, column: 8 }, { line: 1, column: 47 }],
         },
       ],
@@ -308,8 +307,7 @@ describe('Type System: Enum Values', () => {
       errors: [
         {
           message:
-            'Variable "$color" of type "Int!" used in position ' +
-            'expecting type "Color".',
+            'Variable "$color" of type "Int!" used in position expecting type "Color".',
           locations: [{ line: 1, column: 8 }, { line: 1, column: 44 }],
         },
       ],

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2015-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -157,11 +157,16 @@ const testSchemaDefinitions = testSchemaAST.definitions.map(print);
 function printTestSchemaChanges(extendedSchema) {
   const ast = parse(printSchema(extendedSchema));
   return print({
-    ...ast,
+    kind: Kind.DOCUMENT,
     definitions: ast.definitions.filter(
       node => !testSchemaDefinitions.includes(print(node)),
     ),
   });
+}
+
+function printNode(node) {
+  invariant(node);
+  return print(node);
 }
 
 describe('extendSchema', () => {
@@ -476,49 +481,49 @@ describe('extendSchema', () => {
     ).to.be.equal(printSchema(extendedTwiceSchema));
 
     const newField = query.getFields().newField;
-    expect(print(newField.astNode)).to.equal(
+    expect(printNode(newField.astNode)).to.equal(
       'newField(testArg: TestInput): TestEnum',
     );
-    expect(print(newField.args[0].astNode)).to.equal('testArg: TestInput');
-    expect(print(query.getFields().oneMoreNewField.astNode)).to.equal(
+    expect(printNode(newField.args[0].astNode)).to.equal('testArg: TestInput');
+    expect(printNode(query.getFields().oneMoreNewField.astNode)).to.equal(
       'oneMoreNewField: TestUnion',
     );
 
     const newValue = someEnum.getValue('NEW_VALUE');
     invariant(newValue);
-    expect(print(newValue.astNode)).to.equal('NEW_VALUE');
+    expect(printNode(newValue.astNode)).to.equal('NEW_VALUE');
 
     const oneMoreNewValue = someEnum.getValue('ONE_MORE_NEW_VALUE');
     invariant(oneMoreNewValue);
-    expect(print(oneMoreNewValue.astNode)).to.equal('ONE_MORE_NEW_VALUE');
-    expect(print(someInput.getFields().newField.astNode)).to.equal(
+    expect(printNode(oneMoreNewValue.astNode)).to.equal('ONE_MORE_NEW_VALUE');
+    expect(printNode(someInput.getFields().newField.astNode)).to.equal(
       'newField: String',
     );
-    expect(print(someInput.getFields().oneMoreNewField.astNode)).to.equal(
+    expect(printNode(someInput.getFields().oneMoreNewField.astNode)).to.equal(
       'oneMoreNewField: String',
     );
-    expect(print(someInterface.getFields().newField.astNode)).to.equal(
+    expect(printNode(someInterface.getFields().newField.astNode)).to.equal(
       'newField: String',
     );
-    expect(print(someInterface.getFields().oneMoreNewField.astNode)).to.equal(
-      'oneMoreNewField: String',
-    );
+    expect(
+      printNode(someInterface.getFields().oneMoreNewField.astNode),
+    ).to.equal('oneMoreNewField: String');
 
-    expect(print(testInput.getFields().testInputField.astNode)).to.equal(
+    expect(printNode(testInput.getFields().testInputField.astNode)).to.equal(
       'testInputField: TestEnum',
     );
 
     const testValue = testEnum.getValue('TEST_VALUE');
     invariant(testValue);
-    expect(print(testValue.astNode)).to.equal('TEST_VALUE');
+    expect(printNode(testValue.astNode)).to.equal('TEST_VALUE');
 
-    expect(print(testInterface.getFields().interfaceField.astNode)).to.equal(
+    expect(
+      printNode(testInterface.getFields().interfaceField.astNode),
+    ).to.equal('interfaceField: String');
+    expect(printNode(testType.getFields().interfaceField.astNode)).to.equal(
       'interfaceField: String',
     );
-    expect(print(testType.getFields().interfaceField.astNode)).to.equal(
-      'interfaceField: String',
-    );
-    expect(print(testDirective.args[0].astNode)).to.equal('arg: Int');
+    expect(printNode(testDirective.args[0].astNode)).to.equal('arg: Int');
   });
 
   it('builds types with deprecated fields/values', () => {
@@ -1089,8 +1094,7 @@ describe('extendSchema', () => {
     `;
 
     expect(() => extendTestSchema(sdl)).to.throw(
-      'Directive "include" already exists in the schema. It cannot be ' +
-        'redefined.',
+      'Directive "include" already exists in the schema. It cannot be redefined.',
     );
   });
 
@@ -1101,8 +1105,7 @@ describe('extendSchema', () => {
       }
     `;
     expect(() => extendTestSchema(sdl)).to.throw(
-      'Enum value "SomeEnum.ONE" already exists in the schema. It cannot ' +
-        'also be defined in this type extension.',
+      'Enum value "SomeEnum.ONE" already exists in the schema. It cannot also be defined in this type extension.',
     );
   });
 
@@ -1165,14 +1168,15 @@ describe('extendSchema', () => {
       });
       expect(schema.getQueryType()).to.equal(undefined);
 
-      const ast = parse(`
+      const extensionSDL = dedent`
         schema @foo {
           query: Foo
-        }
-      `);
-      schema = extendSchema(schema, ast);
+        }`;
+      schema = extendSchema(schema, parse(extensionSDL));
+
       const queryType = schema.getQueryType();
       expect(queryType).to.include({ name: 'Foo' });
+      expect(printNode(schema.astNode)).to.equal(extensionSDL);
     });
 
     it('adds new root types via schema extension', () => {

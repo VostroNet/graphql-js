@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2015-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -546,7 +546,7 @@ describe('Execute: Handles execution of abstract types with promises', () => {
   it('resolveType can be caught', async () => {
     const PetType = new GraphQLInterfaceType({
       name: 'Pet',
-      resolveType: () => Promise.reject('We are testing this error'),
+      resolveType: () => Promise.reject(new Error('We are testing this error')),
       fields: {
         name: { type: GraphQLString },
       },

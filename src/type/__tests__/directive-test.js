@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2015-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -58,7 +58,7 @@ describe('Type System: Directive', () => {
     });
   });
 
-  it('can be stringified and JSON.stringified', () => {
+  it('can be stringified, JSON.stringified and Object.toStringified', () => {
     const directive = new GraphQLDirective({
       name: 'Foo',
       locations: ['QUERY'],
@@ -66,16 +66,19 @@ describe('Type System: Directive', () => {
 
     expect(String(directive)).to.equal('@Foo');
     expect(JSON.stringify(directive)).to.equal('"@Foo"');
+    expect(Object.prototype.toString.call(directive)).to.equal(
+      '[object GraphQLDirective]',
+    );
   });
 
-  it('reject an unnamed directive', () => {
+  it('rejects an unnamed directive', () => {
     // $DisableFlowOnNegativeTest
     expect(() => new GraphQLDirective({ locations: ['Query'] })).to.throw(
       'Directive must be named.',
     );
   });
 
-  it('reject directive incorrectly typed args', () => {
+  it('rejects a directive with incorrectly typed args', () => {
     expect(
       () =>
         new GraphQLDirective({
@@ -87,14 +90,14 @@ describe('Type System: Directive', () => {
     ).to.throw('@Foo args must be an object with argument names as keys.');
   });
 
-  it('reject an directive with undefined locations', () => {
+  it('rejects a directive with undefined locations', () => {
     // $DisableFlowOnNegativeTest
     expect(() => new GraphQLDirective({ name: 'Foo' })).to.throw(
       '@Foo locations must be an Array.',
     );
   });
 
-  it('reject an directive with incorrectly typed locations', () => {
+  it('rejects a directive with incorrectly typed locations', () => {
     // $DisableFlowOnNegativeTest
     expect(() => new GraphQLDirective({ name: 'Foo', locations: {} })).to.throw(
       '@Foo locations must be an Array.',
