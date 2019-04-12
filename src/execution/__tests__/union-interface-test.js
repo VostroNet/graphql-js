@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2015-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -250,7 +250,7 @@ describe('Execute: Union and intersection types', () => {
     });
   });
 
-  it('executes union types with inline fragments', () => {
+  it('executes interface types with inline fragments', () => {
     // This is the valid version of the query in the above test.
     const ast = parse(`
       {

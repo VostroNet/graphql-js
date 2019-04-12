@@ -1,10 +1,10 @@
 /**
- * Copyright (c) 2017-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  *
- * @noflow
+ * @flow strict
  */
 
 import { expect } from 'chai';
@@ -49,6 +49,7 @@ describe('eventEmitterAsyncIterator', () => {
     const i5 = iterator.next().then(x => x);
 
     // Terminate emitter
+    // $FlowFixMe
     await iterator.return();
 
     // Publish is not caught after terminate

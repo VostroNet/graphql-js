@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2018-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -54,6 +54,21 @@ describe('inspect', () => {
     expect(inspect([null])).to.equal('[null]');
     expect(inspect([1, NaN])).to.equal('[1, NaN]');
     expect(inspect([['a', 'b'], 'c'])).to.equal('[["a", "b"], "c"]');
+
+    expect(inspect([[[]]])).to.equal('[[[]]]');
+    expect(inspect([[['a']]])).to.equal('[[[Array]]]');
+
+    expect(inspect([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])).to.equal(
+      '[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]',
+    );
+
+    expect(inspect([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])).to.equal(
+      '[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, ... 1 more item]',
+    );
+
+    expect(inspect([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])).to.equal(
+      '[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, ... 2 more items]',
+    );
   });
 
   it('object', () => {
@@ -61,6 +76,9 @@ describe('inspect', () => {
     expect(inspect({ a: 1 })).to.equal('{ a: 1 }');
     expect(inspect({ a: 1, b: 2 })).to.equal('{ a: 1, b: 2 }');
     expect(inspect({ array: [null, 0] })).to.equal('{ array: [null, 0] }');
+
+    expect(inspect({ a: { b: {} } })).to.equal('{ a: { b: {} } }');
+    expect(inspect({ a: { b: { c: 1 } } })).to.equal('{ a: { b: [Object] } }');
 
     const map = Object.create(null);
     map['a'] = true;
@@ -76,6 +94,16 @@ describe('inspect', () => {
     };
 
     expect(inspect(object)).to.equal('<custom inspect>');
+  });
+
+  it('custom inspect that return `this` should work', () => {
+    const object = {
+      inspect() {
+        return this;
+      },
+    };
+
+    expect(inspect(object)).to.equal('{ inspect: [function inspect] }');
   });
 
   it('custom symbol inspect is take precedence', () => {
@@ -112,5 +140,51 @@ describe('inspect', () => {
     };
 
     expect(inspect(object)).to.equal('Hello World!');
+  });
+
+  it('detect circular objects', () => {
+    const obj = {};
+    obj.self = obj;
+    obj.deepSelf = { self: obj };
+
+    expect(inspect(obj)).to.equal(
+      '{ self: [Circular], deepSelf: { self: [Circular] } }',
+    );
+
+    const array = [];
+    array[0] = array;
+    array[1] = [array];
+
+    expect(inspect(array)).to.equal('[[Circular], [[Circular]]]');
+
+    const mixed = { array: [] };
+    mixed.array[0] = mixed;
+
+    expect(inspect(mixed)).to.equal('{ array: [[Circular]] }');
+
+    const customA = {
+      inspect: () => customB,
+    };
+
+    const customB = {
+      inspect: () => customA,
+    };
+
+    expect(inspect(customA)).to.equal('[Circular]');
+  });
+
+  it('Use class names for the shortform of an object', () => {
+    class Foo {
+      foo: string;
+
+      constructor() {
+        this.foo = 'bar';
+      }
+    }
+
+    expect(inspect([[new Foo()]])).to.equal('[[[Foo]]]');
+
+    (Foo.prototype: any)[Symbol.toStringTag] = 'Bar';
+    expect(inspect([[new Foo()]])).to.equal('[[[Bar]]]');
   });
 });

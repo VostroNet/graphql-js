@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2015-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -244,8 +244,7 @@ describe('Validate: Fields on correct type', () => {
 
     it('Works with no small numbers of type suggestions', () => {
       expect(undefinedFieldMessage('f', 'T', ['A', 'B'], [])).to.equal(
-        'Cannot query field "f" on type "T". ' +
-          'Did you mean to use an inline fragment on "A" or "B"?',
+        'Cannot query field "f" on type "T". Did you mean to use an inline fragment on "A" or "B"?',
       );
     });
 
@@ -257,8 +256,7 @@ describe('Validate: Fields on correct type', () => {
 
     it('Only shows one set of suggestions at a time, preferring types', () => {
       expect(undefinedFieldMessage('f', 'T', ['A', 'B'], ['z', 'y'])).to.equal(
-        'Cannot query field "f" on type "T". ' +
-          'Did you mean to use an inline fragment on "A" or "B"?',
+        'Cannot query field "f" on type "T". Did you mean to use an inline fragment on "A" or "B"?',
       );
     });
 
@@ -266,8 +264,7 @@ describe('Validate: Fields on correct type', () => {
       expect(
         undefinedFieldMessage('f', 'T', ['A', 'B', 'C', 'D', 'E', 'F'], []),
       ).to.equal(
-        'Cannot query field "f" on type "T". ' +
-          'Did you mean to use an inline fragment on "A", "B", "C", "D", or "E"?',
+        'Cannot query field "f" on type "T". Did you mean to use an inline fragment on "A", "B", "C", "D", or "E"?',
       );
     });
 
@@ -275,8 +272,7 @@ describe('Validate: Fields on correct type', () => {
       expect(
         undefinedFieldMessage('f', 'T', [], ['z', 'y', 'x', 'w', 'v', 'u']),
       ).to.equal(
-        'Cannot query field "f" on type "T". ' +
-          'Did you mean "z", "y", "x", "w", or "v"?',
+        'Cannot query field "f" on type "T". Did you mean "z", "y", "x", "w", or "v"?',
       );
     });
   });
