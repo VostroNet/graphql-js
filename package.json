@@ -1,6 +1,6 @@
 {
   "name": "graphql",
-  "version": "14.1.1",
+  "version": "14.2.1",
   "description": "A Query Language and Runtime which can target any service.",
   "license": "MIT",
   "main": "index",
@@ -31,7 +31,7 @@
     "benchmark": "node ./resources/benchmark.js",
     "prettier": "prettier --write --list-different 'src/**/*.js'",
     "check": "flow check",
-    "check-cover": "for file in {src/*.js,src/**/*.js}; do echo $file; flow coverage $file; done",
+    "check-cover": "flow batch-coverage --quiet --strip-root --show-all src/ && flow stop --quiet",
     "build": "npm run build:clean && npm run build:cp && npm run build:package-json && npm run build:cjs && npm run build:mjs && npm run build:flow",
     "build:clean": "rm -rf ./dist && mkdir ./dist",
     "build:cp": "cp README.md LICENSE ./dist",
@@ -48,22 +48,22 @@
     "iterall": "^1.2.2"
   },
   "devDependencies": {
-    "@babel/cli": "7.2.3",
-    "@babel/core": "7.3.3",
-    "@babel/plugin-transform-flow-strip-types": "7.2.3",
-    "@babel/polyfill": "7.2.5",
-    "@babel/preset-env": "7.3.1",
-    "@babel/register": "7.0.0",
+    "@babel/cli": "7.4.3",
+    "@babel/core": "7.4.3",
+    "@babel/plugin-transform-flow-strip-types": "7.4.0",
+    "@babel/polyfill": "7.4.3",
+    "@babel/preset-env": "7.4.3",
+    "@babel/register": "7.4.0",
     "babel-eslint": "10.0.1",
     "benchmark": "2.1.4",
     "chai": "4.2.0",
-    "eslint": "5.14.1",
-    "eslint-plugin-flowtype": "3.4.2",
+    "eslint": "5.16.0",
+    "eslint-plugin-flowtype": "3.6.1",
     "eslint-plugin-prettier": "3.0.1",
-    "flow-bin": "0.93.0",
-    "mocha": "6.0.1",
+    "flow-bin": "0.96.0",
+    "mocha": "6.1.2",
     "nyc": "13.3.0",
     "prettier": "1.16.4",
-    "sane": "4.0.2"
+    "sane": "4.1.0"
   }
 }

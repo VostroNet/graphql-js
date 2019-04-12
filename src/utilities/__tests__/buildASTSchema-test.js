@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2015-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -25,6 +25,11 @@ import {
   assertScalarType,
   graphqlSync,
   validateSchema,
+  GraphQLID,
+  GraphQLInt,
+  GraphQLFloat,
+  GraphQLString,
+  GraphQLBoolean,
   GraphQLSkipDirective,
   GraphQLIncludeDirective,
   GraphQLDeprecatedDirective,
@@ -94,6 +99,26 @@ describe('Schema Builder', () => {
       }
     `;
     expect(cycleSDL(sdl)).to.equal(sdl);
+
+    const schema = buildSchema(sdl);
+    // Built-ins are used
+    expect(schema.getType('Int')).to.equal(GraphQLInt);
+    expect(schema.getType('Float')).to.equal(GraphQLFloat);
+    expect(schema.getType('String')).to.equal(GraphQLString);
+    expect(schema.getType('Boolean')).to.equal(GraphQLBoolean);
+    expect(schema.getType('ID')).to.equal(GraphQLID);
+  });
+
+  it('include standard type only if it is used', () => {
+    const schema = buildSchema(`
+      type Query {
+        str: String
+      }
+    `);
+
+    expect(schema.getType('Int')).to.equal(undefined);
+    expect(schema.getType('Float')).to.equal(undefined);
+    expect(schema.getType('ID')).to.equal(undefined);
   });
 
   it('With directives', () => {

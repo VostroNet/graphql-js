@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2015-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -19,7 +19,7 @@ import type {
 } from './type/definition';
 import type { GraphQLSchema } from './type/schema';
 import type { ExecutionResult } from './execution/execute';
-import type { MaybePromise } from './jsutils/MaybePromise';
+import type { PromiseOrValue } from './jsutils/PromiseOrValue';
 
 /**
  * This is the primary entry point function for fulfilling GraphQL operations
@@ -55,6 +55,10 @@ import type { MaybePromise } from './jsutils/MaybePromise';
  *    A resolver function to use when one is not provided by the schema.
  *    If not provided, the default field resolver is used (which looks for a
  *    value or method on the source value with the field's name).
+ * typeResolver:
+ *    A type resolver function to use when none is provided by the schema.
+ *    If not provided, the default type resolver is used (which looks for a
+ *    `__typename` field or alternatively calls the `isTypeOf` method).
  */
 export type GraphQLArgs = {|
   schema: GraphQLSchema,
@@ -188,7 +192,7 @@ function graphqlImpl(
   operationName,
   fieldResolver,
   typeResolver,
-): MaybePromise<ExecutionResult> {
+): PromiseOrValue<ExecutionResult> {
   // Validate Schema
   const schemaValidationErrors = validateSchema(schema);
   if (schemaValidationErrors.length > 0) {

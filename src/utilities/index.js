@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2015-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -103,6 +103,10 @@ export { concatAST } from './concatAST';
 
 // Separates an AST into an AST per Operation.
 export { separateOperations } from './separateOperations';
+
+// Strips characters that are not significant to the validity or execution
+// of a GraphQL document.
+export { stripIgnoredCharacters } from './stripIgnoredCharacters';
 
 // Comparators for types
 export {

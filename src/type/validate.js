@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2015-present, Facebook, Inc.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -101,7 +101,7 @@ class SchemaValidationContext {
     message: string,
     nodes?: $ReadOnlyArray<?ASTNode> | ?ASTNode,
   ): void {
-    const _nodes = (Array.isArray(nodes) ? nodes : [nodes]).filter(Boolean);
+    const _nodes = Array.isArray(nodes) ? nodes.filter(Boolean) : nodes;
     this.addError(new GraphQLError(message, _nodes));
   }
 
