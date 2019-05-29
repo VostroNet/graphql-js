@@ -8,8 +8,8 @@
  */
 
 import inspect from '../jsutils/inspect';
-import type { ASTNode, ASTKindToNode } from './ast';
-import type { TypeInfo } from '../utilities/TypeInfo';
+import { type ASTNode, type ASTKindToNode } from './ast';
+import { type TypeInfo } from '../utilities/TypeInfo';
 
 /**
  * A visitor is provided to visit, it contains the collection of
@@ -136,7 +136,7 @@ export const QueryDocumentKeys = {
   InputObjectTypeExtension: ['name', 'directives', 'fields'],
 };
 
-export const BREAK = {};
+export const BREAK = Object.freeze({});
 
 /**
  * visit() will walk through an AST using a depth first traversal, calling

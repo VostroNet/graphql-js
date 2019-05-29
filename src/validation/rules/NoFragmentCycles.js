@@ -7,10 +7,10 @@
  * @flow strict
  */
 
-import type { ASTValidationContext } from '../ValidationContext';
+import { type ASTValidationContext } from '../ValidationContext';
 import { GraphQLError } from '../../error/GraphQLError';
-import type { FragmentDefinitionNode } from '../../language/ast';
-import type { ASTVisitor } from '../../language/visitor';
+import { type FragmentDefinitionNode } from '../../language/ast';
+import { type ASTVisitor } from '../../language/visitor';
 
 export function cycleErrorMessage(
   fragName: string,
@@ -57,8 +57,7 @@ export function NoFragmentCycles(context: ASTValidationContext): ASTVisitor {
 
     spreadPathIndexByName[fragmentName] = spreadPath.length;
 
-    for (let i = 0; i < spreadNodes.length; i++) {
-      const spreadNode = spreadNodes[i];
+    for (const spreadNode of spreadNodes) {
       const spreadName = spreadNode.name.value;
       const cycleIndex = spreadPathIndexByName[spreadName];
 

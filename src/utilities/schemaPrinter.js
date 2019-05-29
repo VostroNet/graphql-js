@@ -13,23 +13,21 @@ import inspect from '../jsutils/inspect';
 import { astFromValue } from '../utilities/astFromValue';
 import { print } from '../language/printer';
 import { printBlockString } from '../language/blockString';
-import type { GraphQLSchema } from '../type/schema';
+import { type GraphQLSchema } from '../type/schema';
 import {
+  type GraphQLNamedType,
+  type GraphQLScalarType,
+  type GraphQLEnumType,
+  type GraphQLObjectType,
+  type GraphQLInterfaceType,
+  type GraphQLUnionType,
+  type GraphQLInputObjectType,
   isScalarType,
   isObjectType,
   isInterfaceType,
   isUnionType,
   isEnumType,
   isInputObjectType,
-} from '../type/definition';
-import type {
-  GraphQLNamedType,
-  GraphQLScalarType,
-  GraphQLEnumType,
-  GraphQLObjectType,
-  GraphQLInterfaceType,
-  GraphQLUnionType,
-  GraphQLInputObjectType,
 } from '../type/definition';
 import { GraphQLString, isSpecifiedScalarType } from '../type/scalars';
 import {
@@ -341,11 +339,11 @@ function printDescription(
 
 function printDescriptionWithComments(lines, indentation, firstInBlock) {
   let description = indentation && !firstInBlock ? '\n' : '';
-  for (let i = 0; i < lines.length; i++) {
-    if (lines[i] === '') {
+  for (const line of lines) {
+    if (line === '') {
       description += indentation + '#\n';
     } else {
-      description += indentation + '# ' + lines[i] + '\n';
+      description += indentation + '# ' + line + '\n';
     }
   }
   return description;

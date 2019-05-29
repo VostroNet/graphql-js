@@ -13,10 +13,10 @@ import objectValues from '../polyfills/objectValues';
 import inspect from '../jsutils/inspect';
 import isNullish from '../jsutils/isNullish';
 import isInvalid from '../jsutils/isInvalid';
-import type { ValueNode } from '../language/ast';
+import { type ValueNode } from '../language/ast';
 import { Kind } from '../language/kinds';
-import type { GraphQLInputType } from '../type/definition';
 import {
+  type GraphQLInputType,
   isLeafType,
   isEnumType,
   isInputObjectType,
@@ -84,9 +84,8 @@ export function astFromValue(value: mixed, type: GraphQLInputType): ?ValueNode {
     if (value === null || typeof value !== 'object') {
       return null;
     }
-    const fields = objectValues(type.getFields());
     const fieldNodes = [];
-    for (const field of fields) {
+    for (const field of objectValues(type.getFields())) {
       const fieldValue = astFromValue(value[field.name], field.type);
       if (fieldValue) {
         fieldNodes.push({

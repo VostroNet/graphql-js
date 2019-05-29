@@ -19,102 +19,68 @@ import {
   DangerousChangeType,
   findBreakingChanges,
   findDangerousChanges,
-  findFieldsThatChangedTypeOnObjectOrInterfaceTypes,
-  findFieldsThatChangedTypeOnInputObjectTypes,
-  findRemovedTypes,
-  findTypesRemovedFromUnions,
-  findTypesAddedToUnions,
-  findTypesThatChangedKind,
-  findValuesRemovedFromEnums,
-  findValuesAddedToEnums,
-  findArgChanges,
-  findInterfacesRemovedFromObjectTypes,
-  findInterfacesAddedToObjectTypes,
-  findRemovedDirectives,
-  findRemovedDirectiveArgs,
-  findAddedNonNullDirectiveArgs,
-  findRemovedLocationsForDirective,
-  findRemovedDirectiveLocations,
 } from '../findBreakingChanges';
 
 import {
   GraphQLSkipDirective,
   GraphQLIncludeDirective,
   GraphQLDeprecatedDirective,
-  GraphQLDirective,
 } from '../../type/directives';
-
-import { DirectiveLocation } from '../../language/directiveLocation';
 
 describe('findBreakingChanges', () => {
   it('should detect if a type was removed or not', () => {
     const oldSchema = buildSchema(`
-      type Type1 {
-        field1: String
-      }
-
-      type Type2 {
-        field1: String
-      }
-
-      type Query {
-        field1: String
-      }
+      type Type1
+      type Type2
     `);
 
     const newSchema = buildSchema(`
-      type Type2 {
-        field1: String
-      }
-
-      type Query {
-        field1: String
-      }
+      type Type2
     `);
-    expect(findRemovedTypes(oldSchema, newSchema)).to.deep.equal([
+    expect(findBreakingChanges(oldSchema, newSchema)).to.deep.equal([
       {
         type: BreakingChangeType.TYPE_REMOVED,
         description: 'Type1 was removed.',
       },
     ]);
-    expect(findRemovedTypes(oldSchema, oldSchema)).to.deep.equal([]);
+    expect(findBreakingChanges(oldSchema, oldSchema)).to.deep.equal([]);
   });
 
   it('should detect if a type changed its type', () => {
     const oldSchema = buildSchema(`
-      interface Type1 {
-        field1: String
-      }
-
-      type Query {
-        field1: String
-      }
+      scalar TypeWasScalarBecomesEnum
+      interface TypeWasInterfaceBecomesUnion
+      type TypeWasObjectBecomesInputObject
     `);
 
     const newSchema = buildSchema(`
-      type ObjectType {
-        field1: String
-      }
-
-      union Type1 = ObjectType
-
-      type Query {
-        field1: String
-      }
+      enum TypeWasScalarBecomesEnum
+      union TypeWasInterfaceBecomesUnion
+      input TypeWasObjectBecomesInputObject
     `);
-    expect(findTypesThatChangedKind(oldSchema, newSchema)).to.deep.equal([
+    expect(findBreakingChanges(oldSchema, newSchema)).to.deep.equal([
       {
         type: BreakingChangeType.TYPE_CHANGED_KIND,
-        description: 'Type1 changed from an Interface type to a Union type.',
+        description:
+          'TypeWasScalarBecomesEnum changed from a Scalar type to an Enum type.',
+      },
+      {
+        type: BreakingChangeType.TYPE_CHANGED_KIND,
+        description:
+          'TypeWasInterfaceBecomesUnion changed from an Interface type to a Union type.',
+      },
+      {
+        type: BreakingChangeType.TYPE_CHANGED_KIND,
+        description:
+          'TypeWasObjectBecomesInputObject changed from an Object type to an Input type.',
       },
     ]);
   });
 
   it('should detect if a field on a type was deleted or changed type', () => {
     const oldSchema = buildSchema(`
-      type TypeA {
-        field1: String
-      }
+      type TypeA
+      type TypeB
 
       interface Type1 {
         field1: TypeA
@@ -135,20 +101,11 @@ describe('findBreakingChanges', () => {
         field17: [Int]
         field18: [[Int!]!]
       }
-
-      type Query {
-        field1: String
-      }
     `);
 
     const newSchema = buildSchema(`
-      type TypeA {
-        field1: String
-      }
-
-      type TypeB {
-        field1: String
-      }
+      type TypeA
+      type TypeB
 
       interface Type1 {
         field1: TypeA
@@ -169,16 +126,9 @@ describe('findBreakingChanges', () => {
         field17: [Int]!
         field18: [[Int!]]
       }
-
-      type Query {
-        field1: String
-      }
     `);
 
-    const changes = findFieldsThatChangedTypeOnObjectOrInterfaceTypes(
-      oldSchema,
-      newSchema,
-    );
+    const changes = findBreakingChanges(oldSchema, newSchema);
     expect(changes).to.deep.equal([
       {
         type: BreakingChangeType.FIELD_REMOVED,
@@ -254,10 +204,6 @@ describe('findBreakingChanges', () => {
         field14: [[Int]!]
         field15: [[Int]!]
       }
-
-      type Query {
-        field1: String
-      }
     `);
 
     const newSchema = buildSchema(`
@@ -277,24 +223,16 @@ describe('findBreakingChanges', () => {
         field14: [[Int]]
         field15: [[Int!]!]
       }
-
-      type Query {
-        field1: String
-      }
     `);
 
-    const { breakingChanges } = findFieldsThatChangedTypeOnInputObjectTypes(
-      oldSchema,
-      newSchema,
-    );
-    expect(breakingChanges).to.deep.equal([
-      {
-        type: BreakingChangeType.FIELD_CHANGED_KIND,
-        description: 'InputType1.field1 changed type from String to Int.',
-      },
+    expect(findBreakingChanges(oldSchema, newSchema)).to.deep.equal([
       {
         type: BreakingChangeType.FIELD_REMOVED,
         description: 'InputType1.field2 was removed.',
+      },
+      {
+        type: BreakingChangeType.FIELD_CHANGED_KIND,
+        description: 'InputType1.field1 changed type from String to Int.',
       },
       {
         type: BreakingChangeType.FIELD_CHANGED_KIND,
@@ -341,10 +279,6 @@ describe('findBreakingChanges', () => {
       input InputType1 {
         field1: String
       }
-
-      type Query {
-        field1: String
-      }
     `);
 
     const newSchema = buildSchema(`
@@ -354,17 +288,9 @@ describe('findBreakingChanges', () => {
         optionalField1: Boolean
         optionalField2: Boolean! = false
       }
-
-      type Query {
-        field1: String
-      }
     `);
 
-    const { breakingChanges } = findFieldsThatChangedTypeOnInputObjectTypes(
-      oldSchema,
-      newSchema,
-    );
-    expect(breakingChanges).to.deep.equal([
+    expect(findBreakingChanges(oldSchema, newSchema)).to.deep.equal([
       {
         type: BreakingChangeType.REQUIRED_INPUT_FIELD_ADDED,
         description:
@@ -375,37 +301,21 @@ describe('findBreakingChanges', () => {
 
   it('should detect if a type was removed from a union type', () => {
     const oldSchema = buildSchema(`
-      type Type1 {
-        field1: String
-      }
-
-      type Type2 {
-        field1: String
-      }
+      type Type1
+      type Type2
+      type Type3
 
       union UnionType1 = Type1 | Type2
-
-      type Query {
-        field1: String
-      }
     `);
     const newSchema = buildSchema(`
-      type Type1 {
-        field1: String
-      }
-
-      type Type3 {
-        field1: String
-      }
+      type Type1
+      type Type2
+      type Type3
 
       union UnionType1 = Type1 | Type3
-
-      type Query {
-        field1: String
-      }
     `);
 
-    expect(findTypesRemovedFromUnions(oldSchema, newSchema)).to.deep.equal([
+    expect(findBreakingChanges(oldSchema, newSchema)).to.deep.equal([
       {
         type: BreakingChangeType.TYPE_REMOVED_FROM_UNION,
         description: 'Type2 was removed from union type UnionType1.',
@@ -420,10 +330,6 @@ describe('findBreakingChanges', () => {
         VALUE1
         VALUE2
       }
-
-      type Query {
-        field1: String
-      }
     `);
 
     const newSchema = buildSchema(`
@@ -432,13 +338,9 @@ describe('findBreakingChanges', () => {
         VALUE2
         VALUE3
       }
-
-      type Query {
-        field1: String
-      }
     `);
 
-    expect(findValuesRemovedFromEnums(oldSchema, newSchema)).to.deep.equal([
+    expect(findBreakingChanges(oldSchema, newSchema)).to.deep.equal([
       {
         type: BreakingChangeType.VALUE_REMOVED_FROM_ENUM,
         description: 'VALUE1 was removed from enum type EnumType1.',
@@ -448,20 +350,12 @@ describe('findBreakingChanges', () => {
 
   it('should detect if a field argument was removed', () => {
     const oldSchema = buildSchema(`
-      input InputType1 {
-        field1: String
-      }
-
       interface Interface1 {
-        field1(arg1: Boolean, objectArg: InputType1): String
+        field1(arg1: Boolean, objectArg: String): String
       }
 
       type Type1 {
         field1(name: String): String
-      }
-
-      type Query {
-        field1: String
       }
     `);
 
@@ -473,25 +367,20 @@ describe('findBreakingChanges', () => {
       type Type1 {
         field1: String
       }
-
-      type Query {
-        field1: String
-      }
     `);
 
-    const { breakingChanges } = findArgChanges(oldSchema, newSchema);
-    expect(breakingChanges).to.deep.equal([
+    expect(findBreakingChanges(oldSchema, newSchema)).to.deep.equal([
       {
         type: BreakingChangeType.ARG_REMOVED,
-        description: 'Interface1.field1 arg arg1 was removed',
+        description: 'Interface1.field1 arg arg1 was removed.',
       },
       {
         type: BreakingChangeType.ARG_REMOVED,
-        description: 'Interface1.field1 arg objectArg was removed',
+        description: 'Interface1.field1 arg objectArg was removed.',
       },
       {
         type: BreakingChangeType.ARG_REMOVED,
-        description: 'Type1.field1 arg name was removed',
+        description: 'Type1.field1 arg name was removed.',
       },
     ]);
   });
@@ -517,10 +406,6 @@ describe('findBreakingChanges', () => {
           arg15: [[Int]!]
         ): String
       }
-
-      type Query {
-        field1: String
-      }
     `);
 
     const newSchema = buildSchema(`
@@ -543,73 +428,68 @@ describe('findBreakingChanges', () => {
           arg15: [[Int!]!]
          ): String
       }
-
-      type Query {
-        field1: String
-      }
     `);
 
-    const { breakingChanges } = findArgChanges(oldSchema, newSchema);
-    expect(breakingChanges).to.deep.equal([
+    expect(findBreakingChanges(oldSchema, newSchema)).to.deep.equal([
       {
         type: BreakingChangeType.ARG_CHANGED_KIND,
         description:
-          'Type1.field1 arg arg1 has changed type from String to Int',
+          'Type1.field1 arg arg1 has changed type from String to Int.',
       },
       {
         type: BreakingChangeType.ARG_CHANGED_KIND,
         description:
-          'Type1.field1 arg arg2 has changed type from String to [String]',
+          'Type1.field1 arg arg2 has changed type from String to [String].',
       },
       {
         type: BreakingChangeType.ARG_CHANGED_KIND,
         description:
-          'Type1.field1 arg arg3 has changed type from [String] to String',
+          'Type1.field1 arg arg3 has changed type from [String] to String.',
       },
       {
         type: BreakingChangeType.ARG_CHANGED_KIND,
         description:
-          'Type1.field1 arg arg4 has changed type from String to String!',
+          'Type1.field1 arg arg4 has changed type from String to String!.',
       },
       {
         type: BreakingChangeType.ARG_CHANGED_KIND,
         description:
-          'Type1.field1 arg arg5 has changed type from String! to Int',
+          'Type1.field1 arg arg5 has changed type from String! to Int.',
       },
       {
         type: BreakingChangeType.ARG_CHANGED_KIND,
         description:
-          'Type1.field1 arg arg6 has changed type from String! to Int!',
+          'Type1.field1 arg arg6 has changed type from String! to Int!.',
       },
       {
         type: BreakingChangeType.ARG_CHANGED_KIND,
         description:
-          'Type1.field1 arg arg8 has changed type from Int to [Int]!',
+          'Type1.field1 arg arg8 has changed type from Int to [Int]!.',
       },
       {
         type: BreakingChangeType.ARG_CHANGED_KIND,
         description:
-          'Type1.field1 arg arg9 has changed type from [Int] to [Int!]',
+          'Type1.field1 arg arg9 has changed type from [Int] to [Int!].',
       },
       {
         type: BreakingChangeType.ARG_CHANGED_KIND,
         description:
-          'Type1.field1 arg arg11 has changed type from [Int] to [[Int]]',
+          'Type1.field1 arg arg11 has changed type from [Int] to [[Int]].',
       },
       {
         type: BreakingChangeType.ARG_CHANGED_KIND,
         description:
-          'Type1.field1 arg arg12 has changed type from [[Int]] to [Int]',
+          'Type1.field1 arg arg12 has changed type from [[Int]] to [Int].',
       },
       {
         type: BreakingChangeType.ARG_CHANGED_KIND,
         description:
-          'Type1.field1 arg arg13 has changed type from Int! to [Int]!',
+          'Type1.field1 arg arg13 has changed type from Int! to [Int]!.',
       },
       {
         type: BreakingChangeType.ARG_CHANGED_KIND,
         description:
-          'Type1.field1 arg arg15 has changed type from [[Int]!] to [[Int!]!]',
+          'Type1.field1 arg arg15 has changed type from [[Int]!] to [[Int!]!].',
       },
     ]);
   });
@@ -618,10 +498,6 @@ describe('findBreakingChanges', () => {
     const oldSchema = buildSchema(`
       type Type1 {
         field1(arg1: String): String
-      }
-
-      type Query {
-        field1: String
       }
     `);
 
@@ -634,17 +510,12 @@ describe('findBreakingChanges', () => {
           newOptionalArg2: Int! = 0
         ): String
       }
-
-      type Query {
-        field1: String
-      }
     `);
 
-    const { breakingChanges } = findArgChanges(oldSchema, newSchema);
-    expect(breakingChanges).to.deep.equal([
+    expect(findBreakingChanges(oldSchema, newSchema)).to.deep.equal([
       {
         type: BreakingChangeType.REQUIRED_ARG_ADDED,
-        description: 'A required arg newRequiredArg on Type1.field1 was added',
+        description: 'A required arg newRequiredArg on Type1.field1 was added.',
       },
     ]);
   });
@@ -658,10 +529,6 @@ describe('findBreakingChanges', () => {
       type Type1 {
         field1(arg1: Int!, arg2: InputType1): Int
       }
-
-      type Query {
-        field1: String
-      }
     `);
 
     const newSchema = buildSchema(`
@@ -672,14 +539,9 @@ describe('findBreakingChanges', () => {
       type Type1 {
         field1(arg1: Int!, arg2: InputType1): Int
       }
-
-      type Query {
-        field1: String
-      }
     `);
 
-    const { breakingChanges } = findArgChanges(oldSchema, newSchema);
-    expect(breakingChanges).to.deep.equal([]);
+    expect(findBreakingChanges(oldSchema, newSchema)).to.deep.equal([]);
   });
 
   it('should consider args that move away from NonNull as non-breaking', () => {
@@ -687,58 +549,54 @@ describe('findBreakingChanges', () => {
       type Type1 {
         field1(name: String!): String
       }
-
-      type Query {
-        field1: String
-      }
     `);
 
     const newSchema = buildSchema(`
       type Type1 {
         field1(name: String): String
       }
-
-      type Query {
-        field1: String
-      }
     `);
 
-    const { breakingChanges } = findArgChanges(oldSchema, newSchema);
-    expect(breakingChanges).to.deep.equal([]);
+    expect(findBreakingChanges(oldSchema, newSchema)).to.deep.equal([]);
   });
 
   it('should detect interfaces removed from types', () => {
     const oldSchema = buildSchema(`
-      interface Interface1 {
-        field1: String
-      }
+      interface Interface1
 
-      type Type1 implements Interface1 {
-        field1: String
-      }
-
-      type Query {
-        field1: String
-      }
+      type Type1 implements Interface1
     `);
 
     const newSchema = buildSchema(`
-      type Type1 {
-        field1: String
-      }
+      interface Interface1
 
-      type Query {
-        field1: String
-      }
+      type Type1
     `);
 
-    const changes = findInterfacesRemovedFromObjectTypes(oldSchema, newSchema);
-    expect(changes).to.deep.equal([
+    expect(findBreakingChanges(oldSchema, newSchema)).to.deep.equal([
       {
-        description: 'Type1 no longer implements interface Interface1.',
         type: BreakingChangeType.INTERFACE_REMOVED_FROM_OBJECT,
+        description: 'Type1 no longer implements interface Interface1.',
       },
     ]);
+  });
+
+  it('should ignore changes in order of interfaces', () => {
+    const oldSchema = buildSchema(`
+      interface FirstInterface
+      interface SecondInterface
+
+      type Type1 implements FirstInterface & SecondInterface
+    `);
+
+    const newSchema = buildSchema(`
+      interface FirstInterface
+      interface SecondInterface
+
+      type Type1 implements SecondInterface & FirstInterface
+    `);
+
+    expect(findBreakingChanges(oldSchema, newSchema)).to.deep.equal([]);
   });
 
   it('should detect all breaking changes', () => {
@@ -761,39 +619,20 @@ describe('findBreakingChanges', () => {
         VALUE2
       }
 
-      interface Interface1 {
-        field1: String
-      }
+      interface Interface1
+      type TypeThatLooseInterface1 implements Interface1
 
-      type TypeThatGainsInterface1 implements Interface1 {
-        field1: String
-      }
-
-      type TypeInUnion1 {
-        field1: String
-      }
-
-      type TypeInUnion2 {
-        field1: String
-      }
-
+      type TypeInUnion1
+      type TypeInUnion2
       union UnionTypeThatLosesAType = TypeInUnion1 | TypeInUnion2
 
-      type TypeThatChangesType {
-        field1: String
-      }
+      type TypeThatChangesType
 
-      type TypeThatGetsRemoved {
-        field1: String
-      }
+      type TypeThatGetsRemoved
 
       interface TypeThatHasBreakingFieldChanges {
         field1: String
         field2: String
-      }
-
-      type Query {
-        field1: String
       }
     `);
 
@@ -813,46 +652,48 @@ describe('findBreakingChanges', () => {
         VALUE2
       }
 
-      interface Interface1 {
-        field1: String
-      }
+      interface Interface1
+      type TypeThatLooseInterface1
 
-      type TypeInUnion1 {
-        field1: String
-      }
-
+      type TypeInUnion1
+      type TypeInUnion2
       union UnionTypeThatLosesAType = TypeInUnion1
 
-      interface TypeThatChangesType {
-        field1: String
-      }
-
-      type TypeThatGainsInterface1 {
-        field1: String
-      }
+      interface TypeThatChangesType
 
       interface TypeThatHasBreakingFieldChanges {
         field2: Boolean
       }
-
-      type Query {
-        field1: String
-      }
     `);
 
-    const changes = findBreakingChanges(oldSchema, newSchema);
-    expect(changes).to.deep.equal([
+    expect(findBreakingChanges(oldSchema, newSchema)).to.deep.equal([
       {
         type: BreakingChangeType.TYPE_REMOVED,
         description: 'Int was removed.',
       },
       {
         type: BreakingChangeType.TYPE_REMOVED,
-        description: 'TypeInUnion2 was removed.',
+        description: 'TypeThatGetsRemoved was removed.',
       },
       {
-        type: BreakingChangeType.TYPE_REMOVED,
-        description: 'TypeThatGetsRemoved was removed.',
+        type: BreakingChangeType.ARG_CHANGED_KIND,
+        description:
+          'ArgThatChanges.field1 arg id has changed type from Int to String.',
+      },
+      {
+        type: BreakingChangeType.VALUE_REMOVED_FROM_ENUM,
+        description:
+          'VALUE0 was removed from enum type EnumTypeThatLosesAValue.',
+      },
+      {
+        type: BreakingChangeType.INTERFACE_REMOVED_FROM_OBJECT,
+        description:
+          'TypeThatLooseInterface1 no longer implements interface Interface1.',
+      },
+      {
+        type: BreakingChangeType.TYPE_REMOVED_FROM_UNION,
+        description:
+          'TypeInUnion2 was removed from union type UnionTypeThatLosesAType.',
       },
       {
         type: BreakingChangeType.TYPE_CHANGED_KIND,
@@ -869,41 +710,21 @@ describe('findBreakingChanges', () => {
           'TypeThatHasBreakingFieldChanges.field2 changed type from String to Boolean.',
       },
       {
-        type: BreakingChangeType.TYPE_REMOVED_FROM_UNION,
-        description:
-          'TypeInUnion2 was removed from union type UnionTypeThatLosesAType.',
-      },
-      {
-        type: BreakingChangeType.VALUE_REMOVED_FROM_ENUM,
-        description:
-          'VALUE0 was removed from enum type EnumTypeThatLosesAValue.',
-      },
-      {
-        type: BreakingChangeType.ARG_CHANGED_KIND,
-        description:
-          'ArgThatChanges.field1 arg id has changed type from Int to String',
-      },
-      {
-        type: BreakingChangeType.INTERFACE_REMOVED_FROM_OBJECT,
-        description:
-          'TypeThatGainsInterface1 no longer implements interface Interface1.',
-      },
-      {
         type: BreakingChangeType.DIRECTIVE_REMOVED,
-        description: 'DirectiveThatIsRemoved was removed',
+        description: 'DirectiveThatIsRemoved was removed.',
       },
       {
         type: BreakingChangeType.DIRECTIVE_ARG_REMOVED,
-        description: 'arg1 was removed from DirectiveThatRemovesArg',
+        description: 'arg1 was removed from DirectiveThatRemovesArg.',
       },
       {
         type: BreakingChangeType.REQUIRED_DIRECTIVE_ARG_ADDED,
         description:
-          'A required arg arg1 on directive NonNullDirectiveAdded was added',
+          'A required arg arg1 on directive NonNullDirectiveAdded was added.',
       },
       {
         type: BreakingChangeType.DIRECTIVE_LOCATION_REMOVED,
-        description: 'QUERY was removed from DirectiveName',
+        description: 'QUERY was removed from DirectiveName.',
       },
     ]);
   });
@@ -918,10 +739,10 @@ describe('findBreakingChanges', () => {
       directive @DirectiveThatStays on FIELD_DEFINITION
     `);
 
-    expect(findRemovedDirectives(oldSchema, newSchema)).to.deep.equal([
+    expect(findBreakingChanges(oldSchema, newSchema)).to.deep.equal([
       {
         type: BreakingChangeType.DIRECTIVE_REMOVED,
-        description: `DirectiveThatIsRemoved was removed`,
+        description: 'DirectiveThatIsRemoved was removed.',
       },
     ]);
   });
@@ -933,27 +754,27 @@ describe('findBreakingChanges', () => {
       directives: [GraphQLSkipDirective, GraphQLIncludeDirective],
     });
 
-    expect(findRemovedDirectives(oldSchema, newSchema)).to.deep.equal([
+    expect(findBreakingChanges(oldSchema, newSchema)).to.deep.equal([
       {
         type: BreakingChangeType.DIRECTIVE_REMOVED,
-        description: `${GraphQLDeprecatedDirective.name} was removed`,
+        description: `${GraphQLDeprecatedDirective.name} was removed.`,
       },
     ]);
   });
 
   it('should detect if a directive argument was removed', () => {
     const oldSchema = buildSchema(`
-      directive @DirectiveWithArg(arg1: Int) on FIELD_DEFINITION
+      directive @DirectiveWithArg(arg1: String) on FIELD_DEFINITION
     `);
 
     const newSchema = buildSchema(`
       directive @DirectiveWithArg on FIELD_DEFINITION
     `);
 
-    expect(findRemovedDirectiveArgs(oldSchema, newSchema)).to.deep.equal([
+    expect(findBreakingChanges(oldSchema, newSchema)).to.deep.equal([
       {
         type: BreakingChangeType.DIRECTIVE_ARG_REMOVED,
-        description: 'arg1 was removed from DirectiveWithArg',
+        description: 'arg1 was removed from DirectiveWithArg.',
       },
     ]);
   });
@@ -971,32 +792,16 @@ describe('findBreakingChanges', () => {
       ) on FIELD_DEFINITION
     `);
 
-    expect(findAddedNonNullDirectiveArgs(oldSchema, newSchema)).to.deep.equal([
+    expect(findBreakingChanges(oldSchema, newSchema)).to.deep.equal([
       {
         type: BreakingChangeType.REQUIRED_DIRECTIVE_ARG_ADDED,
         description:
-          'A required arg newRequiredArg on directive DirectiveName was added',
+          'A required arg newRequiredArg on directive DirectiveName was added.',
       },
     ]);
   });
 
   it('should detect locations removed from a directive', () => {
-    const d1 = new GraphQLDirective({
-      name: 'Directive Name',
-      locations: [DirectiveLocation.FIELD_DEFINITION, DirectiveLocation.QUERY],
-    });
-
-    const d2 = new GraphQLDirective({
-      name: 'Directive Name',
-      locations: [DirectiveLocation.FIELD_DEFINITION],
-    });
-
-    expect(findRemovedLocationsForDirective(d1, d2)).to.deep.equal([
-      DirectiveLocation.QUERY,
-    ]);
-  });
-
-  it('should detect locations removed directives within a schema', () => {
     const oldSchema = buildSchema(`
       directive @DirectiveName on FIELD_DEFINITION | QUERY
     `);
@@ -1005,46 +810,124 @@ describe('findBreakingChanges', () => {
       directive @DirectiveName on FIELD_DEFINITION
     `);
 
-    expect(findRemovedDirectiveLocations(oldSchema, newSchema)).to.deep.equal([
+    expect(findBreakingChanges(oldSchema, newSchema)).to.deep.equal([
       {
         type: BreakingChangeType.DIRECTIVE_LOCATION_REMOVED,
-        description: 'QUERY was removed from DirectiveName',
+        description: 'QUERY was removed from DirectiveName.',
       },
     ]);
   });
 });
 
 describe('findDangerousChanges', () => {
-  describe('findArgChanges', () => {
-    it("should detect if an argument's defaultValue has changed", () => {
-      const oldSchema = buildSchema(`
-        type Type1 {
-          field1(name: String = "test"): String
-        }
+  it('should detect if a defaultValue changed on an argument', () => {
+    const oldSDL = `
+      input Input1 {
+        innerInputArray: [Input2]
+      }
 
-        type Query {
-          field1: String
-        }
-      `);
+      input Input2 {
+        arrayField: [Int]
+      }
 
-      const newSchema = buildSchema(`
-        type Type1 {
-          field1(name: String = "Test"): String
-        }
+      type Type1 {
+        field1(
+          withDefaultValue: String = "TO BE DELETED"
+          stringArg: String = "test"
+          emptyArray: [Int!] = []
+          valueArray: [[String]] = [["a", "b"], ["c"]]
+          complexObject: Input1 = {
+            innerInputArray: [{ arrayField: [1, 2, 3] }]
+          }
+        ): String
+      }
+    `;
 
-        type Query {
-          field1: String
-        }
-      `);
+    const oldSchema = buildSchema(oldSDL);
+    const copyOfOldSchema = buildSchema(oldSDL);
+    expect(findDangerousChanges(oldSchema, copyOfOldSchema)).to.deep.equal([]);
 
-      const { dangerousChanges } = findArgChanges(oldSchema, newSchema);
-      expect(dangerousChanges).to.deep.equal([
-        {
-          type: DangerousChangeType.ARG_DEFAULT_VALUE_CHANGE,
-          description: 'Type1.field1 arg name has changed defaultValue',
-        },
-      ]);
-    });
+    const newSchema = buildSchema(`
+      input Input1 {
+        innerInputArray: [Input2]
+      }
+
+      input Input2 {
+        arrayField: [Int]
+      }
+
+      type Type1 {
+        field1(
+          withDefaultValue: String
+          stringArg: String = "Test"
+          emptyArray: [Int!] = [7]
+          valueArray: [[String]] = [["b", "a"], ["d"]]
+          complexObject: Input1 = {
+            innerInputArray: [{ arrayField: [3, 2, 1] }]
+          }
+        ): String
+      }
+    `);
+
+    expect(findDangerousChanges(oldSchema, newSchema)).to.deep.equal([
+      {
+        type: DangerousChangeType.ARG_DEFAULT_VALUE_CHANGE,
+        description:
+          'Type1.field1 arg withDefaultValue defaultValue was removed.',
+      },
+      {
+        type: DangerousChangeType.ARG_DEFAULT_VALUE_CHANGE,
+        description:
+          'Type1.field1 arg stringArg has changed defaultValue from "test" to "Test".',
+      },
+      {
+        type: DangerousChangeType.ARG_DEFAULT_VALUE_CHANGE,
+        description:
+          'Type1.field1 arg emptyArray has changed defaultValue from [] to [7].',
+      },
+      {
+        type: DangerousChangeType.ARG_DEFAULT_VALUE_CHANGE,
+        description:
+          'Type1.field1 arg valueArray has changed defaultValue from [["a", "b"], ["c"]] to [["b", "a"], ["d"]].',
+      },
+      {
+        type: DangerousChangeType.ARG_DEFAULT_VALUE_CHANGE,
+        description:
+          'Type1.field1 arg complexObject has changed defaultValue from {innerInputArray: [{arrayField: [1, 2, 3]}]} to {innerInputArray: [{arrayField: [3, 2, 1]}]}.',
+      },
+    ]);
+  });
+
+  it('should ignore changes in field order of defaultValue', () => {
+    const oldSchema = buildSchema(`
+      input Input1 {
+        a: String
+        b: String
+        c: String
+      }
+
+      type Type1 {
+        field1(
+          arg1: Input1 = { a: "a", b: "b", c: "c" }
+        ): String
+      }
+    `);
+
+    const newSchema = buildSchema(`
+      input Input1 {
+        a: String
+        b: String
+        c: String
+      }
+
+      type Type1 {
+        field1(
+          arg1: Input1 = { c: "c", b: "b", a: "a" }
+        ): String
+      }
+    `);
+
+    expect(findDangerousChanges(oldSchema, newSchema)).to.deep.equal([]);
   });
 
   it('should detect if a value was added to an enum type', () => {
@@ -1052,10 +935,6 @@ describe('findDangerousChanges', () => {
       enum EnumType1 {
         VALUE0
         VALUE1
-      }
-
-      type Query {
-        field1: String
       }
     `);
 
@@ -1065,13 +944,9 @@ describe('findDangerousChanges', () => {
         VALUE1
         VALUE2
       }
-
-      type Query {
-        field1: String
-      }
     `);
 
-    expect(findValuesAddedToEnums(oldSchema, newSchema)).to.deep.equal([
+    expect(findDangerousChanges(oldSchema, newSchema)).to.deep.equal([
       {
         type: DangerousChangeType.VALUE_ADDED_TO_ENUM,
         description: 'VALUE2 was added to enum type EnumType1.',
@@ -1081,68 +956,43 @@ describe('findDangerousChanges', () => {
 
   it('should detect interfaces added to types', () => {
     const oldSchema = buildSchema(`
-      type Type1 {
-        field1: String
-      }
+      interface OldInterface
+      interface NewInterface
 
-      type Query {
-        field1: String
-      }
+      type Type1 implements OldInterface
     `);
 
     const newSchema = buildSchema(`
-      interface Interface1 {
-        field1: String
-      }
+      interface OldInterface
+      interface NewInterface
 
-      type Type1 implements Interface1 {
-        field1: String
-      }
-
-      type Query {
-        field1: String
-      }
+      type Type1 implements OldInterface & NewInterface
     `);
 
-    const changes = findInterfacesAddedToObjectTypes(oldSchema, newSchema);
-    expect(changes).to.deep.equal([
+    expect(findDangerousChanges(oldSchema, newSchema)).to.deep.equal([
       {
-        description: 'Interface1 added to interfaces implemented by Type1.',
         type: DangerousChangeType.INTERFACE_ADDED_TO_OBJECT,
+        description: 'NewInterface added to interfaces implemented by Type1.',
       },
     ]);
   });
 
   it('should detect if a type was added to a union type', () => {
     const oldSchema = buildSchema(`
-      type Type1 {
-        field1: String
-      }
+      type Type1
+      type Type2
 
       union UnionType1 = Type1
-
-      type Query {
-        field1: String
-      }
     `);
 
     const newSchema = buildSchema(`
-      type Type1 {
-        field1: String
-      }
-
-      type Type2 {
-        field1: String
-      }
+      type Type1
+      type Type2
 
       union UnionType1 = Type1 | Type2
-
-      type Query {
-        field1: String
-      }
     `);
 
-    expect(findTypesAddedToUnions(oldSchema, newSchema)).to.deep.equal([
+    expect(findDangerousChanges(oldSchema, newSchema)).to.deep.equal([
       {
         type: DangerousChangeType.TYPE_ADDED_TO_UNION,
         description: 'Type2 was added to union type UnionType1.',
@@ -1155,10 +1005,6 @@ describe('findDangerousChanges', () => {
       input InputType1 {
         field1: String
       }
-
-      type Query {
-        field1: String
-      }
     `);
 
     const newSchema = buildSchema(`
@@ -1166,17 +1012,9 @@ describe('findDangerousChanges', () => {
         field1: String
         field2: Int
       }
-
-      type Query {
-        field1: String
-      }
     `);
 
-    const { dangerousChanges } = findFieldsThatChangedTypeOnInputObjectTypes(
-      oldSchema,
-      newSchema,
-    );
-    expect(dangerousChanges).to.deep.equal([
+    expect(findDangerousChanges(oldSchema, newSchema)).to.deep.equal([
       {
         type: DangerousChangeType.OPTIONAL_INPUT_FIELD_ADDED,
         description:
@@ -1193,22 +1031,14 @@ describe('findDangerousChanges', () => {
       }
 
       type Type1 {
-        field1(name: String = "test"): String
+        field1(argThatChangesDefaultValue: String = "test"): String
       }
 
-      type TypeThatGainsInterface1 {
-        field1: String
-      }
+      interface Interface1
+      type TypeThatGainsInterface1
 
-      type TypeInUnion1 {
-        field1: String
-      }
-
+      type TypeInUnion1
       union UnionTypeThatGainsAType = TypeInUnion1
-
-      type Query {
-        field1: String
-      }
     `);
 
     const newSchema = buildSchema(`
@@ -1218,47 +1048,32 @@ describe('findDangerousChanges', () => {
         VALUE2
       }
 
-      interface Interface1 {
-        field1: String
-      }
-
-      type TypeThatGainsInterface1 implements Interface1 {
-        field1: String
-      }
-
       type Type1 {
-        field1(name: String = "Test"): String
+        field1(argThatChangesDefaultValue: String = "Test"): String
       }
 
-      type TypeInUnion1 {
-        field1: String
-      }
+      interface Interface1
+      type TypeThatGainsInterface1 implements Interface1
 
-      type TypeInUnion2 {
-        field1: String
-      }
-
+      type TypeInUnion1
+      type TypeInUnion2
       union UnionTypeThatGainsAType = TypeInUnion1 | TypeInUnion2
-
-      type Query {
-        field1: String
-      }
     `);
 
-    const changes = findDangerousChanges(oldSchema, newSchema);
-    expect(changes).to.deep.equal([
+    expect(findDangerousChanges(oldSchema, newSchema)).to.deep.equal([
       {
-        description: 'Type1.field1 arg name has changed defaultValue',
-        type: 'ARG_DEFAULT_VALUE_CHANGE',
-      },
-      {
+        type: DangerousChangeType.VALUE_ADDED_TO_ENUM,
         description: 'VALUE2 was added to enum type EnumType1.',
-        type: 'VALUE_ADDED_TO_ENUM',
       },
       {
+        type: DangerousChangeType.ARG_DEFAULT_VALUE_CHANGE,
+        description:
+          'Type1.field1 arg argThatChangesDefaultValue has changed defaultValue from "test" to "Test".',
+      },
+      {
+        type: DangerousChangeType.INTERFACE_ADDED_TO_OBJECT,
         description:
           'Interface1 added to interfaces implemented by TypeThatGainsInterface1.',
-        type: DangerousChangeType.INTERFACE_ADDED_TO_OBJECT,
       },
       {
         type: DangerousChangeType.TYPE_ADDED_TO_UNION,
@@ -1273,27 +1088,18 @@ describe('findDangerousChanges', () => {
       type Type1 {
         field1(arg1: String): String
       }
-
-      type Query {
-        field1: String
-      }
     `);
 
     const newSchema = buildSchema(`
       type Type1 {
         field1(arg1: String, arg2: String): String
       }
-
-      type Query {
-        field1: String
-      }
     `);
 
-    const { dangerousChanges } = findArgChanges(oldSchema, newSchema);
-    expect(dangerousChanges).to.deep.equal([
+    expect(findDangerousChanges(oldSchema, newSchema)).to.deep.equal([
       {
         type: DangerousChangeType.OPTIONAL_ARG_ADDED,
-        description: 'An optional arg arg2 on Type1.field1 was added',
+        description: 'An optional arg arg2 on Type1.field1 was added.',
       },
     ]);
   });

@@ -8,8 +8,8 @@
  */
 
 import defineToJSON from '../jsutils/defineToJSON';
-import type { Token } from './ast';
-import type { Source } from './source';
+import { type Token } from './ast';
+import { type Source } from './source';
 import { syntaxError } from '../error';
 import { dedentBlockStringValue } from './blockString';
 
@@ -364,10 +364,7 @@ function unexpectedCharacterMessage(code) {
 
   if (code === 39) {
     // '
-    return (
-      "Unexpected single quote character ('), did you mean to use " +
-      'a double quote (")?'
-    );
+    return 'Unexpected single quote character (\'), did you mean to use a double quote (")?';
   }
 
   return `Cannot parse the unexpected character ${printCharCode(code)}.`;
@@ -597,7 +594,8 @@ function readString(source, start, line, col, prev): Token {
         case 116:
           value += '\t';
           break;
-        case 117: // u
+        case 117: {
+          // uXXXX
           const charCode = uniCharCode(
             body.charCodeAt(position + 1),
             body.charCodeAt(position + 2),
@@ -615,6 +613,7 @@ function readString(source, start, line, col, prev): Token {
           value += String.fromCharCode(charCode);
           position += 4;
           break;
+        }
         default:
           throw syntaxError(
             source,

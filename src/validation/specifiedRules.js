@@ -7,8 +7,6 @@
  * @flow strict
  */
 
-import type { ValidationRule, SDLValidationRule } from './ValidationContext';
-
 // Spec Section: "Executable Definitions"
 import { ExecutableDefinitions } from './rules/ExecutableDefinitions';
 
@@ -67,7 +65,10 @@ import { KnownDirectives } from './rules/KnownDirectives';
 import { UniqueDirectivesPerLocation } from './rules/UniqueDirectivesPerLocation';
 
 // Spec Section: "Argument Names"
-import { KnownArgumentNames } from './rules/KnownArgumentNames';
+import {
+  KnownArgumentNames,
+  KnownArgumentNamesOnDirectives, // @internal
+} from './rules/KnownArgumentNames';
 
 // Spec Section: "Argument Uniqueness"
 import { UniqueArgumentNames } from './rules/UniqueArgumentNames';
@@ -76,7 +77,10 @@ import { UniqueArgumentNames } from './rules/UniqueArgumentNames';
 import { ValuesOfCorrectType } from './rules/ValuesOfCorrectType';
 
 // Spec Section: "Argument Optionality"
-import { ProvidedRequiredArguments } from './rules/ProvidedRequiredArguments';
+import {
+  ProvidedRequiredArguments,
+  ProvidedRequiredArgumentsOnDirectives, // @internal
+} from './rules/ProvidedRequiredArguments';
 
 // Spec Section: "All Variable Usages Are Allowed"
 import { VariablesInAllowedPosition } from './rules/VariablesInAllowedPosition';
@@ -93,7 +97,7 @@ import { UniqueInputFieldNames } from './rules/UniqueInputFieldNames';
  * The order of the rules in this list has been adjusted to lead to the
  * most clear output when encountering multiple validation errors.
  */
-export const specifiedRules: $ReadOnlyArray<ValidationRule> = [
+export const specifiedRules = Object.freeze([
   ExecutableDefinitions,
   UniqueOperationNames,
   LoneAnonymousOperation,
@@ -120,7 +124,7 @@ export const specifiedRules: $ReadOnlyArray<ValidationRule> = [
   VariablesInAllowedPosition,
   OverlappingFieldsCanBeMerged,
   UniqueInputFieldNames,
-];
+]);
 
 import { LoneSchemaDefinition } from './rules/LoneSchemaDefinition';
 import { UniqueOperationTypes } from './rules/UniqueOperationTypes';
@@ -129,11 +133,9 @@ import { UniqueEnumValueNames } from './rules/UniqueEnumValueNames';
 import { UniqueFieldDefinitionNames } from './rules/UniqueFieldDefinitionNames';
 import { UniqueDirectiveNames } from './rules/UniqueDirectiveNames';
 import { PossibleTypeExtensions } from './rules/PossibleTypeExtensions';
-import { KnownArgumentNamesOnDirectives } from './rules/KnownArgumentNames';
-import { ProvidedRequiredArgumentsOnDirectives } from './rules/ProvidedRequiredArguments';
 
 // @internal
-export const specifiedSDLRules: $ReadOnlyArray<SDLValidationRule> = [
+export const specifiedSDLRules = Object.freeze([
   LoneSchemaDefinition,
   UniqueOperationTypes,
   UniqueTypeNames,
@@ -148,4 +150,4 @@ export const specifiedSDLRules: $ReadOnlyArray<SDLValidationRule> = [
   UniqueArgumentNames,
   UniqueInputFieldNames,
   ProvidedRequiredArgumentsOnDirectives,
-];
+]);

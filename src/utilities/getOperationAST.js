@@ -8,7 +8,10 @@
  */
 
 import { Kind } from '../language/kinds';
-import type { DocumentNode, OperationDefinitionNode } from '../language/ast';
+import {
+  type DocumentNode,
+  type OperationDefinitionNode,
+} from '../language/ast';
 
 /**
  * Returns an operation AST given a document AST and optionally an operation
@@ -20,8 +23,7 @@ export function getOperationAST(
   operationName: ?string,
 ): ?OperationDefinitionNode {
   let operation = null;
-  for (let i = 0; i < documentAST.definitions.length; i++) {
-    const definition = documentAST.definitions[i];
+  for (const definition of documentAST.definitions) {
     if (definition.kind === Kind.OPERATION_DEFINITION) {
       if (!operationName) {
         // If no operation name was provided, only return an Operation if there

@@ -12,6 +12,11 @@ import flatMap from '../polyfills/flatMap';
 import objectValues from '../polyfills/objectValues';
 import objectEntries from '../polyfills/objectEntries';
 import {
+  type GraphQLObjectType,
+  type GraphQLInterfaceType,
+  type GraphQLUnionType,
+  type GraphQLEnumType,
+  type GraphQLInputObjectType,
   isObjectType,
   isInterfaceType,
   isUnionType,
@@ -22,26 +27,17 @@ import {
   isOutputType,
   isRequiredArgument,
 } from './definition';
-import type {
-  GraphQLObjectType,
-  GraphQLInterfaceType,
-  GraphQLUnionType,
-  GraphQLEnumType,
-  GraphQLInputObjectType,
-} from './definition';
-import { isDirective } from './directives';
-import type { GraphQLDirective } from './directives';
+import { type GraphQLDirective, isDirective } from './directives';
 import { isIntrospectionType } from './introspection';
-import { assertSchema } from './schema';
-import type { GraphQLSchema } from './schema';
+import { type GraphQLSchema, assertSchema } from './schema';
 import inspect from '../jsutils/inspect';
 import { GraphQLError } from '../error/GraphQLError';
-import type {
-  ASTNode,
-  FieldDefinitionNode,
-  InputValueDefinitionNode,
-  NamedTypeNode,
-  TypeNode,
+import {
+  type ASTNode,
+  type FieldDefinitionNode,
+  type InputValueDefinitionNode,
+  type NamedTypeNode,
+  type TypeNode,
 } from '../language/ast';
 import { isValidNameError } from '../utilities/assertValidName';
 import { isEqualType, isTypeSubTypeOf } from '../utilities/typeComparators';
@@ -118,7 +114,7 @@ function validateRootTypes(context) {
   const schema = context.schema;
   const queryType = schema.getQueryType();
   if (!queryType) {
-    context.reportError(`Query root type must be provided.`, schema.astNode);
+    context.reportError('Query root type must be provided.', schema.astNode);
   } else if (!isObjectType(queryType)) {
     context.reportError(
       `Query root type must be Object type, it cannot be ${inspect(

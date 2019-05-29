@@ -12,11 +12,13 @@ package-lock.json
 .babelrc
 .nycrc
 .nyc_output
+codecov.yml
 CONTRIBUTING.md
 node_modules
 coverage
 resources
 src
+docs
 dist
 __tests__
 npm
