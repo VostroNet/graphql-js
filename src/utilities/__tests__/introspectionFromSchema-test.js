@@ -1,17 +1,14 @@
-/**
- * Copyright (c) Facebook, Inc. and its affiliates.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- *
- * @flow strict
- */
+// @flow strict
 
-import { describe, it } from 'mocha';
 import { expect } from 'chai';
+import { describe, it } from 'mocha';
 
 import dedent from '../../jsutils/dedent';
-import { GraphQLSchema, GraphQLObjectType, GraphQLString } from '../../type';
+
+import { GraphQLSchema } from '../../type/schema';
+import { GraphQLString } from '../../type/scalars';
+import { GraphQLObjectType } from '../../type/definition';
+
 import { printSchema } from '../schemaPrinter';
 import { buildClientSchema } from '../buildClientSchema';
 import { introspectionFromSchema } from '../introspectionFromSchema';

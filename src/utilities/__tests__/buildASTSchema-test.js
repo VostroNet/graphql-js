@@ -1,39 +1,42 @@
-/**
- * Copyright (c) Facebook, Inc. and its affiliates.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- *
- * @flow strict
- */
+// @flow strict
 
 import { expect } from 'chai';
 import { describe, it } from 'mocha';
-import invariant from '../../jsutils/invariant';
-import { parse, print } from '../../language';
-import { printSchema } from '../schemaPrinter';
-import { buildASTSchema, buildSchema } from '../buildASTSchema';
+
 import dedent from '../../jsutils/dedent';
+import invariant from '../../jsutils/invariant';
+
 import { Kind } from '../../language/kinds';
+import { parse } from '../../language/parser';
+import { print } from '../../language/printer';
+
+import { validateSchema } from '../../type/validate';
 import {
   assertDirective,
+  GraphQLSkipDirective,
+  GraphQLIncludeDirective,
+  GraphQLDeprecatedDirective,
+} from '../../type/directives';
+import {
+  GraphQLID,
+  GraphQLInt,
+  GraphQLFloat,
+  GraphQLString,
+  GraphQLBoolean,
+} from '../../type/scalars';
+import {
   assertObjectType,
   assertInputObjectType,
   assertEnumType,
   assertUnionType,
   assertInterfaceType,
   assertScalarType,
-  graphqlSync,
-  validateSchema,
-  GraphQLID,
-  GraphQLInt,
-  GraphQLFloat,
-  GraphQLString,
-  GraphQLBoolean,
-  GraphQLSkipDirective,
-  GraphQLIncludeDirective,
-  GraphQLDeprecatedDirective,
-} from '../../';
+} from '../../type/definition';
+
+import { graphqlSync } from '../../graphql';
+
+import { printSchema } from '../schemaPrinter';
+import { buildASTSchema, buildSchema } from '../buildASTSchema';
 
 /**
  * This function does a full cycle of going from a string with the contents of
@@ -47,9 +50,9 @@ function cycleSDL(sdl, options = {}) {
   return printSchema(schema, { commentDescriptions });
 }
 
-function printNode(node) {
-  invariant(node);
-  return print(node);
+function printASTNode(obj) {
+  invariant(obj != null && obj.astNode != null);
+  return print(obj.astNode);
 }
 
 describe('Schema Builder', () => {
@@ -110,11 +113,7 @@ describe('Schema Builder', () => {
   });
 
   it('include standard type only if it is used', () => {
-    const schema = buildSchema(`
-      type Query {
-        str: String
-      }
-    `);
+    const schema = buildSchema('type Query');
 
     // String and Boolean are always included through introspection types
     expect(schema.getType('Int')).to.equal(undefined);
@@ -126,9 +125,7 @@ describe('Schema Builder', () => {
     const sdl = dedent`
       directive @foo(arg: Int) on FIELD
 
-      type Query {
-        str: String
-      }
+      directive @repeatableFoo(arg: Int) repeatable on FIELD
     `;
     expect(cycleSDL(sdl)).to.equal(sdl);
   });
@@ -186,12 +183,8 @@ describe('Schema Builder', () => {
   });
 
   it('Maintains @skip & @include', () => {
-    const sdl = `
-      type Query {
-        str: String
-      }
-    `;
-    const schema = buildSchema(sdl);
+    const schema = buildSchema('type Query');
+
     expect(schema.getDirectives()).to.have.lengthOf(3);
     expect(schema.getDirective('skip')).to.equal(GraphQLSkipDirective);
     expect(schema.getDirective('include')).to.equal(GraphQLIncludeDirective);
@@ -201,16 +194,12 @@ describe('Schema Builder', () => {
   });
 
   it('Overriding directives excludes specified', () => {
-    const sdl = `
+    const schema = buildSchema(`
       directive @skip on FIELD
       directive @include on FIELD
       directive @deprecated on FIELD_DEFINITION
+    `);
 
-      type Query {
-        str: String
-      }
-    `;
-    const schema = buildSchema(sdl);
     expect(schema.getDirectives()).to.have.lengthOf(3);
     expect(schema.getDirective('skip')).to.not.equal(GraphQLSkipDirective);
     expect(schema.getDirective('include')).to.not.equal(
@@ -222,14 +211,10 @@ describe('Schema Builder', () => {
   });
 
   it('Adding directives maintains @skip & @include', () => {
-    const sdl = `
+    const schema = buildSchema(`
       directive @foo(arg: Int) on FIELD
+    `);
 
-      type Query {
-        str: String
-      }
-    `;
-    const schema = buildSchema(sdl);
     expect(schema.getDirectives()).to.have.lengthOf(4);
     expect(schema.getDirective('skip')).to.not.equal(undefined);
     expect(schema.getDirective('include')).to.not.equal(undefined);
@@ -261,10 +246,6 @@ describe('Schema Builder', () => {
 
   it('Two types circular', () => {
     const sdl = dedent`
-      schema {
-        query: TypeOne
-      }
-
       type TypeOne {
         str: String
         typeTwo: TypeTwo
@@ -774,26 +755,25 @@ describe('Schema Builder', () => {
     expect(restoredSchemaAST).to.be.deep.equal(ast);
 
     const testField = query.getFields().testField;
-    expect(printNode(testField.astNode)).to.equal(
+    expect(printASTNode(testField)).to.equal(
       'testField(testArg: TestInput): TestUnion',
     );
-    expect(printNode(testField.args[0].astNode)).to.equal('testArg: TestInput');
-    expect(printNode(testInput.getFields().testInputField.astNode)).to.equal(
+    expect(printASTNode(testField.args[0])).to.equal('testArg: TestInput');
+    expect(printASTNode(testInput.getFields().testInputField)).to.equal(
       'testInputField: TestEnum',
     );
-    const testEnumValue = testEnum.getValue('TEST_VALUE');
-    invariant(testEnumValue);
-    expect(printNode(testEnumValue.astNode)).to.equal('TEST_VALUE');
 
-    expect(
-      printNode(testInterface.getFields().interfaceField.astNode),
-    ).to.equal('interfaceField: String');
-    expect(printNode(testType.getFields().interfaceField.astNode)).to.equal(
+    expect(printASTNode(testEnum.getValue('TEST_VALUE'))).to.equal(
+      'TEST_VALUE',
+    );
+
+    expect(printASTNode(testInterface.getFields().interfaceField)).to.equal(
       'interfaceField: String',
     );
-    expect(printNode(testDirective.args[0].astNode)).to.equal(
-      'arg: TestScalar',
+    expect(printASTNode(testType.getFields().interfaceField)).to.equal(
+      'interfaceField: String',
     );
+    expect(printASTNode(testDirective.args[0])).to.equal('arg: TestScalar');
   });
 
   it('Root operation types with custom names', () => {
@@ -803,9 +783,9 @@ describe('Schema Builder', () => {
         mutation: SomeMutation
         subscription: SomeSubscription
       }
-      type SomeQuery { str: String }
-      type SomeMutation { str: String }
-      type SomeSubscription { str: String }
+      type SomeQuery
+      type SomeMutation
+      type SomeSubscription
     `);
 
     expect(schema.getQueryType()).to.include({ name: 'SomeQuery' });
@@ -817,9 +797,9 @@ describe('Schema Builder', () => {
 
   it('Default root operation type names', () => {
     const schema = buildSchema(`
-      type Query { str: String }
-      type Mutation { str: String }
-      type Subscription { str: String }
+      type Query
+      type Mutation
+      type Subscription
     `);
 
     expect(schema.getQueryType()).to.include({ name: 'Query' });
@@ -828,12 +808,8 @@ describe('Schema Builder', () => {
   });
 
   it('can build invalid schema', () => {
-    const schema = buildSchema(`
-      # Invalid schema, because it is missing query root type
-      type Mutation {
-        str: String
-      }
-    `);
+    // Invalid schema, because it is missing query root type
+    const schema = buildSchema('type Mutation');
     const errors = validateSchema(schema);
     expect(errors).to.have.lengthOf.above(0);
   });

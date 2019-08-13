@@ -1,25 +1,18 @@
-/**
- * Copyright (c) Facebook, Inc. and its affiliates.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- *
- * @flow strict
- */
+// @flow strict
 
-import { describe, it } from 'mocha';
 import { expect } from 'chai';
+import { describe, it } from 'mocha';
+
+import { GraphQLSchema } from '../../type/schema';
+import { GraphQLString, GraphQLInt, GraphQLFloat } from '../../type/scalars';
 import {
-  GraphQLSchema,
-  GraphQLString,
-  GraphQLInt,
-  GraphQLFloat,
   GraphQLList,
   GraphQLNonNull,
   GraphQLObjectType,
   GraphQLInterfaceType,
   GraphQLUnionType,
-} from '../../type';
+} from '../../type/definition';
+
 import { isEqualType, isTypeSubTypeOf } from '../typeComparators';
 
 describe('typeComparators', () => {

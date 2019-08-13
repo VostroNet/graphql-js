@@ -1,16 +1,11 @@
-/**
- * Copyright (c) Facebook, Inc. and its affiliates.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- *
- * @flow strict
- */
+// @flow strict
 
 import { type ObjMap } from '../jsutils/ObjMap';
-import { type GraphQLError } from '../error';
-import { type ASTVisitor, visit, visitWithTypeInfo } from '../language/visitor';
+
+import { type GraphQLError } from '../error/GraphQLError';
+
 import { Kind } from '../language/kinds';
+import { type ASTVisitor, visit, visitWithTypeInfo } from '../language/visitor';
 import {
   type DocumentNode,
   type OperationDefinitionNode,
@@ -19,7 +14,9 @@ import {
   type FragmentSpreadNode,
   type FragmentDefinitionNode,
 } from '../language/ast';
+
 import { type GraphQLSchema } from '../type/schema';
+import { type GraphQLDirective } from '../type/directives';
 import {
   type GraphQLInputType,
   type GraphQLOutputType,
@@ -27,7 +24,7 @@ import {
   type GraphQLField,
   type GraphQLArgument,
 } from '../type/definition';
-import { type GraphQLDirective } from '../type/directives';
+
 import { TypeInfo } from '../utilities/TypeInfo';
 
 type NodeWithSelectionSet = OperationDefinitionNode | FragmentDefinitionNode;
@@ -97,8 +94,7 @@ export class ASTValidationContext {
       const setsToVisit: Array<SelectionSetNode> = [node];
       while (setsToVisit.length !== 0) {
         const set = setsToVisit.pop();
-        for (let i = 0; i < set.selections.length; i++) {
-          const selection = set.selections[i];
+        for (const selection of set.selections) {
           if (selection.kind === Kind.FRAGMENT_SPREAD) {
             spreads.push(selection);
           } else if (selection.selectionSet) {
@@ -121,9 +117,8 @@ export class ASTValidationContext {
       const nodesToVisit: Array<SelectionSetNode> = [operation.selectionSet];
       while (nodesToVisit.length !== 0) {
         const node = nodesToVisit.pop();
-        const spreads = this.getFragmentSpreads(node);
-        for (let i = 0; i < spreads.length; i++) {
-          const fragName = spreads[i].name.value;
+        for (const spread of this.getFragmentSpreads(node)) {
+          const fragName = spread.name.value;
           if (collectedNames[fragName] !== true) {
             collectedNames[fragName] = true;
             const fragment = this.getFragment(fragName);
@@ -212,12 +207,8 @@ export class ValidationContext extends ASTValidationContext {
     let usages = this._recursiveVariableUsages.get(operation);
     if (!usages) {
       usages = this.getVariableUsages(operation);
-      const fragments = this.getRecursivelyReferencedFragments(operation);
-      for (let i = 0; i < fragments.length; i++) {
-        Array.prototype.push.apply(
-          usages,
-          this.getVariableUsages(fragments[i]),
-        );
+      for (const frag of this.getRecursivelyReferencedFragments(operation)) {
+        usages = usages.concat(this.getVariableUsages(frag));
       }
       this._recursiveVariableUsages.set(operation, usages);
     }
@@ -240,7 +231,7 @@ export class ValidationContext extends ASTValidationContext {
     return this._typeInfo.getParentInputType();
   }
 
-  getFieldDef(): ?GraphQLField<*, *> {
+  getFieldDef(): ?GraphQLField<mixed, mixed> {
     return this._typeInfo.getFieldDef();
   }
 

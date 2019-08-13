@@ -1,20 +1,16 @@
-/**
- * Copyright (c) Facebook, Inc. and its affiliates.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- *
- * @flow strict
- */
+// @flow strict
 
 import { describe, it } from 'mocha';
-import { expectValidationErrors } from './harness';
+
 import {
   ValuesOfCorrectType,
   badValueMessage,
+  badEnumValueMessage,
   requiredFieldMessage,
   unknownFieldMessage,
 } from '../rules/ValuesOfCorrectType';
+
+import { expectValidationErrors } from './harness';
 
 function expectErrors(queryStr) {
   return expectValidationErrors(ValuesOfCorrectType, queryStr);
@@ -31,6 +27,13 @@ function badValue(typeName, value, line, column, message) {
   };
 }
 
+function badEnumValue(typeName, value, line, column, message) {
+  return {
+    message: badEnumValueMessage(typeName, value, message),
+    locations: [{ line, column }],
+  };
+}
+
 function requiredField(typeName, fieldName, fieldTypeName, line, column) {
   return {
     message: requiredFieldMessage(typeName, fieldName, fieldTypeName),
@@ -38,9 +41,9 @@ function requiredField(typeName, fieldName, fieldTypeName, line, column) {
   };
 }
 
-function unknownField(typeName, fieldName, line, column, message) {
+function unknownField(typeName, fieldName, line, column, suggestedFields) {
   return {
-    message: unknownFieldMessage(typeName, fieldName, message),
+    message: unknownFieldMessage(typeName, fieldName, suggestedFields),
     locations: [{ line, column }],
   };
 }
@@ -414,15 +417,7 @@ describe('Validate: Values of correct type', () => {
             doesKnowCommand(dogCommand: "SIT")
           }
         }
-      `).to.deep.equal([
-        badValue(
-          'DogCommand',
-          '"SIT"',
-          4,
-          41,
-          'Did you mean the enum value SIT?',
-        ),
-      ]);
+      `).to.deep.equal([badEnumValue('DogCommand', '"SIT"', 4, 41, ['SIT'])]);
     });
 
     it('Boolean into Enum', () => {
@@ -452,15 +447,7 @@ describe('Validate: Values of correct type', () => {
             doesKnowCommand(dogCommand: sit)
           }
         }
-      `).to.deep.equal([
-        badValue(
-          'DogCommand',
-          'sit',
-          4,
-          41,
-          'Did you mean the enum value SIT?',
-        ),
-      ]);
+      `).to.deep.equal([badEnumValue('DogCommand', 'sit', 4, 41, ['SIT'])]);
     });
   });
 
@@ -789,13 +776,11 @@ describe('Validate: Values of correct type', () => {
           }
         }
       `).to.deep.equal([
-        unknownField(
-          'ComplexInput',
-          'unknownField',
-          6,
-          15,
-          'Did you mean nonNullField, intField, or booleanField?',
-        ),
+        unknownField('ComplexInput', 'unknownField', 6, 15, [
+          'nonNullField',
+          'intField',
+          'booleanField',
+        ]),
       ]);
     });
 

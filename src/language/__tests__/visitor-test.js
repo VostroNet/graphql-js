@@ -1,22 +1,18 @@
-/**
- * Copyright (c) Facebook, Inc. and its affiliates.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- *
- * @flow strict
- */
+// @flow strict
 
 import { expect } from 'chai';
 import { describe, it } from 'mocha';
+
+import { getNamedType, isCompositeType } from '../../type/definition';
+import { TypeInfo } from '../../utilities/TypeInfo';
+
+import { Kind } from '../kinds';
 import { parse } from '../parser';
 import { print } from '../printer';
 import { visit, visitInParallel, visitWithTypeInfo, BREAK } from '../visitor';
-import { TypeInfo } from '../../utilities/TypeInfo';
-import { testSchema } from '../../validation/__tests__/harness';
-import { getNamedType, isCompositeType } from '../../type';
-import { Kind } from '../kinds';
+
 import { kitchenSinkQuery } from '../../__fixtures__';
+import { testSchema } from '../../validation/__tests__/harness';
 
 function checkVisitorFnArgs(ast, args, isEdited) {
   const [node, key, parent, path, ancestors] = args;

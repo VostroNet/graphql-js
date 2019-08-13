@@ -1,14 +1,8 @@
-/**
- * Copyright (c) Facebook, Inc. and its affiliates.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- *
- * @flow strict
- */
+// @flow strict
 
 import { expect } from 'chai';
 import { describe, it } from 'mocha';
+
 import inspect from '../inspect';
 import invariant from '../invariant';
 import nodejsCustomInspectSymbol from '../nodejsCustomInspectSymbol';
@@ -30,8 +24,7 @@ describe('inspect', () => {
   it('string', () => {
     expect(inspect('')).to.equal('""');
     expect(inspect('abc')).to.equal('"abc"');
-    // $FlowFixMe
-    expect(inspect('"')).to.equal(String.raw`"\""`);
+    expect(inspect('"')).to.equal('"\\""');
   });
 
   it('number', () => {
@@ -43,9 +36,11 @@ describe('inspect', () => {
   });
 
   it('function', () => {
-    expect(inspect(() => 0)).to.equal('[function]');
+    expect(inspect(() => invariant(false))).to.equal('[function]');
 
-    function testFunc() {}
+    function testFunc() {
+      invariant(false);
+    }
     expect(inspect(testFunc)).to.equal('[function testFunc]');
   });
 
@@ -107,11 +102,9 @@ describe('inspect', () => {
   });
 
   it('custom symbol inspect is take precedence', () => {
-    invariant(nodejsCustomInspectSymbol);
-
     const object = {
       inspect() {
-        return '<custom inspect>';
+        invariant(false);
       },
       [String(nodejsCustomInspectSymbol)]() {
         return '<custom symbol inspect>';
@@ -186,5 +179,10 @@ describe('inspect', () => {
 
     (Foo.prototype: any)[Symbol.toStringTag] = 'Bar';
     expect(inspect([[new Foo()]])).to.equal('[[[Bar]]]');
+
+    const objectWithoutClassName = new (function() {
+      this.foo = 1;
+    })();
+    expect(inspect([[objectWithoutClassName]])).to.equal('[[[Object]]]');
   });
 });

@@ -1,18 +1,14 @@
-/**
- * Copyright (c) Facebook, Inc. and its affiliates.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- *
- * @flow strict
- */
+// @flow strict
 
-import { describe, it } from 'mocha';
 import { expect } from 'chai';
-import { testSchema } from './harness';
-import { validate, specifiedRules } from '../';
-import { parse } from '../../language';
+import { describe, it } from 'mocha';
+
+import { parse } from '../../language/parser';
 import { TypeInfo } from '../../utilities/TypeInfo';
+
+import { validate } from '../validate';
+
+import { testSchema } from './harness';
 
 describe('Validate: Supports full validation', () => {
   it('validates queries', () => {
@@ -68,7 +64,7 @@ describe('Validate: Supports full validation', () => {
       }
     `);
 
-    const errors = validate(testSchema, doc, specifiedRules, typeInfo);
+    const errors = validate(testSchema, doc, undefined, typeInfo);
     const errorMessages = errors.map(err => err.message);
 
     expect(errorMessages).to.deep.equal([

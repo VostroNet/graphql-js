@@ -1,14 +1,8 @@
-/**
- * Copyright (c) Facebook, Inc. and its affiliates.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- *
- * @flow strict
- */
+// @flow strict
 
 import { expect } from 'chai';
 import { describe, it } from 'mocha';
+
 import dedent from '../dedent';
 
 describe('dedent', () => {
@@ -64,15 +58,6 @@ describe('dedent', () => {
         '',
       ].join('\n'),
     );
-  });
-
-  it('also works as an ordinary function on strings', () => {
-    const output = dedent(`
-      type Query {
-        me: User
-      }
-    `);
-    expect(output).to.equal(['type Query {', '  me: User', '}', ''].join('\n'));
   });
 
   it('also removes indentation using tabs', () => {

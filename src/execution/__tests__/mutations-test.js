@@ -1,17 +1,15 @@
-/**
- * Copyright (c) Facebook, Inc. and its affiliates.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- *
- * @flow strict
- */
+// @flow strict
 
 import { expect } from 'chai';
 import { describe, it } from 'mocha';
+
+import { parse } from '../../language/parser';
+
+import { GraphQLInt } from '../../type/scalars';
+import { GraphQLSchema } from '../../type/schema';
+import { GraphQLObjectType } from '../../type/definition';
+
 import { execute } from '../execute';
-import { parse } from '../../language';
-import { GraphQLSchema, GraphQLObjectType, GraphQLInt } from '../../type';
 
 class NumberHolder {
   theNumber: number;
