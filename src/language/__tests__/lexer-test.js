@@ -1,21 +1,18 @@
-/**
- * Copyright (c) Facebook, Inc. and its affiliates.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- *
- * @flow strict
- */
+// @flow strict
 
 import { inspect as nodeInspect } from 'util';
 
 import { expect } from 'chai';
 import { describe, it } from 'mocha';
+
 import dedent from '../../jsutils/dedent';
 import inspect from '../../jsutils/inspect';
-import { GraphQLError } from '../../error';
+
+import { GraphQLError } from '../../error/GraphQLError';
+
 import { Source } from '../source';
-import { createLexer, TokenKind, isPunctuatorToken } from '../lexer';
+import { TokenKind } from '../tokenKind';
+import { createLexer, isPunctuatorToken } from '../lexer';
 
 function lexOne(str) {
   const lexer = createLexer(new Source(str));
@@ -124,14 +121,14 @@ describe('Lexer', () => {
     } catch (error) {
       caughtError = error;
     }
-    expect(String(caughtError)).to.equal(dedent`
+    expect(String(caughtError) + '\n').to.equal(dedent`
       Syntax Error: Cannot parse the unexpected character "?".
 
-      GraphQL request (3:5)
-      2: 
-      3:     ?
-             ^
-      4: 
+      GraphQL request:3:5
+      2 | 
+      3 |     ?
+        |     ^
+      4 | 
     `);
   });
 
@@ -144,14 +141,14 @@ describe('Lexer', () => {
     } catch (error) {
       caughtError = error;
     }
-    expect(String(caughtError)).to.equal(dedent`
+    expect(String(caughtError) + '\n').to.equal(dedent`
       Syntax Error: Cannot parse the unexpected character "?".
 
-      foo.js (13:6)
-      12: 
-      13:      ?
-               ^
-      14: 
+      foo.js:13:6
+      12 | 
+      13 |      ?
+         |      ^
+      14 | 
     `);
   });
 
@@ -163,12 +160,12 @@ describe('Lexer', () => {
     } catch (error) {
       caughtError = error;
     }
-    expect(String(caughtError)).to.equal(dedent`
+    expect(String(caughtError) + '\n').to.equal(dedent`
       Syntax Error: Cannot parse the unexpected character "?".
 
-      foo.js (1:5)
-      1:     ?
-             ^
+      foo.js:1:5
+      1 |     ?
+        |     ^
     `);
   });
 
@@ -226,8 +223,7 @@ describe('Lexer', () => {
 
     expectSyntaxError(
       "'single quotes'",
-      "Unexpected single quote character ('), " +
-        'did you mean to use a double quote (")?',
+      'Unexpected single quote character (\'), did you mean to use a double quote (")?',
       { line: 1, column: 1 },
     );
 

@@ -1,16 +1,12 @@
-/**
- * Copyright (c) Facebook, Inc. and its affiliates.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- *
- * @flow strict
- */
+// @flow strict
 
 import { expect } from 'chai';
 import { describe, it } from 'mocha';
+
 import dedent from '../../jsutils/dedent';
+
 import { parse } from '../parser';
+
 import toJSONDeep from './toJSONDeep';
 import { kitchenSinkSDL } from '../../__fixtures__';
 
@@ -813,6 +809,78 @@ input Hello {
       'Expected :, found (',
       { line: 3, column: 14 },
     );
+  });
+
+  it('Directive definition', () => {
+    const body = 'directive @foo on OBJECT | INTERFACE';
+    const doc = parse(body);
+
+    expect(toJSONDeep(doc)).to.deep.equal({
+      kind: 'Document',
+      definitions: [
+        {
+          kind: 'DirectiveDefinition',
+          description: undefined,
+          name: {
+            kind: 'Name',
+            value: 'foo',
+            loc: { start: 11, end: 14 },
+          },
+          arguments: [],
+          repeatable: false,
+          locations: [
+            {
+              kind: 'Name',
+              value: 'OBJECT',
+              loc: { start: 18, end: 24 },
+            },
+            {
+              kind: 'Name',
+              value: 'INTERFACE',
+              loc: { start: 27, end: 36 },
+            },
+          ],
+          loc: { start: 0, end: 36 },
+        },
+      ],
+      loc: { start: 0, end: 36 },
+    });
+  });
+
+  it('Repeatable directive definition', () => {
+    const body = 'directive @foo repeatable on OBJECT | INTERFACE';
+    const doc = parse(body);
+
+    expect(toJSONDeep(doc)).to.deep.equal({
+      kind: 'Document',
+      definitions: [
+        {
+          kind: 'DirectiveDefinition',
+          description: undefined,
+          name: {
+            kind: 'Name',
+            value: 'foo',
+            loc: { start: 11, end: 14 },
+          },
+          arguments: [],
+          repeatable: true,
+          locations: [
+            {
+              kind: 'Name',
+              value: 'OBJECT',
+              loc: { start: 29, end: 35 },
+            },
+            {
+              kind: 'Name',
+              value: 'INTERFACE',
+              loc: { start: 38, end: 47 },
+            },
+          ],
+          loc: { start: 0, end: 47 },
+        },
+      ],
+      loc: { start: 0, end: 47 },
+    });
   });
 
   it('Directive with incorrect locations', () => {

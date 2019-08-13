@@ -1,8 +1,9 @@
 {
   "name": "@vostro/graphql",
-  "version": "14.3.1",
+  "version": "14.4.2",
   "description": "A Query Language and Runtime which can target any service.",
   "license": "MIT",
+  "private": true,
   "main": "index",
   "module": "index.mjs",
   "sideEffects": false,
@@ -22,40 +23,38 @@
     "node": ">= 6.x"
   },
   "scripts": {
-    "watch": "node ./resources/watch.js",
-    "test": "npm run lint && npm run check && npm run testonly",
-    "test:ci": "yarn check --integrity && npm run lint -- --no-cache && npm run check && npm run testonly:cover",
+    "test": "npm run prettier:check && npm run lint && npm run check && npm run testonly",
+    "test:ci": "yarn check --integrity && npm run prettier:check && npm run lint -- --no-cache && npm run check && npm run testonly:cover && npm run build",
     "testonly": "mocha --full-trace src/**/__tests__/**/*-test.js",
     "testonly:cover": "nyc npm run testonly",
     "lint": "eslint --cache --report-unused-disable-directives src resources",
-    "benchmark": "node ./resources/benchmark.js",
-    "prettier": "prettier --write --list-different 'src/**/*.js' 'resources/**/*.js'",
+    "benchmark": "node --predictable ./resources/benchmark.js",
+    "prettier": "prettier --ignore-path .gitignore --write --list-different \"**/*.{js,md,json,yml}\"",
+    "prettier:check": "prettier --ignore-path .gitignore --check \"**/*.{js,md,json,yml}\"",
     "check": "flow check",
-    "check-cover": "flow batch-coverage --quiet --strip-root --show-all src/ && flow stop --quiet",
+    "check:cover": "node resources/check-cover.js && nyc report --nycrc-path .nycflowrc.yml",
     "build": "node resources/build.js",
-    "preversion": ". ./resources/checkgit.sh && npm test",
-    "prepublishOnly": ". ./resources/prepublish.sh",
+    "changelog": "node resources/gen-changelog.js",
+    "preversion": ". ./resources/checkgit.sh",
+    "version": "node resources/gen-version.js && npm test && git add src/version.js",
     "gitpublish": ". ./resources/gitpublish.sh"
   },
   "dependencies": {
     "iterall": "^1.2.2"
   },
   "devDependencies": {
-    "@babel/core": "7.4.5",
+    "@babel/core": "7.5.5",
     "@babel/plugin-transform-flow-strip-types": "7.4.4",
     "@babel/polyfill": "7.4.4",
-    "@babel/preset-env": "7.4.5",
-    "@babel/register": "7.4.4",
-    "babel-eslint": "10.0.1",
-    "benchmark": "2.1.4",
+    "@babel/preset-env": "7.5.5",
+    "@babel/register": "7.5.5",
+    "babel-eslint": "10.0.2",
     "chai": "4.2.0",
     "eslint": "5.16.0",
-    "eslint-plugin-flowtype": "3.9.0",
-    "eslint-plugin-prettier": "3.1.0",
-    "flow-bin": "0.98.1",
-    "mocha": "6.1.4",
+    "eslint-plugin-flowtype": "3.12.1",
+    "flow-bin": "0.105.1",
+    "mocha": "6.2.0",
     "nyc": "14.1.1",
-    "prettier": "1.17.1",
-    "sane": "4.1.0"
+    "prettier": "1.18.2"
   }
 }

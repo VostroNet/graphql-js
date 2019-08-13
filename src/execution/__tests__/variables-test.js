@@ -1,27 +1,27 @@
-/**
- * Copyright (c) Facebook, Inc. and its affiliates.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- *
- * @flow strict
- */
+// @flow strict
 
-import inspect from '../../jsutils/inspect';
 import { expect } from 'chai';
 import { describe, it } from 'mocha';
-import { execute } from '../execute';
-import { parse } from '../../language';
+
+import inspect from '../../jsutils/inspect';
+import invariant from '../../jsutils/invariant';
+
+import { Kind } from '../../language/kinds';
+import { parse } from '../../language/parser';
+
+import { GraphQLSchema } from '../../type/schema';
+import { GraphQLString } from '../../type/scalars';
 import {
-  GraphQLSchema,
-  GraphQLObjectType,
-  GraphQLInputObjectType,
   GraphQLList,
-  GraphQLString,
   GraphQLNonNull,
   GraphQLScalarType,
+  GraphQLObjectType,
+  GraphQLInputObjectType,
   GraphQLEnumType,
-} from '../../type';
+} from '../../type/definition';
+
+import { execute } from '../execute';
+import { getVariableValues } from '../values';
 
 const TestComplexScalar = new GraphQLScalarType({
   name: 'ComplexScalar',
@@ -372,7 +372,7 @@ describe('Execute: Handles inputs', () => {
           errors: [
             {
               message:
-                'Variable "$input" got invalid value { a: "foo", b: "bar", c: null }; Expected non-nullable type String! not to be null at value.c.',
+                'Variable "$input" got invalid value null at "input.c"; Expected non-nullable type String! not to be null.',
               locations: [{ line: 2, column: 16 }],
             },
           ],
@@ -400,7 +400,7 @@ describe('Execute: Handles inputs', () => {
           errors: [
             {
               message:
-                'Variable "$input" got invalid value { a: "foo", b: "bar" }; Field value.c of required type String! was not provided.',
+                'Variable "$input" got invalid value { a: "foo", b: "bar" }; Field c of required type String! was not provided.',
               locations: [{ line: 2, column: 16 }],
             },
           ],
@@ -419,12 +419,12 @@ describe('Execute: Handles inputs', () => {
           errors: [
             {
               message:
-                'Variable "$input" got invalid value { na: { a: "foo" } }; Field value.na.c of required type String! was not provided.',
+                'Variable "$input" got invalid value { a: "foo" } at "input.na"; Field c of required type String! was not provided.',
               locations: [{ line: 2, column: 18 }],
             },
             {
               message:
-                'Variable "$input" got invalid value { na: { a: "foo" } }; Field value.nb of required type String! was not provided.',
+                'Variable "$input" got invalid value { na: { a: "foo" } }; Field nb of required type String! was not provided.',
               locations: [{ line: 2, column: 18 }],
             },
           ],
@@ -687,7 +687,7 @@ describe('Execute: Handles inputs', () => {
         errors: [
           {
             message:
-              'Variable "$value" got invalid value [1, 2, 3]; Expected type String; String cannot represent a non string value: [1, 2, 3]',
+              'Variable "$value" got invalid value [1, 2, 3]; Expected type String. String cannot represent a non string value: [1, 2, 3]',
             locations: [{ line: 2, column: 16 }],
           },
         ],
@@ -833,7 +833,7 @@ describe('Execute: Handles inputs', () => {
         errors: [
           {
             message:
-              'Variable "$input" got invalid value ["A", null, "B"]; Expected non-nullable type String! not to be null at value[1].',
+              'Variable "$input" got invalid value null at "input[1]"; Expected non-nullable type String! not to be null.',
             locations: [{ line: 2, column: 16 }],
           },
         ],
@@ -882,7 +882,7 @@ describe('Execute: Handles inputs', () => {
         errors: [
           {
             message:
-              'Variable "$input" got invalid value ["A", null, "B"]; Expected non-nullable type String! not to be null at value[1].',
+              'Variable "$input" got invalid value null at "input[1]"; Expected non-nullable type String! not to be null.',
             locations: [{ line: 2, column: 16 }],
           },
         ],
@@ -986,6 +986,65 @@ describe('Execute: Handles inputs', () => {
           fieldWithNonNullableStringInputAndDefaultArgumentValue:
             '"Hello World"',
         },
+      });
+    });
+  });
+
+  describe('getVariableValues: limit maximum number of coercion errors', () => {
+    const doc = parse(`
+      query ($input: [String!]) {
+        listNN(input: $input)
+      }
+    `);
+
+    const operation = doc.definitions[0];
+    invariant(operation.kind === Kind.OPERATION_DEFINITION);
+    const { variableDefinitions } = operation;
+    invariant(variableDefinitions != null);
+
+    const inputValue = { input: [0, 1, 2] };
+
+    function invalidValueError(value, index) {
+      return {
+        message: `Variable "$input" got invalid value ${value} at "input[${index}]"; Expected type String. String cannot represent a non string value: ${value}`,
+        locations: [{ line: 2, column: 14 }],
+      };
+    }
+
+    it('when maxErrors is equal to number of errors', () => {
+      const result = getVariableValues(
+        schema,
+        variableDefinitions,
+        inputValue,
+        { maxErrors: 3 },
+      );
+
+      expect(result).to.deep.equal({
+        errors: [
+          invalidValueError(0, 0),
+          invalidValueError(1, 1),
+          invalidValueError(2, 2),
+        ],
+      });
+    });
+
+    it('when maxErrors is less than number of errors', () => {
+      const result = getVariableValues(
+        schema,
+        variableDefinitions,
+        inputValue,
+        { maxErrors: 2 },
+      );
+
+      expect(result).to.deep.equal({
+        errors: [
+          invalidValueError(0, 0),
+          invalidValueError(1, 1),
+          {
+            message:
+              'Too many errors processing variables, error limit reached. Execution aborted.',
+          },
+        ],
       });
     });
   });

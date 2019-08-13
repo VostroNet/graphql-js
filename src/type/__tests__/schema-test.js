@@ -1,29 +1,22 @@
-/**
- * Copyright (c) Facebook, Inc. and its affiliates.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- *
- * @flow strict
- */
+// @flow strict
 
-import { describe, it } from 'mocha';
 import { expect } from 'chai';
+import { describe, it } from 'mocha';
 
 import dedent from '../../jsutils/dedent';
+
 import { printSchema } from '../../utilities/schemaPrinter';
+
+import { GraphQLSchema } from '../schema';
+import { GraphQLDirective } from '../directives';
+import { GraphQLInt, GraphQLString, GraphQLBoolean } from '../scalars';
 import {
-  GraphQLSchema,
+  GraphQLList,
   GraphQLScalarType,
   GraphQLObjectType,
-  GraphQLInt,
-  GraphQLString,
-  GraphQLBoolean,
   GraphQLInterfaceType,
   GraphQLInputObjectType,
-  GraphQLDirective,
-  GraphQLList,
-} from '../';
+} from '../definition';
 
 describe('Type System: Schema', () => {
   it('Define sample schema', () => {
@@ -298,10 +291,7 @@ describe('Type System: Schema', () => {
 
     describe('A Schema must contain uniquely named types', () => {
       it('rejects a Schema which redefines a built-in type', () => {
-        const FakeString = new GraphQLScalarType({
-          name: 'String',
-          serialize: () => null,
-        });
+        const FakeString = new GraphQLScalarType({ name: 'String' });
 
         const QueryType = new GraphQLObjectType({
           name: 'Query',

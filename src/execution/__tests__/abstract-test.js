@@ -1,24 +1,18 @@
-/**
- * Copyright (c) Facebook, Inc. and its affiliates.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- *
- * @flow strict
- */
+// @flow strict
 
 import { expect } from 'chai';
 import { describe, it } from 'mocha';
+
+import { GraphQLSchema } from '../../type/schema';
+import { GraphQLString, GraphQLBoolean } from '../../type/scalars';
 import {
-  graphqlSync,
-  GraphQLSchema,
+  GraphQLList,
   GraphQLObjectType,
   GraphQLInterfaceType,
   GraphQLUnionType,
-  GraphQLList,
-  GraphQLString,
-  GraphQLBoolean,
-} from '../../';
+} from '../../type/definition';
+
+import { graphqlSync } from '../../graphql';
 
 class Dog {
   name: string;
@@ -423,10 +417,7 @@ describe('Execute: Handles execution of abstract types', () => {
       errors: [
         {
           message:
-            'Abstract type FooInterface must resolve to an Object type at ' +
-            'runtime for field Query.foo with value "dummy", received "[]". ' +
-            'Either the FooInterface type should provide a "resolveType" ' +
-            'function or each possible type should provide an "isTypeOf" function.',
+            'Abstract type FooInterface must resolve to an Object type at runtime for field Query.foo with value "dummy", received "[]". Either the FooInterface type should provide a "resolveType" function or each possible type should provide an "isTypeOf" function.',
           locations: [{ line: 1, column: 3 }],
           path: ['foo'],
         },

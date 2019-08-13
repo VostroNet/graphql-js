@@ -1,28 +1,24 @@
-/**
- * Copyright (c) Facebook, Inc. and its affiliates.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- *
- * @flow strict
- */
+// @flow strict
 
 import { expect } from 'chai';
 import { describe, it } from 'mocha';
+
 import inspect from '../../jsutils/inspect';
 import invariant from '../../jsutils/invariant';
-import { execute } from '../execute';
-import { Kind, parse } from '../../language';
+
+import { Kind } from '../../language/kinds';
+import { parse } from '../../language/parser';
+
+import { GraphQLSchema } from '../../type/schema';
+import { GraphQLInt, GraphQLBoolean, GraphQLString } from '../../type/scalars';
 import {
-  GraphQLSchema,
+  GraphQLList,
+  GraphQLNonNull,
   GraphQLInterfaceType,
   GraphQLObjectType,
-  GraphQLList,
-  GraphQLBoolean,
-  GraphQLInt,
-  GraphQLString,
-  GraphQLNonNull,
-} from '../../type';
+} from '../../type/definition';
+
+import { execute } from '../execute';
 
 describe('Execute: Handles basic execution tasks', () => {
   it('throws if no document is provided', () => {

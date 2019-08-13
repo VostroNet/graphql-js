@@ -1,34 +1,29 @@
-/**
- * Copyright (c) Facebook, Inc. and its affiliates.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- *
- * @flow strict
- */
+// @flow strict
 
-import { describe, it } from 'mocha';
 import { expect } from 'chai';
+import { describe, it } from 'mocha';
+
 import dedent from '../../jsutils/dedent';
-import { printSchema, printIntrospectionSchema } from '../schemaPrinter';
-import { buildSchema } from '../buildASTSchema';
+
+import { DirectiveLocation } from '../../language/directiveLocation';
+
+import { GraphQLSchema } from '../../type/schema';
+import { GraphQLDirective } from '../../type/directives';
+import { GraphQLInt, GraphQLString, GraphQLBoolean } from '../../type/scalars';
 import {
   assertObjectType,
-  GraphQLSchema,
-  GraphQLInputObjectType,
+  GraphQLList,
+  GraphQLNonNull,
   GraphQLScalarType,
   GraphQLObjectType,
   GraphQLInterfaceType,
   GraphQLUnionType,
   GraphQLEnumType,
-  GraphQLString,
-  GraphQLInt,
-  GraphQLBoolean,
-  GraphQLList,
-  GraphQLNonNull,
-} from '../../';
-import { GraphQLDirective } from '../../type/directives';
-import { DirectiveLocation } from '../../language/directiveLocation';
+  GraphQLInputObjectType,
+} from '../../type/definition';
+
+import { buildSchema } from '../buildASTSchema';
+import { printSchema, printIntrospectionSchema } from '../schemaPrinter';
 
 function printForTest(schema) {
   const schemaText = printSchema(schema);
@@ -405,10 +400,7 @@ describe('Type System Printer', () => {
   });
 
   it('Custom Scalar', () => {
-    const OddType = new GraphQLScalarType({
-      name: 'Odd',
-      serialize() {},
-    });
+    const OddType = new GraphQLScalarType({ name: 'Odd' });
 
     const Schema = new GraphQLSchema({ types: [OddType] });
     const output = printForTest(Schema);
@@ -464,15 +456,30 @@ describe('Type System Printer', () => {
   });
 
   it('Prints custom directives', () => {
-    const CustomDirective = new GraphQLDirective({
-      name: 'customDirective',
+    const SimpleDirective = new GraphQLDirective({
+      name: 'simpleDirective',
       locations: [DirectiveLocation.FIELD],
     });
+    const ComplexDirective = new GraphQLDirective({
+      name: 'complexDirective',
+      description: 'Complex Directive',
+      args: {
+        stringArg: { type: GraphQLString },
+        intArg: { type: GraphQLInt, defaultValue: -1 },
+      },
+      isRepeatable: true,
+      locations: [DirectiveLocation.FIELD, DirectiveLocation.QUERY],
+    });
 
-    const Schema = new GraphQLSchema({ directives: [CustomDirective] });
+    const Schema = new GraphQLSchema({
+      directives: [SimpleDirective, ComplexDirective],
+    });
     const output = printForTest(Schema);
     expect(output).to.equal(dedent`
-      directive @customDirective on FIELD
+      directive @simpleDirective on FIELD
+
+      """Complex Directive"""
+      directive @complexDirective(stringArg: String, intArg: Int = -1) repeatable on FIELD | QUERY
     `);
   });
 

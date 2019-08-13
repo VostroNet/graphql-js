@@ -1,32 +1,30 @@
-/**
- * Copyright (c) Facebook, Inc. and its affiliates.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- *
- * @flow strict
- */
+// @flow strict
 
-import { describe, it } from 'mocha';
 import { expect } from 'chai';
+import { describe, it } from 'mocha';
+
 import dedent from '../../jsutils/dedent';
-import invariant from '../../jsutils/invariant';
-import { buildClientSchema } from '../buildClientSchema';
-import { introspectionFromSchema } from '../introspectionFromSchema';
+
+import { graphqlSync } from '../../graphql';
+
+import { GraphQLSchema } from '../../type/schema';
 import {
-  buildSchema,
-  printSchema,
-  graphqlSync,
-  isEnumType,
-  GraphQLSchema,
+  assertEnumType,
   GraphQLObjectType,
   GraphQLEnumType,
+} from '../../type/definition';
+import {
   GraphQLInt,
   GraphQLFloat,
   GraphQLString,
   GraphQLBoolean,
   GraphQLID,
-} from '../../';
+} from '../../type/scalars';
+
+import { printSchema } from '../schemaPrinter';
+import { buildSchema } from '../buildASTSchema';
+import { buildClientSchema } from '../buildClientSchema';
+import { introspectionFromSchema } from '../introspectionFromSchema';
 
 /**
  * This function does a full cycle of going from a string with the contents of
@@ -63,6 +61,22 @@ describe('Type System: build schema from introspection', () => {
     `;
 
     expect(cycleIntrospection(sdl)).to.equal(sdl);
+  });
+
+  it('builds a schema without the query type', () => {
+    const sdl = dedent`
+      type Query {
+        foo: String
+      }
+    `;
+
+    const schema = buildSchema(sdl);
+    const introspection = introspectionFromSchema(schema);
+    delete introspection.__schema.queryType;
+
+    const clientSchema = buildClientSchema(introspection);
+    expect(clientSchema.getQueryType()).to.equal(null);
+    expect(printSchema(clientSchema)).to.equal(sdl);
   });
 
   it('builds a simple schema with all operation types', () => {
@@ -336,10 +350,8 @@ describe('Type System: build schema from introspection', () => {
     const secondIntrospection = introspectionFromSchema(clientSchema);
     expect(secondIntrospection).to.deep.equal(introspection);
 
-    const clientFoodEnum = clientSchema.getType('Food');
-
     // It's also an Enum type on the client.
-    invariant(isEnumType(clientFoodEnum));
+    const clientFoodEnum = assertEnumType(clientSchema.getType('Food'));
 
     // Client types do not get server-only values, so `value` mirrors `name`,
     // rather than using the integers defined in the "server" schema.
@@ -445,6 +457,24 @@ describe('Type System: build schema from introspection', () => {
     expect(cycleIntrospection(sdl)).to.equal(sdl);
   });
 
+  it('builds a schema without directives', () => {
+    const sdl = dedent`
+      type Query {
+        string: String
+      }
+    `;
+
+    const schema = buildSchema(sdl);
+    const introspection = introspectionFromSchema(schema);
+    delete introspection.__schema.directives;
+
+    const clientSchema = buildClientSchema(introspection);
+
+    expect(schema.getDirectives()).to.have.lengthOf.above(0);
+    expect(clientSchema.getDirectives()).to.deep.equal([]);
+    expect(printSchema(clientSchema)).to.equal(sdl);
+  });
+
   it('builds a schema with legacy names', () => {
     const sdl = dedent`
       type Query {
@@ -532,6 +562,18 @@ describe('Type System: build schema from introspection', () => {
       directive @SomeDirective on QUERY
     `);
 
+    it('throws when introspection is missing __schema property', () => {
+      // $DisableFlowOnNegativeTest
+      expect(() => buildClientSchema(null)).to.throw(
+        'Invalid or incomplete introspection result. Ensure that you are passing "data" property of introspection response and no "errors" was returned alongside: null',
+      );
+
+      // $DisableFlowOnNegativeTest
+      expect(() => buildClientSchema({})).to.throw(
+        'Invalid or incomplete introspection result. Ensure that you are passing "data" property of introspection response and no "errors" was returned alongside: {}',
+      );
+    });
+
     it('throws when referenced unknown type', () => {
       const introspection = introspectionFromSchema(dummySchema);
 
@@ -542,6 +584,24 @@ describe('Type System: build schema from introspection', () => {
 
       expect(() => buildClientSchema(introspection)).to.throw(
         'Invalid or incomplete schema, unknown type: Query. Ensure that a full introspection query is used in order to build a client schema.',
+      );
+    });
+
+    it('throws when missing definition for one of the standard scalars', () => {
+      const schema = buildSchema(`
+        type Query {
+          foo: Float
+        }
+      `);
+      const introspection = introspectionFromSchema(schema);
+
+      // $DisableFlowOnNegativeTest
+      introspection.__schema.types = introspection.__schema.types.filter(
+        ({ name }) => name !== 'Float',
+      );
+
+      expect(() => buildClientSchema(introspection)).to.throw(
+        'Invalid or incomplete schema, unknown type: Float. Ensure that a full introspection query is used in order to build a client schema.',
       );
     });
 

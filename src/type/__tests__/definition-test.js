@@ -1,14 +1,12 @@
-/**
- * Copyright (c) Facebook, Inc. and its affiliates.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- *
- * @flow strict
- */
+// @flow strict
 
-import { describe, it } from 'mocha';
 import { expect } from 'chai';
+import { describe, it } from 'mocha';
+
+import inspect from '../../jsutils/inspect';
+import identityFunc from '../../jsutils/identityFunc';
+
+import { parseValue } from '../../language/parser';
 
 import {
   type GraphQLType,
@@ -23,7 +21,7 @@ import {
   GraphQLNonNull,
 } from '../definition';
 
-const ScalarType = new GraphQLScalarType({ name: 'Scalar', serialize() {} });
+const ScalarType = new GraphQLScalarType({ name: 'Scalar' });
 const ObjectType = new GraphQLObjectType({ name: 'Object', fields: {} });
 const InterfaceType = new GraphQLInterfaceType({
   name: 'Interface',
@@ -43,13 +41,7 @@ const NonNullListofScalars = GraphQLNonNull(ListOfScalarsType);
 
 describe('Type System: Scalars', () => {
   it('accepts a Scalar type defining serialize', () => {
-    expect(
-      () =>
-        new GraphQLScalarType({
-          name: 'SomeScalar',
-          serialize: () => null,
-        }),
-    ).not.to.throw();
+    expect(() => new GraphQLScalarType({ name: 'SomeScalar' })).not.to.throw();
   });
 
   it('accepts a Scalar type defining parseValue and parseLiteral', () => {
@@ -57,19 +49,33 @@ describe('Type System: Scalars', () => {
       () =>
         new GraphQLScalarType({
           name: 'SomeScalar',
-          serialize: () => null,
           parseValue: () => null,
           parseLiteral: () => null,
         }),
     ).not.to.throw();
   });
 
-  it('rejects a Scalar type not defining serialize', () => {
-    expect(
-      // $DisableFlowOnNegativeTest
-      () => new GraphQLScalarType({ name: 'SomeScalar' }),
-    ).to.throw(
-      'SomeScalar must provide "serialize" function. If this custom Scalar is also used as an input type, ensure "parseValue" and "parseLiteral" functions are also provided.',
+  it('provides default methods if omitted', () => {
+    const scalar = new GraphQLScalarType({ name: 'Foo' });
+
+    expect(scalar.serialize).to.equal(identityFunc);
+    expect(scalar.parseValue).to.equal(identityFunc);
+    expect(scalar.parseLiteral).to.be.a('function');
+  });
+
+  it('use parseValue for parsing literals if parseLiteral omitted', () => {
+    const scalar = new GraphQLScalarType({
+      name: 'Foo',
+      parseValue(value) {
+        return 'parseValue: ' + inspect(value);
+      },
+    });
+
+    expect(scalar.parseLiteral(parseValue('null'))).to.equal(
+      'parseValue: null',
+    );
+    expect(scalar.parseLiteral(parseValue('{ foo: "bar" }'))).to.equal(
+      'parseValue: { foo: "bar" }',
     );
   });
 
@@ -86,25 +92,11 @@ describe('Type System: Scalars', () => {
     );
   });
 
-  it('rejects a Scalar type defining parseValue but not parseLiteral', () => {
-    expect(
-      () =>
-        new GraphQLScalarType({
-          name: 'SomeScalar',
-          serialize: () => null,
-          parseValue: () => null,
-        }),
-    ).to.throw(
-      'SomeScalar must provide both "parseValue" and "parseLiteral" functions.',
-    );
-  });
-
   it('rejects a Scalar type defining parseLiteral but not parseValue', () => {
     expect(
       () =>
         new GraphQLScalarType({
           name: 'SomeScalar',
-          serialize: () => null,
           parseLiteral: () => null,
         }),
     ).to.throw(
@@ -117,7 +109,6 @@ describe('Type System: Scalars', () => {
       () =>
         new GraphQLScalarType({
           name: 'SomeScalar',
-          serialize: () => null,
           // $DisableFlowOnNegativeTest
           parseValue: {},
           // $DisableFlowOnNegativeTest

@@ -1,21 +1,18 @@
-/**
- * Copyright (c) Facebook, Inc. and its affiliates.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- *
- * @flow strict
- */
+// @flow strict
+
+import { parse } from '../../language/parser';
+import { buildSchema } from '../../utilities/buildASTSchema';
+import { getIntrospectionQuery } from '../../utilities/introspectionQuery';
+
+import { validate } from '../validate';
 
 import { bigSchemaSDL } from '../../__fixtures__';
-
-import { parse, getIntrospectionQuery, buildSchema } from '../../';
-import { validate } from '../validate';
 
 const schema = buildSchema(bigSchemaSDL, { assumeValid: true });
 const queryAST = parse(getIntrospectionQuery());
 
 export const name = 'Validate Introspection Query';
+export const count = 50;
 export function measure() {
   validate(schema, queryAST);
 }

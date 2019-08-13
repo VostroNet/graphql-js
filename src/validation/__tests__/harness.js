@@ -1,22 +1,26 @@
-/**
- * Copyright (c) Facebook, Inc. and its affiliates.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- *
- * @flow strict
- */
+// @flow strict
 
 import { expect } from 'chai';
+
 import inspect from '../../jsutils/inspect';
-import { parse, print } from '../../language';
-import { validate, validateSDL } from '../validate';
+
+import { parse } from '../../language/parser';
+
+import { GraphQLSchema } from '../../type/schema';
 import {
-  type ValidationRule,
-  type SDLValidationRule,
-} from '../ValidationContext';
+  GraphQLDirective,
+  GraphQLIncludeDirective,
+  GraphQLSkipDirective,
+} from '../../type/directives';
 import {
-  GraphQLSchema,
+  GraphQLInt,
+  GraphQLFloat,
+  GraphQLString,
+  GraphQLBoolean,
+  GraphQLID,
+} from '../../type/scalars';
+import {
+  GraphQLScalarType,
   GraphQLObjectType,
   GraphQLInterfaceType,
   GraphQLUnionType,
@@ -24,18 +28,13 @@ import {
   GraphQLInputObjectType,
   GraphQLList,
   GraphQLNonNull,
-  GraphQLInt,
-  GraphQLFloat,
-  GraphQLString,
-  GraphQLBoolean,
-  GraphQLID,
-} from '../../type';
+} from '../../type/definition';
+
+import { validate, validateSDL } from '../validate';
 import {
-  GraphQLDirective,
-  GraphQLIncludeDirective,
-  GraphQLSkipDirective,
-} from '../../type/directives';
-import { GraphQLScalarType } from '../../type/definition';
+  type ValidationRule,
+  type SDLValidationRule,
+} from '../ValidationContext';
 
 const Being = new GraphQLInterfaceType({
   name: 'Being',
@@ -293,29 +292,12 @@ const ComplicatedArgs = new GraphQLObjectType({
 
 const InvalidScalar = new GraphQLScalarType({
   name: 'Invalid',
-  serialize(value) {
-    return value;
-  },
-  parseLiteral(valueNode) {
-    throw new Error(`Invalid scalar is always invalid: ${print(valueNode)}`);
-  },
   parseValue(value) {
     throw new Error(`Invalid scalar is always invalid: ${inspect(value)}`);
   },
 });
 
-const AnyScalar = new GraphQLScalarType({
-  name: 'Any',
-  serialize(value) {
-    return value;
-  },
-  parseLiteral(node) {
-    return node; // Allows any value
-  },
-  parseValue(value) {
-    return value; // Allows any value
-  },
-});
+const AnyScalar = new GraphQLScalarType({ name: 'Any' });
 
 const QueryRoot = new GraphQLObjectType({
   name: 'QueryRoot',

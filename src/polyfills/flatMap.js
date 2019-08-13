@@ -1,11 +1,4 @@
-/**
- * Copyright (c) Facebook, Inc. and its affiliates.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- *
- * @flow strict
- */
+// @flow strict
 
 declare function flatMap<T, U>(
   list: $ReadOnlyArray<T>,
@@ -16,7 +9,6 @@ declare function flatMap<T, U>(
 // $FlowFixMe
 const flatMap = Array.prototype.flatMap
   ? function(list, fn) {
-      // $FlowFixMe
       return Array.prototype.flatMap.call(list, fn);
     }
   : function(list, fn) {

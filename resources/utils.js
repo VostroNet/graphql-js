@@ -1,16 +1,41 @@
-/**
- * Copyright (c) Facebook, Inc. and its affiliates.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- *
- * @noflow
- */
+// @noflow
 
 'use strict';
 
 const fs = require('fs');
+const util = require('util');
 const path = require('path');
+const childProcess = require('child_process');
+
+function exec(command, options) {
+  const output = childProcess.execSync(command, {
+    maxBuffer: 10 * 1024 * 1024, // 10MB
+    encoding: 'utf-8',
+    ...options,
+  });
+  return removeTrailingNewLine(output);
+}
+
+const childProcessExec = util.promisify(childProcess.exec);
+async function execAsync(command, options) {
+  const output = await childProcessExec(command, {
+    maxBuffer: 10 * 1024 * 1024, // 10MB
+    encoding: 'utf-8',
+    ...options,
+  });
+  return removeTrailingNewLine(output.stdout);
+}
+
+function removeTrailingNewLine(str) {
+  if (str == null) {
+    return str;
+  }
+
+  return str
+    .split('\n')
+    .slice(0, -1)
+    .join('\n');
+}
 
 function mkdirRecursive(dirPath) {
   fs.mkdirSync(dirPath, { recursive: true });
@@ -61,10 +86,23 @@ function copyFile(srcPath, destPath) {
   fs.copyFileSync(srcPath, destPath);
 }
 
+function parseSemver(version) {
+  const match = /^(\d+)\.(\d+)\.(\d+)-?(.*)?$/.exec(version);
+  if (!match) {
+    throw new Error('Version does not match semver spec: ' + version);
+  }
+
+  const [, major, minor, patch, preReleaseTag] = match;
+  return { major, minor, patch, preReleaseTag };
+}
+
 module.exports = {
+  exec,
+  execAsync,
   copyFile,
   writeFile,
   rmdirRecursive,
   mkdirRecursive,
   readdirRecursive,
+  parseSemver,
 };

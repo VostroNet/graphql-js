@@ -1,20 +1,16 @@
-/**
- * Copyright (c) Facebook, Inc. and its affiliates.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- *
- * @flow strict
- */
+// @flow strict
 
 import { describe, it } from 'mocha';
-import { expectSDLValidationErrors } from './harness';
+
+import { buildSchema } from '../../utilities/buildASTSchema';
+
 import {
   LoneSchemaDefinition,
   schemaDefinitionNotAloneMessage,
   canNotDefineSchemaWithinExtensionMessage,
 } from '../rules/LoneSchemaDefinition';
-import { buildSchema } from '../../utilities';
+
+import { expectSDLValidationErrors } from './harness';
 
 function expectSDLErrors(sdlStr, schema) {
   return expectSDLValidationErrors(schema, LoneSchemaDefinition, sdlStr);

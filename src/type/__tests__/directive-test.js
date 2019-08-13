@@ -1,16 +1,10 @@
-/**
- * Copyright (c) Facebook, Inc. and its affiliates.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- *
- * @flow strict
- */
+// @flow strict
 
-import { describe, it } from 'mocha';
 import { expect } from 'chai';
+import { describe, it } from 'mocha';
 
-import { GraphQLDirective, GraphQLString, GraphQLInt } from '../';
+import { GraphQLDirective } from '../directives';
+import { GraphQLString, GraphQLInt } from '../scalars';
 
 describe('Type System: Directive', () => {
   it('defines a directive with no args', () => {
@@ -22,6 +16,7 @@ describe('Type System: Directive', () => {
     expect(directive).to.deep.include({
       name: 'Foo',
       args: [],
+      isRepeatable: false,
       locations: ['QUERY'],
     });
   });
@@ -54,6 +49,22 @@ describe('Type System: Directive', () => {
           astNode: undefined,
         },
       ],
+      isRepeatable: false,
+      locations: ['QUERY'],
+    });
+  });
+
+  it('defines a repeatable directive', () => {
+    const directive = new GraphQLDirective({
+      name: 'Foo',
+      isRepeatable: true,
+      locations: ['QUERY'],
+    });
+
+    expect(directive).to.deep.include({
+      name: 'Foo',
+      args: [],
+      isRepeatable: true,
       locations: ['QUERY'],
     });
   });
