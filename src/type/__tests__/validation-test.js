@@ -1,39 +1,34 @@
-/**
- * Copyright (c) Facebook, Inc. and its affiliates.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- *
- * @flow strict
- */
+// @flow strict
 
-import { describe, it } from 'mocha';
 import { expect } from 'chai';
+import { describe, it } from 'mocha';
+
 import inspect from '../../jsutils/inspect';
+
+import { parse } from '../../language/parser';
+
+import { GraphQLSchema } from '../../type/schema';
+import { GraphQLString } from '../../type/scalars';
 import {
   type GraphQLNamedType,
   type GraphQLInputType,
   type GraphQLOutputType,
-  GraphQLSchema,
+  GraphQLList,
+  GraphQLNonNull,
   GraphQLScalarType,
   GraphQLObjectType,
   GraphQLInterfaceType,
   GraphQLUnionType,
   GraphQLEnumType,
   GraphQLInputObjectType,
-  GraphQLList,
-  GraphQLNonNull,
-  GraphQLString,
-} from '../../';
-import { parse } from '../../language/parser';
-import { validateSchema } from '../validate';
-import { buildSchema } from '../../utilities/buildASTSchema';
-import { extendSchema } from '../../utilities/extendSchema';
+} from '../../type/definition';
 
-const SomeScalarType = new GraphQLScalarType({
-  name: 'SomeScalar',
-  serialize() {},
-});
+import { extendSchema } from '../../utilities/extendSchema';
+import { buildSchema } from '../../utilities/buildASTSchema';
+
+import { validateSchema } from '../validate';
+
+const SomeScalarType = new GraphQLScalarType({ name: 'SomeScalar' });
 
 const SomeInterfaceType = new GraphQLInterfaceType({
   name: 'SomeInterface',
@@ -65,7 +60,9 @@ const SomeInputObjectType = new GraphQLInputObjectType({
   },
 });
 
-function withModifiers<T: GraphQLNamedType>(types: Array<T>): Array<*> {
+function withModifiers<T: GraphQLNamedType>(
+  types: Array<T>,
+): Array<T | GraphQLList<T> | GraphQLNonNull<T | GraphQLList<T>>> {
   return [
     ...types,
     ...types.map(type => GraphQLList(type)),
@@ -74,7 +71,7 @@ function withModifiers<T: GraphQLNamedType>(types: Array<T>): Array<*> {
   ];
 }
 
-const outputTypes: Array<GraphQLOutputType> = withModifiers([
+const outputTypes = withModifiers([
   GraphQLString,
   SomeScalarType,
   SomeEnumType,
@@ -83,18 +80,16 @@ const outputTypes: Array<GraphQLOutputType> = withModifiers([
   SomeInterfaceType,
 ]);
 
-const notOutputTypes: Array<GraphQLInputType> = withModifiers([
-  SomeInputObjectType,
-]);
+const notOutputTypes = withModifiers([SomeInputObjectType]);
 
-const inputTypes: Array<GraphQLInputType> = withModifiers([
+const inputTypes = withModifiers([
   GraphQLString,
   SomeScalarType,
   SomeEnumType,
   SomeInputObjectType,
 ]);
 
-const notInputTypes: Array<GraphQLOutputType> = withModifiers([
+const notInputTypes = withModifiers([
   SomeObjectType,
   SomeUnionType,
   SomeInterfaceType,
@@ -735,6 +730,120 @@ describe('Type System: Input Objects must have fields', () => {
         message:
           'Input Object type SomeInputObject must define one or more fields.',
         locations: [{ line: 6, column: 7 }, { line: 4, column: 9 }],
+      },
+    ]);
+  });
+
+  it('accepts an Input Object with breakable circular reference', () => {
+    const schema = buildSchema(`
+      type Query {
+        field(arg: SomeInputObject): String
+      }
+
+      input SomeInputObject {
+        self: SomeInputObject
+        arrayOfSelf: [SomeInputObject]
+        nonNullArrayOfSelf: [SomeInputObject]!
+        nonNullArrayOfNonNullSelf: [SomeInputObject!]!
+        intermediateSelf: AnotherInputObject
+      }
+
+      input AnotherInputObject {
+        parent: SomeInputObject
+      }
+    `);
+
+    expect(validateSchema(schema)).to.deep.equal([]);
+  });
+
+  it('rejects an Input Object with non-breakable circular reference', () => {
+    const schema = buildSchema(`
+      type Query {
+        field(arg: SomeInputObject): String
+      }
+
+      input SomeInputObject {
+        nonNullSelf: SomeInputObject!
+      }
+    `);
+
+    expect(validateSchema(schema)).to.deep.equal([
+      {
+        message:
+          'Cannot reference Input Object "SomeInputObject" within itself through a series of non-null fields: "nonNullSelf".',
+        locations: [{ line: 7, column: 9 }],
+      },
+    ]);
+  });
+
+  it('rejects Input Objects with non-breakable circular reference spread across them', () => {
+    const schema = buildSchema(`
+      type Query {
+        field(arg: SomeInputObject): String
+      }
+
+      input SomeInputObject {
+        startLoop: AnotherInputObject!
+      }
+
+      input AnotherInputObject {
+        nextInLoop: YetAnotherInputObject!
+      }
+
+      input YetAnotherInputObject {
+        closeLoop: SomeInputObject!
+      }
+    `);
+
+    expect(validateSchema(schema)).to.deep.equal([
+      {
+        message:
+          'Cannot reference Input Object "SomeInputObject" within itself through a series of non-null fields: "startLoop.nextInLoop.closeLoop".',
+        locations: [
+          { line: 7, column: 9 },
+          { line: 11, column: 9 },
+          { line: 15, column: 9 },
+        ],
+      },
+    ]);
+  });
+
+  it('rejects Input Objects with multiple non-breakable circular reference', () => {
+    const schema = buildSchema(`
+      type Query {
+        field(arg: SomeInputObject): String
+      }
+
+      input SomeInputObject {
+        startLoop: AnotherInputObject!
+      }
+
+      input AnotherInputObject {
+        closeLoop: SomeInputObject!
+        startSecondLoop: YetAnotherInputObject!
+      }
+
+      input YetAnotherInputObject {
+        closeSecondLoop: AnotherInputObject!
+        nonNullSelf: YetAnotherInputObject!
+      }
+    `);
+
+    expect(validateSchema(schema)).to.deep.equal([
+      {
+        message:
+          'Cannot reference Input Object "SomeInputObject" within itself through a series of non-null fields: "startLoop.closeLoop".',
+        locations: [{ line: 7, column: 9 }, { line: 11, column: 9 }],
+      },
+      {
+        message:
+          'Cannot reference Input Object "AnotherInputObject" within itself through a series of non-null fields: "startSecondLoop.closeSecondLoop".',
+        locations: [{ line: 12, column: 9 }, { line: 16, column: 9 }],
+      },
+      {
+        message:
+          'Cannot reference Input Object "YetAnotherInputObject" within itself through a series of non-null fields: "nonNullSelf".',
+        locations: [{ line: 17, column: 9 }],
       },
     ]);
   });

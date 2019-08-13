@@ -1,24 +1,19 @@
-/**
- * Copyright (c) Facebook, Inc. and its affiliates.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- *
- * @flow strict
- */
+// @flow strict
 
 import { expect } from 'chai';
 import { describe, it } from 'mocha';
-import { buildSchema } from '../../';
-import {
-  expectValidationErrors,
-  expectValidationErrorsWithSchema,
-} from './harness';
+
+import { buildSchema } from '../../utilities/buildASTSchema';
 
 import {
   OverlappingFieldsCanBeMerged,
   fieldsConflictMessage,
 } from '../rules/OverlappingFieldsCanBeMerged';
+
+import {
+  expectValidationErrors,
+  expectValidationErrorsWithSchema,
+} from './harness';
 
 function expectErrors(queryStr) {
   return expectValidationErrors(OverlappingFieldsCanBeMerged, queryStr);

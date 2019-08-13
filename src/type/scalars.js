@@ -1,17 +1,14 @@
-/**
- * Copyright (c) Facebook, Inc. and its affiliates.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- *
- * @flow strict
- */
+// @flow strict
 
 import isFinite from '../polyfills/isFinite';
 import isInteger from '../polyfills/isInteger';
+
 import inspect from '../jsutils/inspect';
-import { GraphQLScalarType, isScalarType } from './definition';
+import isObjectLike from '../jsutils/isObjectLike';
+
 import { Kind } from '../language/kinds';
+
+import { GraphQLScalarType, isScalarType } from './definition';
 
 // As per the GraphQL Spec, Integers are only treated as valid when a valid
 // 32-bit signed integer, providing the broadest support across platforms.
@@ -118,10 +115,10 @@ export const GraphQLFloat = new GraphQLScalarType({
 // a common way to represent a complex value which can be represented as
 // a string (ex: MongoDB id objects).
 function serializeObject(value: mixed): mixed {
-  if (typeof value === 'object' && value !== null) {
+  if (isObjectLike(value)) {
     if (typeof value.valueOf === 'function') {
       const valueOfResult = value.valueOf();
-      if (typeof valueOfResult !== 'object') {
+      if (!isObjectLike(valueOfResult)) {
         return valueOfResult;
       }
     }

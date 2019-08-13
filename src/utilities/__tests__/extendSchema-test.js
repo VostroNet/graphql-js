@@ -1,54 +1,55 @@
-/**
- * Copyright (c) Facebook, Inc. and its affiliates.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- *
- * @flow strict
- */
+// @flow strict
 
-import { describe, it } from 'mocha';
 import { expect } from 'chai';
+import { describe, it } from 'mocha';
+
 import dedent from '../../jsutils/dedent';
 import invariant from '../../jsutils/invariant';
-import { buildSchema } from '../buildASTSchema';
-import { extendSchema } from '../extendSchema';
-import { parse, print, DirectiveLocation } from '../../language';
-import { printSchema } from '../schemaPrinter';
+
 import { Kind } from '../../language/kinds';
-import { graphqlSync } from '../../';
+import { parse } from '../../language/parser';
+import { print } from '../../language/printer';
+import { DirectiveLocation } from '../../language/directiveLocation';
+
+import { graphqlSync } from '../../graphql';
+
+import { GraphQLSchema } from '../../type/schema';
+import { validateSchema } from '../../type/validate';
 import {
   assertDirective,
+  GraphQLDirective,
+  specifiedDirectives,
+} from '../../type/directives';
+import {
+  GraphQLID,
+  GraphQLInt,
+  GraphQLFloat,
+  GraphQLString,
+  GraphQLBoolean,
+} from '../../type/scalars';
+import {
   assertObjectType,
   assertInputObjectType,
   assertEnumType,
   assertUnionType,
   assertInterfaceType,
   assertScalarType,
-  GraphQLSchema,
+  GraphQLList,
+  GraphQLNonNull,
   GraphQLScalarType,
   GraphQLObjectType,
   GraphQLInterfaceType,
   GraphQLUnionType,
-  GraphQLID,
-  GraphQLInt,
-  GraphQLFloat,
-  GraphQLString,
-  GraphQLBoolean,
   GraphQLEnumType,
   GraphQLInputObjectType,
-  GraphQLNonNull,
-  GraphQLList,
-  GraphQLDirective,
-  validateSchema,
-  specifiedDirectives,
-} from '../../type';
+} from '../../type/definition';
+
+import { printSchema } from '../schemaPrinter';
+import { extendSchema } from '../extendSchema';
+import { buildSchema } from '../buildASTSchema';
 
 // Test schema.
-const SomeScalarType = new GraphQLScalarType({
-  name: 'SomeScalar',
-  serialize: x => x,
-});
+const SomeScalarType = new GraphQLScalarType({ name: 'SomeScalar' });
 
 const SomeInterfaceType = new GraphQLInterfaceType({
   name: 'SomeInterface',
@@ -110,6 +111,7 @@ const FooDirective = new GraphQLDirective({
   args: {
     input: { type: SomeInputType },
   },
+  isRepeatable: true,
   locations: [
     DirectiveLocation.SCHEMA,
     DirectiveLocation.SCALAR,
@@ -271,11 +273,7 @@ describe('extendSchema', () => {
   });
 
   it('extends objects with standard type fields', () => {
-    const schema = buildSchema(`
-      type Query {
-        str: String
-      }
-    `);
+    const schema = buildSchema('type Query');
 
     // String and Boolean are always included through introspection types
     expect(schema.getType('Int')).to.equal(undefined);
@@ -455,7 +453,7 @@ describe('extendSchema', () => {
         interfaceField: String
       }
 
-      directive @test(arg: Int) on FIELD | SCALAR
+      directive @test(arg: Int) repeatable on FIELD | SCALAR
     `);
     const extendedTwiceSchema = extendSchema(extendedSchema, ast);
 
@@ -1098,7 +1096,7 @@ describe('extendSchema', () => {
 
   it('may extend directives with new complex directive', () => {
     const extendedSchema = extendTestSchema(`
-      directive @profile(enable: Boolean! tag: String) on QUERY | FIELD
+      directive @profile(enable: Boolean! tag: String) repeatable on QUERY | FIELD
     `);
 
     const extendedDirective = assertDirective(
@@ -1199,9 +1197,7 @@ describe('extendSchema', () => {
   describe('can add additional root operation types', () => {
     it('does not automatically include common root type names', () => {
       const schema = extendTestSchema(`
-        type Mutation {
-          doSomething: String
-        }
+        type Mutation
       `);
       expect(schema.getMutationType()).to.equal(null);
     });
@@ -1230,9 +1226,7 @@ describe('extendSchema', () => {
           mutation: Mutation
         }
 
-        type Mutation {
-          doSomething: String
-        }
+        type Mutation
       `);
       const mutationType = schema.getMutationType();
       expect(mutationType).to.include({ name: 'Mutation' });
@@ -1245,13 +1239,8 @@ describe('extendSchema', () => {
           subscription: Subscription
         }
 
-        type Mutation {
-          doSomething: String
-        }
-
-        type Subscription {
-          hearSomething: String
-        }
+        type Mutation
+        type Subscription
       `);
       const mutationType = schema.getMutationType();
       const subscriptionType = schema.getSubscriptionType();
@@ -1264,18 +1253,12 @@ describe('extendSchema', () => {
         extend schema {
           mutation: Mutation
         }
+        type Mutation
 
         extend schema {
           subscription: Subscription
         }
-
-        type Mutation {
-          doSomething: String
-        }
-
-        type Subscription {
-          hearSomething: String
-        }
+        type Subscription
       `);
       const mutationType = schema.getMutationType();
       const subscriptionType = schema.getSubscriptionType();
@@ -1288,18 +1271,12 @@ describe('extendSchema', () => {
         extend schema {
           mutation: Mutation
         }
+        type Mutation
 
         extend schema {
           subscription: Subscription
         }
-
-        type Mutation {
-          doSomething: String
-        }
-
-        type Subscription {
-          hearSomething: String
-        }
+        type Subscription
       `);
 
       const ast = parse(`

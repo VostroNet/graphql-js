@@ -1,27 +1,24 @@
-/**
- * Copyright (c) Facebook, Inc. and its affiliates.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- *
- * @flow strict
- */
+// @flow strict
 
-import { describe, it } from 'mocha';
 import { expect } from 'chai';
-import { valueFromAST } from '../valueFromAST';
+import { describe, it } from 'mocha';
+
+import { parseValue } from '../../language/parser';
 import {
-  GraphQLEnumType,
-  GraphQLInputObjectType,
-  GraphQLList,
   GraphQLInt,
   GraphQLFloat,
   GraphQLString,
   GraphQLBoolean,
   GraphQLID,
+} from '../../type/scalars';
+import {
+  GraphQLEnumType,
+  GraphQLInputObjectType,
+  GraphQLList,
   GraphQLNonNull,
-} from '../../type';
-import { parseValue } from '../../language';
+} from '../../type/definition';
+
+import { valueFromAST } from '../valueFromAST';
 
 describe('valueFromAST', () => {
   function testCase(type, valueText, expected) {

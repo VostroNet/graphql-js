@@ -1,27 +1,23 @@
-/**
- * Copyright (c) Facebook, Inc. and its affiliates.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- *
- * @flow strict
- */
+// @flow strict
 
 import { expect } from 'chai';
 import { describe, it } from 'mocha';
 
-import { missingFieldArgMessage } from '../../validation/rules/ProvidedRequiredArguments';
-import {
-  graphqlSync,
-  GraphQLSchema,
-  GraphQLObjectType,
-  GraphQLList,
-  GraphQLInputObjectType,
-  GraphQLString,
-  GraphQLEnumType,
-} from '../../';
+import invariant from '../../jsutils/invariant';
 
+import { missingFieldArgMessage } from '../../validation/rules/ProvidedRequiredArguments';
+
+import { graphqlSync } from '../../graphql';
 import { getIntrospectionQuery } from '../../utilities/introspectionQuery';
+
+import { GraphQLSchema } from '../schema';
+import { GraphQLString } from '../scalars';
+import {
+  GraphQLList,
+  GraphQLObjectType,
+  GraphQLInputObjectType,
+  GraphQLEnumType,
+} from '../definition';
 
 describe('Introspection', () => {
   it('executes an introspection query', () => {
@@ -1406,14 +1402,10 @@ describe('Introspection', () => {
     const schema = new GraphQLSchema({ query: QueryRoot });
     const source = getIntrospectionQuery();
 
-    const calledForFields = {};
-    /* istanbul ignore next */
-    function fieldResolver(value, _1, _2, info) {
-      calledForFields[`${info.parentType.name}::${info.fieldName}`] = true;
-      return value;
+    function fieldResolver(_1, _2, _3, info) {
+      invariant(false, `Called on ${info.parentType.name}::${info.fieldName}`);
     }
 
     graphqlSync({ schema, source, fieldResolver });
-    expect(calledForFields).to.deep.equal({});
   });
 });

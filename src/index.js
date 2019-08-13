@@ -1,11 +1,4 @@
-/**
- * Copyright (c) Facebook, Inc. and its affiliates.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- *
- * @flow strict
- */
+// @flow strict
 
 /**
  * GraphQL.js provides a reference implementation for the GraphQL specification
@@ -181,6 +174,9 @@ export type {
 export {
   Source,
   getLocation,
+  // Print source location
+  printLocation,
+  printSourceLocation,
   // Lex
   createLexer,
   TokenKind,
@@ -295,6 +291,7 @@ export {
 export type { ExecutionArgs, ExecutionResult } from './execution';
 
 export { subscribe, createSourceEventStream } from './subscription';
+export type { SubscriptionArgs } from './subscription';
 
 // Validate GraphQL documents.
 export {
@@ -389,8 +386,10 @@ export {
   // the GraphQL type system.
   TypeInfo,
   // Coerces a JavaScript value to a GraphQL type, or produces errors.
+  coerceInputValue,
+  // @deprecated use coerceInputValue - will be removed in v15
   coerceValue,
-  // @deprecated use coerceValue - will be removed in v15
+  // @deprecated use coerceInputValue - will be removed in v15
   isValidJSValue,
   // @deprecated use validation - will be removed in v15
   isValidLiteralValue,

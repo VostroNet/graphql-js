@@ -1,22 +1,27 @@
-/**
- * Copyright (c) Facebook, Inc. and its affiliates.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- *
- * @flow strict
- */
+// @flow strict
 
-import { describe, it } from 'mocha';
 import { expect } from 'chai';
+import { describe, it } from 'mocha';
 
 import {
-  GraphQLScalarType,
-  GraphQLBoolean,
+  GraphQLDirective,
+  GraphQLSkipDirective,
+  GraphQLIncludeDirective,
+  GraphQLDeprecatedDirective,
+  assertDirective,
+  isDirective,
+  isSpecifiedDirective,
+} from '../directives';
+import {
   GraphQLID,
   GraphQLInt,
   GraphQLFloat,
   GraphQLString,
+  GraphQLBoolean,
+  isSpecifiedScalarType,
+} from '../scalars';
+import {
+  GraphQLScalarType,
   GraphQLEnumType,
   GraphQLInputObjectType,
   GraphQLInterfaceType,
@@ -24,13 +29,8 @@ import {
   GraphQLUnionType,
   GraphQLList,
   GraphQLNonNull,
-  GraphQLDirective,
-  GraphQLIncludeDirective,
-  GraphQLSkipDirective,
-  GraphQLDeprecatedDirective,
   isType,
   isScalarType,
-  isSpecifiedScalarType,
   isObjectType,
   isInterfaceType,
   isUnionType,
@@ -48,8 +48,6 @@ import {
   isNamedType,
   isRequiredArgument,
   isRequiredInputField,
-  isDirective,
-  isSpecifiedDirective,
   assertType,
   assertScalarType,
   assertObjectType,
@@ -67,10 +65,9 @@ import {
   assertWrappingType,
   assertNullableType,
   assertNamedType,
-  assertDirective,
   getNullableType,
   getNamedType,
-} from '../';
+} from '../definition';
 
 const ObjectType = new GraphQLObjectType({ name: 'Object', fields: {} });
 const InterfaceType = new GraphQLInterfaceType({
@@ -83,10 +80,7 @@ const InputObjectType = new GraphQLInputObjectType({
   name: 'InputObject',
   fields: {},
 });
-const ScalarType = new GraphQLScalarType({
-  name: 'Scalar',
-  serialize() {},
-});
+const ScalarType = new GraphQLScalarType({ name: 'Scalar' });
 const Directive = new GraphQLDirective({
   name: 'Directive',
   locations: ['QUERY'],
@@ -711,7 +705,6 @@ describe('Directive predicates', () => {
     it('returns false for scalar type named like specified directive', () => {
       const ScalarNamedLikeDirective = new GraphQLScalarType({
         name: 'deprecated',
-        serialize: () => null,
       });
       expect(isSpecifiedDirective(ScalarNamedLikeDirective)).to.equal(false);
     });

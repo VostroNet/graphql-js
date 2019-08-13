@@ -1,16 +1,11 @@
-/**
- * Copyright (c) Facebook, Inc. and its affiliates.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- *
- * @flow strict
- */
+// @flow strict
 
 import { type ObjMap } from '../jsutils/ObjMap';
-import { type GraphQLError } from '../error';
-import { type ASTVisitor, visit, visitWithTypeInfo } from '../language/visitor';
+
+import { type GraphQLError } from '../error/GraphQLError';
+
 import { Kind } from '../language/kinds';
+import { type ASTVisitor, visit, visitWithTypeInfo } from '../language/visitor';
 import {
   type DocumentNode,
   type OperationDefinitionNode,
@@ -19,7 +14,9 @@ import {
   type FragmentSpreadNode,
   type FragmentDefinitionNode,
 } from '../language/ast';
+
 import { type GraphQLSchema } from '../type/schema';
+import { type GraphQLDirective } from '../type/directives';
 import {
   type GraphQLInputType,
   type GraphQLOutputType,
@@ -27,7 +24,7 @@ import {
   type GraphQLField,
   type GraphQLArgument,
 } from '../type/definition';
-import { type GraphQLDirective } from '../type/directives';
+
 import { TypeInfo } from '../utilities/TypeInfo';
 
 type NodeWithSelectionSet = OperationDefinitionNode | FragmentDefinitionNode;
@@ -234,7 +231,7 @@ export class ValidationContext extends ASTValidationContext {
     return this._typeInfo.getParentInputType();
   }
 
-  getFieldDef(): ?GraphQLField<*, *> {
+  getFieldDef(): ?GraphQLField<mixed, mixed> {
     return this._typeInfo.getFieldDef();
   }
 

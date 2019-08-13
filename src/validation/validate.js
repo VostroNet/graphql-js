@@ -1,19 +1,17 @@
-/**
- * Copyright (c) Facebook, Inc. and its affiliates.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- *
- * @flow strict
- */
+// @flow strict
 
-import invariant from '../jsutils/invariant';
-import { type GraphQLError } from '../error';
-import { visit, visitInParallel, visitWithTypeInfo } from '../language/visitor';
+import devAssert from '../jsutils/devAssert';
+
+import { type GraphQLError } from '../error/GraphQLError';
+
 import { type DocumentNode } from '../language/ast';
+import { visit, visitInParallel, visitWithTypeInfo } from '../language/visitor';
+
 import { type GraphQLSchema } from '../type/schema';
 import { assertValidSchema } from '../type/validate';
+
 import { TypeInfo } from '../utilities/TypeInfo';
+
 import { specifiedRules, specifiedSDLRules } from './specifiedRules';
 import {
   type SDLValidationRule,
@@ -44,7 +42,7 @@ export function validate(
   rules?: $ReadOnlyArray<ValidationRule> = specifiedRules,
   typeInfo?: TypeInfo = new TypeInfo(schema),
 ): $ReadOnlyArray<GraphQLError> {
-  invariant(documentAST, 'Must provide document');
+  devAssert(documentAST, 'Must provide document');
   // If the schema used for validation is invalid, throw an error.
   assertValidSchema(schema);
 

@@ -1,24 +1,19 @@
-/**
- * Copyright (c) Facebook, Inc. and its affiliates.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- *
- * @flow strict
- */
+// @flow strict
 
 import { expect } from 'chai';
 import { describe, it } from 'mocha';
-import { execute } from '../execute';
-import { parse } from '../../language';
+
+import { parse } from '../../language/parser';
+
+import { GraphQLSchema } from '../../type/schema';
+import { GraphQLString, GraphQLInt } from '../../type/scalars';
 import {
-  GraphQLSchema,
-  GraphQLObjectType,
-  GraphQLString,
-  GraphQLInt,
   GraphQLList,
   GraphQLNonNull,
-} from '../../type';
+  GraphQLObjectType,
+} from '../../type/definition';
+
+import { execute } from '../execute';
 
 // resolved() is shorthand for Promise.resolve()
 const resolved = Promise.resolve.bind(Promise);

@@ -1,26 +1,23 @@
-/**
- * Copyright (c) Facebook, Inc. and its affiliates.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- *
- * @flow strict
- */
+// @flow strict
 
-import { describe, it } from 'mocha';
 import { expect } from 'chai';
-import { astFromValue } from '../astFromValue';
+import { describe, it } from 'mocha';
+
 import {
-  GraphQLEnumType,
-  GraphQLInputObjectType,
-  GraphQLList,
+  GraphQLID,
   GraphQLInt,
   GraphQLFloat,
   GraphQLString,
   GraphQLBoolean,
-  GraphQLID,
+} from '../../type/scalars';
+import {
+  GraphQLList,
   GraphQLNonNull,
-} from '../../type';
+  GraphQLEnumType,
+  GraphQLInputObjectType,
+} from '../../type/definition';
+
+import { astFromValue } from '../astFromValue';
 
 describe('astFromValue', () => {
   it('converts boolean values to ASTs', () => {

@@ -1,42 +1,38 @@
-/**
- * Copyright (c) Facebook, Inc. and its affiliates.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- *
- * @flow strict
- */
+// @flow strict
 
 import find from '../polyfills/find';
 import objectValues from '../polyfills/objectValues';
-import {
-  type GraphQLType,
-  type GraphQLNamedType,
-  type GraphQLAbstractType,
-  type GraphQLObjectType,
-  isAbstractType,
-  isObjectType,
-  isInterfaceType,
-  isUnionType,
-  isInputObjectType,
-  isWrappingType,
-} from './definition';
+
+import inspect from '../jsutils/inspect';
+import devAssert from '../jsutils/devAssert';
+import instanceOf from '../jsutils/instanceOf';
+import { type ObjMap } from '../jsutils/ObjMap';
+import isObjectLike from '../jsutils/isObjectLike';
+import defineToStringTag from '../jsutils/defineToStringTag';
+
+import { type GraphQLError } from '../error/GraphQLError';
 import {
   type SchemaDefinitionNode,
   type SchemaExtensionNode,
 } from '../language/ast';
+
+import { __Schema } from './introspection';
 import {
   GraphQLDirective,
   isDirective,
   specifiedDirectives,
 } from './directives';
-import { type GraphQLError } from '../error/GraphQLError';
-import inspect from '../jsutils/inspect';
-import { __Schema } from './introspection';
-import defineToStringTag from '../jsutils/defineToStringTag';
-import instanceOf from '../jsutils/instanceOf';
-import invariant from '../jsutils/invariant';
-import { type ObjMap } from '../jsutils/ObjMap';
+import {
+  type GraphQLType,
+  type GraphQLNamedType,
+  type GraphQLAbstractType,
+  type GraphQLObjectType,
+  isObjectType,
+  isInterfaceType,
+  isUnionType,
+  isInputObjectType,
+  getNamedType,
+} from './definition';
 
 /**
  * Test if the given value is a GraphQL schema.
@@ -49,10 +45,9 @@ export function isSchema(schema) {
 }
 
 export function assertSchema(schema: mixed): GraphQLSchema {
-  invariant(
-    isSchema(schema),
-    `Expected ${inspect(schema)} to be a GraphQL schema.`,
-  );
+  if (!isSchema(schema)) {
+    throw new Error(`Expected ${inspect(schema)} to be a GraphQL schema.`);
+  }
   return schema;
 }
 
@@ -144,20 +139,17 @@ export class GraphQLSchema {
 
       // Otherwise check for common mistakes during construction to produce
       // clear and early error messages.
-      invariant(
-        typeof config === 'object',
-        'Must provide configuration object.',
-      );
-      invariant(
+      devAssert(isObjectLike(config), 'Must provide configuration object.');
+      devAssert(
         !config.types || Array.isArray(config.types),
         `"types" must be Array if provided but got: ${inspect(config.types)}.`,
       );
-      invariant(
+      devAssert(
         !config.directives || Array.isArray(config.directives),
         '"directives" must be Array if provided but got: ' +
           `${inspect(config.directives)}.`,
       );
-      invariant(
+      devAssert(
         !config.allowedLegacyNames || Array.isArray(config.allowedLegacyNames),
         '"allowedLegacyNames" must be Array if provided but got: ' +
           `${inspect(config.allowedLegacyNames)}.`,
@@ -174,17 +166,12 @@ export class GraphQLSchema {
     this.extensionASTNodes = config.extensionASTNodes;
 
     // Build type map now to detect any errors within this schema.
-    let initialTypes: Array<?GraphQLNamedType> = [
-      this.getQueryType(),
-      this.getMutationType(),
-      this.getSubscriptionType(),
+    const initialTypes: Array<?GraphQLNamedType> = [
+      this._queryType,
+      this._mutationType,
+      this._subscriptionType,
       __Schema,
-    ];
-
-    const types = config.types;
-    if (types) {
-      initialTypes = initialTypes.concat(types);
-    }
+    ].concat(config.types);
 
     // Keep track of all types referenced within the schema.
     let typeMap: TypeMap = Object.create(null);
@@ -214,8 +201,6 @@ export class GraphQLSchema {
             }
           }
         }
-      } else if (isAbstractType(type) && !this._implementations[type.name]) {
-        this._implementations[type.name] = [];
       }
     }
   }
@@ -246,24 +231,22 @@ export class GraphQLSchema {
     if (isUnionType(abstractType)) {
       return abstractType.getTypes();
     }
-    return this._implementations[abstractType.name];
+    return this._implementations[abstractType.name] || [];
   }
 
   isPossibleType(
     abstractType: GraphQLAbstractType,
     possibleType: GraphQLObjectType,
   ): boolean {
-    const possibleTypeMap = this._possibleTypeMap;
-
-    if (!possibleTypeMap[abstractType.name]) {
-      const possibleTypes = this.getPossibleTypes(abstractType);
-      possibleTypeMap[abstractType.name] = possibleTypes.reduce((map, type) => {
+    if (this._possibleTypeMap[abstractType.name] == null) {
+      const map = Object.create(null);
+      for (const type of this.getPossibleTypes(abstractType)) {
         map[type.name] = true;
-        return map;
-      }, Object.create(null));
+      }
+      this._possibleTypeMap[abstractType.name] = map;
     }
 
-    return Boolean(possibleTypeMap[abstractType.name][possibleType.name]);
+    return Boolean(this._possibleTypeMap[abstractType.name][possibleType.name]);
   }
 
   getDirectives(): $ReadOnlyArray<GraphQLDirective> {
@@ -336,41 +319,39 @@ function typeMapReducer(map: TypeMap, type: ?GraphQLType): TypeMap {
   if (!type) {
     return map;
   }
-  if (isWrappingType(type)) {
-    return typeMapReducer(map, type.ofType);
-  }
-  if (map[type.name]) {
-    invariant(
-      map[type.name] === type,
-      'Schema must contain uniquely named types but contains multiple ' +
-        `types named "${type.name}".`,
-    );
+
+  const namedType = getNamedType(type);
+  const seenType = map[namedType.name];
+  if (seenType) {
+    if (seenType !== namedType) {
+      throw new Error(
+        `Schema must contain uniquely named types but contains multiple types named "${namedType.name}".`,
+      );
+    }
     return map;
   }
-  map[type.name] = type;
+  map[namedType.name] = namedType;
 
   let reducedMap = map;
 
-  if (isUnionType(type)) {
-    reducedMap = type.getTypes().reduce(typeMapReducer, reducedMap);
+  if (isUnionType(namedType)) {
+    reducedMap = namedType.getTypes().reduce(typeMapReducer, reducedMap);
   }
 
-  if (isObjectType(type)) {
-    reducedMap = type.getInterfaces().reduce(typeMapReducer, reducedMap);
+  if (isObjectType(namedType)) {
+    reducedMap = namedType.getInterfaces().reduce(typeMapReducer, reducedMap);
   }
 
-  if (isObjectType(type) || isInterfaceType(type)) {
-    for (const field of objectValues(type.getFields())) {
-      if (field.args) {
-        const fieldArgTypes = field.args.map(arg => arg.type);
-        reducedMap = fieldArgTypes.reduce(typeMapReducer, reducedMap);
-      }
+  if (isObjectType(namedType) || isInterfaceType(namedType)) {
+    for (const field of objectValues(namedType.getFields())) {
+      const fieldArgTypes = field.args.map(arg => arg.type);
+      reducedMap = fieldArgTypes.reduce(typeMapReducer, reducedMap);
       reducedMap = typeMapReducer(reducedMap, field.type);
     }
   }
 
-  if (isInputObjectType(type)) {
-    for (const field of objectValues(type.getFields())) {
+  if (isInputObjectType(namedType)) {
+    for (const field of objectValues(namedType.getFields())) {
       reducedMap = typeMapReducer(reducedMap, field.type);
     }
   }

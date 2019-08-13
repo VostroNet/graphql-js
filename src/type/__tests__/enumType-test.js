@@ -1,24 +1,14 @@
-/**
- * Copyright (c) Facebook, Inc. and its affiliates.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- *
- * @flow
- */
+// @flow strict
 
-import { describe, it } from 'mocha';
 import { expect } from 'chai';
-import {
-  graphqlSync,
-  GraphQLSchema,
-  GraphQLEnumType,
-  GraphQLObjectType,
-  GraphQLInt,
-  GraphQLString,
-  GraphQLBoolean,
-  introspectionFromSchema,
-} from '../../';
+import { describe, it } from 'mocha';
+
+import { graphqlSync } from '../../graphql';
+import { introspectionFromSchema } from '../../utilities/introspectionFromSchema';
+
+import { GraphQLSchema } from '../schema';
+import { GraphQLEnumType, GraphQLObjectType } from '../definition';
+import { GraphQLInt, GraphQLString, GraphQLBoolean } from '../scalars';
 
 const ColorType = new GraphQLEnumType({
   name: 'Color',
@@ -165,7 +155,7 @@ describe('Type System: Enum Values', () => {
       errors: [
         {
           message:
-            'Expected type Color, found "GREEN"; Did you mean the enum value GREEN?',
+            'Expected type Color, found "GREEN". Did you mean the enum value GREEN?',
           locations: [{ line: 1, column: 23 }],
         },
       ],
@@ -179,7 +169,7 @@ describe('Type System: Enum Values', () => {
       errors: [
         {
           message:
-            'Expected type Color, found GREENISH; Did you mean the enum value GREEN?',
+            'Expected type Color, found GREENISH. Did you mean the enum value GREEN?',
           locations: [{ line: 1, column: 23 }],
         },
       ],
@@ -193,7 +183,7 @@ describe('Type System: Enum Values', () => {
       errors: [
         {
           message:
-            'Expected type Color, found green; Did you mean the enum value GREEN?',
+            'Expected type Color, found green. Did you mean the enum value GREEN?',
           locations: [{ line: 1, column: 23 }],
         },
       ],

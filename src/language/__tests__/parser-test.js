@@ -1,24 +1,20 @@
-/**
- * Copyright (c) Facebook, Inc. and its affiliates.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- *
- * @flow strict
- */
+// @flow strict
 
 import { inspect as nodeInspect } from 'util';
 
 import { expect } from 'chai';
 import { describe, it } from 'mocha';
-import { Kind } from '../kinds';
-import { TokenKind } from '../lexer';
-import { parse, parseValue, parseType } from '../parser';
-import { Source } from '../source';
+
 import dedent from '../../jsutils/dedent';
 import inspect from '../../jsutils/inspect';
-import toJSONDeep from './toJSONDeep';
+
+import { Kind } from '../kinds';
+import { Source } from '../source';
+import { TokenKind } from '../tokenKind';
+import { parse, parseValue, parseType } from '../parser';
+
 import { kitchenSinkQuery } from '../../__fixtures__';
+import toJSONDeep from './toJSONDeep';
 
 function expectSyntaxError(text, message, location) {
   expect(() => parse(text))
@@ -51,12 +47,12 @@ describe('Parser', () => {
       locations: [{ line: 1, column: 2 }],
     });
 
-    expect(String(caughtError)).to.equal(dedent`
+    expect(String(caughtError) + '\n').to.equal(dedent`
       Syntax Error: Expected Name, found <EOF>
 
-      GraphQL request (1:2)
-      1: {
-          ^
+      GraphQL request:1:2
+      1 | {
+        |  ^
     `);
 
     expectSyntaxError(
@@ -88,12 +84,12 @@ describe('Parser', () => {
     } catch (error) {
       caughtError = error;
     }
-    expect(String(caughtError)).to.equal(dedent`
+    expect(String(caughtError) + '\n').to.equal(dedent`
       Syntax Error: Expected {, found <EOF>
 
-      MyQuery.graphql (1:6)
-      1: query
-              ^
+      MyQuery.graphql:1:6
+      1 | query
+        |      ^
     `);
   });
 

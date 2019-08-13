@@ -1,31 +1,22 @@
-/**
- * Copyright (c) Facebook, Inc. and its affiliates.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- *
- * @flow strict
- */
+// @flow strict
 
 import { expect } from 'chai';
 import { describe, it } from 'mocha';
 
-import { GraphQLSchema } from '../../type';
+import { GraphQLSchema } from '../../type/schema';
+import {
+  GraphQLSkipDirective,
+  GraphQLIncludeDirective,
+  GraphQLDeprecatedDirective,
+} from '../../type/directives';
 
 import { buildSchema } from '../buildASTSchema';
-
 import {
   BreakingChangeType,
   DangerousChangeType,
   findBreakingChanges,
   findDangerousChanges,
 } from '../findBreakingChanges';
-
-import {
-  GraphQLSkipDirective,
-  GraphQLIncludeDirective,
-  GraphQLDeprecatedDirective,
-} from '../../type/directives';
 
 describe('findBreakingChanges', () => {
   it('should detect if a type was removed or not', () => {

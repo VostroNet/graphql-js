@@ -1,26 +1,21 @@
-/**
- * Copyright (c) Facebook, Inc. and its affiliates.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- *
- * @flow strict
- */
+// @flow strict
+
+import EventEmitter from 'events';
 
 import { expect } from 'chai';
 import { describe, it } from 'mocha';
-import EventEmitter from 'events';
+
+import { parse } from '../../language/parser';
+
+import { GraphQLError } from '../../error/GraphQLError';
+
+import { GraphQLSchema } from '../../type/schema';
+import { GraphQLList, GraphQLObjectType } from '../../type/definition';
+import { GraphQLInt, GraphQLString, GraphQLBoolean } from '../../type/scalars';
+
+import { createSourceEventStream, subscribe } from '../subscribe';
+
 import eventEmitterAsyncIterator from './eventEmitterAsyncIterator';
-import { subscribe } from '../subscribe';
-import { parse } from '../../language';
-import {
-  GraphQLSchema,
-  GraphQLObjectType,
-  GraphQLList,
-  GraphQLBoolean,
-  GraphQLInt,
-  GraphQLString,
-} from '../../type';
 
 const EmailType = new GraphQLObjectType({
   name: 'Email',
@@ -438,6 +433,56 @@ describe('Subscription Initialization Phase', () => {
     }
   });
 
+  it('resolves to an error for source event stream resolver errors', async () => {
+    // Returning an error
+    const subscriptionReturningErrorSchema = emailSchemaWithResolvers(
+      () => new Error('test error'),
+    );
+    await testReportsError(subscriptionReturningErrorSchema);
+
+    // Throwing an error
+    const subscriptionThrowingErrorSchema = emailSchemaWithResolvers(() => {
+      throw new Error('test error');
+    });
+    await testReportsError(subscriptionThrowingErrorSchema);
+
+    // Resolving to an error
+    const subscriptionResolvingErrorSchema = emailSchemaWithResolvers(() =>
+      Promise.resolve(new Error('test error')),
+    );
+    await testReportsError(subscriptionResolvingErrorSchema);
+
+    // Rejecting with an error
+    const subscriptionRejectingErrorSchema = emailSchemaWithResolvers(
+      async () => {
+        throw new Error('test error');
+      },
+    );
+    await testReportsError(subscriptionRejectingErrorSchema);
+
+    async function testReportsError(schema) {
+      // Promise<AsyncIterable<ExecutionResult> | ExecutionResult>
+      const result = await createSourceEventStream(
+        schema,
+        parse(`
+          subscription {
+            importantEmail
+          }
+        `),
+      );
+
+      expect(result).to.deep.equal({
+        errors: [
+          {
+            message: 'test error',
+            locations: [{ line: 3, column: 13 }],
+            path: ['importantEmail'],
+          },
+        ],
+      });
+    }
+  });
+
   it('resolves to an error if variables were wrong type', async () => {
     // If we receive variables that cannot be coerced correctly, subscribe()
     // will resolve to an ExecutionResult that contains an informative error
@@ -483,7 +528,7 @@ describe('Subscription Initialization Phase', () => {
       errors: [
         {
           message:
-            'Variable "$priority" got invalid value "meow"; Expected type Int; Int cannot represent non-integer value: "meow"',
+            'Variable "$priority" got invalid value "meow"; Expected type Int. Int cannot represent non-integer value: "meow"',
           locations: [{ line: 2, column: 21 }],
         },
       ],
@@ -940,6 +985,62 @@ describe('Subscription Publish Phase', () => {
 
     const payload2 = await subscription.next();
     expect(payload2).to.deep.equal({
+      done: true,
+      value: undefined,
+    });
+  });
+
+  it('should resolve GraphQL error from source event stream', async () => {
+    const erroringEmailSchema = emailSchemaWithResolvers(
+      async function*() {
+        yield { email: { subject: 'Hello' } };
+        throw new GraphQLError('test error');
+      },
+      email => email,
+    );
+
+    const subscription = await subscribe(
+      erroringEmailSchema,
+      parse(`
+        subscription {
+          importantEmail {
+            email {
+              subject
+            }
+          }
+        }
+      `),
+    );
+
+    // $FlowFixMe
+    const payload1 = await subscription.next();
+    expect(payload1).to.deep.equal({
+      done: false,
+      value: {
+        data: {
+          importantEmail: {
+            email: {
+              subject: 'Hello',
+            },
+          },
+        },
+      },
+    });
+
+    const payload2 = await subscription.next();
+    expect(payload2).to.deep.equal({
+      done: false,
+      value: {
+        errors: [
+          {
+            message: 'test error',
+          },
+        ],
+      },
+    });
+
+    const payload3 = await subscription.next();
+    expect(payload3).to.deep.equal({
       done: true,
       value: undefined,
     });

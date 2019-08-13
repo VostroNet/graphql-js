@@ -1,30 +1,27 @@
-/**
- * Copyright (c) Facebook, Inc. and its affiliates.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- *
- * @flow strict
- */
+// @flow strict
 
 import objectEntries from '../polyfills/objectEntries';
+
+import inspect from '../jsutils/inspect';
+import devAssert from '../jsutils/devAssert';
+import instanceOf from '../jsutils/instanceOf';
+import defineToJSON from '../jsutils/defineToJSON';
+import isObjectLike from '../jsutils/isObjectLike';
+import defineToStringTag from '../jsutils/defineToStringTag';
+
+import { type DirectiveDefinitionNode } from '../language/ast';
+import {
+  DirectiveLocation,
+  type DirectiveLocationEnum,
+} from '../language/directiveLocation';
+
+import { GraphQLString, GraphQLBoolean } from './scalars';
 import {
   type GraphQLFieldConfigArgumentMap,
   type GraphQLArgument,
   argsToArgsConfig,
   GraphQLNonNull,
 } from './definition';
-import { GraphQLString, GraphQLBoolean } from './scalars';
-import defineToStringTag from '../jsutils/defineToStringTag';
-import defineToJSON from '../jsutils/defineToJSON';
-import instanceOf from '../jsutils/instanceOf';
-import invariant from '../jsutils/invariant';
-import inspect from '../jsutils/inspect';
-import { type DirectiveDefinitionNode } from '../language/ast';
-import {
-  DirectiveLocation,
-  type DirectiveLocationEnum,
-} from '../language/directiveLocation';
 
 /**
  * Test if the given value is a GraphQL directive.
@@ -38,10 +35,11 @@ export function isDirective(directive) {
 }
 
 export function assertDirective(directive: mixed): GraphQLDirective {
-  invariant(
-    isDirective(directive),
-    `Expected ${inspect(directive)} to be a GraphQL directive.`,
-  );
+  if (!isDirective(directive)) {
+    throw new Error(
+      `Expected ${inspect(directive)} to be a GraphQL directive.`,
+    );
+  }
   return directive;
 }
 
@@ -53,23 +51,26 @@ export class GraphQLDirective {
   name: string;
   description: ?string;
   locations: Array<DirectiveLocationEnum>;
+  isRepeatable: boolean;
   args: Array<GraphQLArgument>;
   astNode: ?DirectiveDefinitionNode;
 
   constructor(config: GraphQLDirectiveConfig): void {
     this.name = config.name;
     this.description = config.description;
+
     this.locations = config.locations;
+    this.isRepeatable = config.isRepeatable != null && config.isRepeatable;
     this.astNode = config.astNode;
-    invariant(config.name, 'Directive must be named.');
-    invariant(
+    devAssert(config.name, 'Directive must be named.');
+    devAssert(
       Array.isArray(config.locations),
       `@${config.name} locations must be an Array.`,
     );
 
     const args = config.args || {};
-    invariant(
-      typeof args === 'object' && !Array.isArray(args),
+    devAssert(
+      isObjectLike(args) && !Array.isArray(args),
       `@${config.name} args must be an object with argument names as keys.`,
     );
 
@@ -89,12 +90,14 @@ export class GraphQLDirective {
   toConfig(): {|
     ...GraphQLDirectiveConfig,
     args: GraphQLFieldConfigArgumentMap,
+    isRepeatable: boolean,
   |} {
     return {
       name: this.name,
       description: this.description,
       locations: this.locations,
       args: argsToArgsConfig(this.args),
+      isRepeatable: this.isRepeatable,
       astNode: this.astNode,
     };
   }
@@ -109,6 +112,7 @@ export type GraphQLDirectiveConfig = {|
   description?: ?string,
   locations: Array<DirectiveLocationEnum>,
   args?: ?GraphQLFieldConfigArgumentMap,
+  isRepeatable?: ?boolean,
   astNode?: ?DirectiveDefinitionNode,
 |};
 

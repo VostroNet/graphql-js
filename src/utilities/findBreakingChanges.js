@@ -1,17 +1,14 @@
-/**
- * Copyright (c) Facebook, Inc. and its affiliates.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- *
- * @flow strict
- */
+// @flow strict
 
 import objectValues from '../polyfills/objectValues';
+
 import keyMap from '../jsutils/keyMap';
 import inspect from '../jsutils/inspect';
 import invariant from '../jsutils/invariant';
+
 import { print } from '../language/printer';
+
+import { type GraphQLSchema } from '../type/schema';
 import {
   type GraphQLField,
   type GraphQLType,
@@ -34,7 +31,7 @@ import {
   isRequiredArgument,
   isRequiredInputField,
 } from '../type/definition';
-import { type GraphQLSchema } from '../type/schema';
+
 import { astFromValue } from './astFromValue';
 
 export const BreakingChangeType = Object.freeze({
@@ -67,11 +64,13 @@ export const DangerousChangeType = Object.freeze({
 export type BreakingChange = {
   type: $Keys<typeof BreakingChangeType>,
   description: string,
+  ...
 };
 
 export type DangerousChange = {
   type: $Keys<typeof DangerousChangeType>,
   description: string,
+  ...
 };
 
 /**
@@ -137,9 +136,7 @@ function findDirectiveChanges(
       if (isRequiredArgument(newArg)) {
         schemaChanges.push({
           type: BreakingChangeType.REQUIRED_DIRECTIVE_ARG_ADDED,
-          description:
-            `A required arg ${newArg.name} on directive ` +
-            `${oldDirective.name} was added.`,
+          description: `A required arg ${newArg.name} on directive ${oldDirective.name} was added.`,
         });
       }
     }
@@ -220,16 +217,12 @@ function findInputObjectTypeChanges(
     if (isRequiredInputField(newField)) {
       schemaChanges.push({
         type: BreakingChangeType.REQUIRED_INPUT_FIELD_ADDED,
-        description:
-          `A required field ${newField.name} on ` +
-          `input type ${oldType.name} was added.`,
+        description: `A required field ${newField.name} on input type ${oldType.name} was added.`,
       });
     } else {
       schemaChanges.push({
         type: DangerousChangeType.OPTIONAL_INPUT_FIELD_ADDED,
-        description:
-          `An optional field ${newField.name} on ` +
-          `input type ${oldType.name} was added.`,
+        description: `An optional field ${newField.name} on input type ${oldType.name} was added.`,
       });
     }
   }
@@ -269,18 +262,14 @@ function findUnionTypeChanges(
   for (const newPossibleType of possibleTypesDiff.added) {
     schemaChanges.push({
       type: DangerousChangeType.TYPE_ADDED_TO_UNION,
-      description: `${newPossibleType.name} was added to union type ${
-        oldType.name
-      }.`,
+      description: `${newPossibleType.name} was added to union type ${oldType.name}.`,
     });
   }
 
   for (const oldPossibleType of possibleTypesDiff.removed) {
     schemaChanges.push({
       type: BreakingChangeType.TYPE_REMOVED_FROM_UNION,
-      description:
-        `${oldPossibleType.name} was removed from ` +
-        `union type ${oldType.name}.`,
+      description: `${oldPossibleType.name} was removed from union type ${oldType.name}.`,
     });
   }
 
@@ -304,9 +293,7 @@ function findEnumTypeChanges(
   for (const oldValue of valuesDiff.removed) {
     schemaChanges.push({
       type: BreakingChangeType.VALUE_REMOVED_FROM_ENUM,
-      description: `${oldValue.name} was removed from enum type ${
-        oldType.name
-      }.`,
+      description: `${oldValue.name} was removed from enum type ${oldType.name}.`,
     });
   }
 
@@ -323,18 +310,14 @@ function findObjectTypeChanges(
   for (const newInterface of interfacesDiff.added) {
     schemaChanges.push({
       type: DangerousChangeType.INTERFACE_ADDED_TO_OBJECT,
-      description:
-        `${newInterface.name} added to interfaces implemented ` +
-        `by ${oldType.name}.`,
+      description: `${newInterface.name} added to interfaces implemented by ${oldType.name}.`,
     });
   }
 
   for (const oldInterface of interfacesDiff.removed) {
     schemaChanges.push({
       type: BreakingChangeType.INTERFACE_REMOVED_FROM_OBJECT,
-      description:
-        `${oldType.name} no longer implements interface ` +
-        `${oldInterface.name}.`,
+      description: `${oldType.name} no longer implements interface ${oldInterface.name}.`,
     });
   }
 
@@ -380,8 +363,8 @@ function findFieldChanges(
 
 function findArgChanges(
   oldType: GraphQLObjectType | GraphQLInterfaceType,
-  oldField: GraphQLField<*, *>,
-  newField: GraphQLField<*, *>,
+  oldField: GraphQLField<mixed, mixed>,
+  newField: GraphQLField<mixed, mixed>,
 ): Array<BreakingChange | DangerousChange> {
   const schemaChanges = [];
   const argsDiff = diff(oldField.args, newField.args);
@@ -389,9 +372,7 @@ function findArgChanges(
   for (const oldArg of argsDiff.removed) {
     schemaChanges.push({
       type: BreakingChangeType.ARG_REMOVED,
-      description: `${oldType.name}.${oldField.name} arg ${
-        oldArg.name
-      } was removed.`,
+      description: `${oldType.name}.${oldField.name} arg ${oldArg.name} was removed.`,
     });
   }
 
@@ -404,17 +385,14 @@ function findArgChanges(
       schemaChanges.push({
         type: BreakingChangeType.ARG_CHANGED_KIND,
         description:
-          `${oldType.name}.${oldField.name} arg ` +
-          `${oldArg.name} has changed type from ` +
+          `${oldType.name}.${oldField.name} arg ${oldArg.name} has changed type from ` +
           `${String(oldArg.type)} to ${String(newArg.type)}.`,
       });
     } else if (oldArg.defaultValue !== undefined) {
       if (newArg.defaultValue === undefined) {
         schemaChanges.push({
           type: DangerousChangeType.ARG_DEFAULT_VALUE_CHANGE,
-          description:
-            `${oldType.name}.${oldField.name} arg ` +
-            `${oldArg.name} defaultValue was removed.`,
+          description: `${oldType.name}.${oldField.name} arg ${oldArg.name} defaultValue was removed.`,
         });
       } else {
         const oldValueStr = stringifyValue(oldArg.defaultValue, oldArg.type);
@@ -423,10 +401,7 @@ function findArgChanges(
         if (oldValueStr !== newValueStr) {
           schemaChanges.push({
             type: DangerousChangeType.ARG_DEFAULT_VALUE_CHANGE,
-            description:
-              `${oldType.name}.${oldField.name} arg ` +
-              `${oldArg.name} has changed defaultValue ` +
-              `from ${oldValueStr} to ${newValueStr}.`,
+            description: `${oldType.name}.${oldField.name} arg ${oldArg.name} has changed defaultValue from ${oldValueStr} to ${newValueStr}.`,
           });
         }
       }
@@ -437,16 +412,12 @@ function findArgChanges(
     if (isRequiredArgument(newArg)) {
       schemaChanges.push({
         type: BreakingChangeType.REQUIRED_ARG_ADDED,
-        description:
-          `A required arg ${newArg.name} on ` +
-          `${oldType.name}.${oldField.name} was added.`,
+        description: `A required arg ${newArg.name} on ${oldType.name}.${oldField.name} was added.`,
       });
     } else {
       schemaChanges.push({
         type: DangerousChangeType.OPTIONAL_ARG_ADDED,
-        description:
-          `An optional arg ${newArg.name} on ` +
-          `${oldType.name}.${oldField.name} was added.`,
+        description: `An optional arg ${newArg.name} on ${oldType.name}.${oldField.name} was added.`,
       });
     }
   }
@@ -541,8 +512,7 @@ function typeKindName(type: GraphQLNamedType): string {
   }
 
   // Not reachable. All possible named types have been considered.
-  /* istanbul ignore next */
-  throw new TypeError(`Unexpected type: ${inspect((type: empty))}.`);
+  invariant(false, 'Unexpected type: ' + inspect((type: empty)));
 }
 
 function stringifyValue(value: mixed, type: GraphQLInputType): string {
@@ -551,14 +521,14 @@ function stringifyValue(value: mixed, type: GraphQLInputType): string {
   return print(ast);
 }
 
-function diff<T: { name: string }>(
+function diff<T: { name: string, ... }>(
   oldArray: $ReadOnlyArray<T>,
   newArray: $ReadOnlyArray<T>,
-): {
+): {|
   added: Array<T>,
   removed: Array<T>,
   persisted: Array<[T, T]>,
-} {
+|} {
   const added = [];
   const removed = [];
   const persisted = [];

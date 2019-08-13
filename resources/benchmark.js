@@ -1,29 +1,30 @@
-/**
- * Copyright (c) Facebook, Inc. and its affiliates.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- *
- * @noflow
- */
+// @noflow
 
 'use strict';
 
 const os = require('os');
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
-const { Benchmark } = require('benchmark');
+const assert = require('assert');
 
+const { red, green, yellow, cyan, grey } = require('./colors');
 const {
+  exec,
   copyFile,
   writeFile,
   rmdirRecursive,
   mkdirRecursive,
   readdirRecursive,
 } = require('./utils');
+const { sampleModule } = require('./benchmark-fork');
 
+const NS_PER_SEC = 1e9;
 const LOCAL = 'local';
+
+// The maximum time in secounds a benchmark is allowed to run before finishing.
+const maxTime = 5;
+// The minimum sample size required to perform statistical analysis.
+const minSamples = 5;
 
 function LOCAL_DIR(...paths) {
   return path.join(__dirname, '..', ...paths);
@@ -31,16 +32,6 @@ function LOCAL_DIR(...paths) {
 
 function TEMP_DIR(...paths) {
   return path.join(os.tmpdir(), 'graphql-js-benchmark', ...paths);
-}
-
-// Returns the complete git hash for a given git revision reference.
-function hashForRevision(revision) {
-  const out = execSync(`git rev-parse "${revision}"`, { encoding: 'utf8' });
-  const match = /[0-9a-f]{8,40}/.exec(out);
-  if (!match) {
-    throw new Error(`Bad results for revision ${revision}: ${out}`);
-  }
-  return match[0];
 }
 
 // Build a benchmarkable environment for the given revision
@@ -56,22 +47,21 @@ function prepareRevision(revision) {
     fs.mkdirSync(TEMP_DIR());
   }
 
-  const hash = hashForRevision(revision);
+  // Returns the complete git hash for a given git revision reference.
+  const hash = exec(`git rev-parse "${revision}"`);
   const dir = TEMP_DIR(hash);
 
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir);
-    execSync(`git archive "${hash}" | tar -xC "${dir}"`);
-    execSync('yarn install', { cwd: dir });
+    exec(`git archive "${hash}" | tar -xC "${dir}"`);
+    exec('yarn install', { cwd: dir });
   }
   for (const file of findFiles(LOCAL_DIR('src'), '*/__tests__/*')) {
     const from = LOCAL_DIR('src', file);
     const to = path.join(dir, 'src', file);
     fs.copyFileSync(from, to);
   }
-  execSync(
-    `cp -R "${LOCAL_DIR()}/src/__fixtures__/" "${dir}/src/__fixtures__/"`,
-  );
+  exec(`cp -R "${LOCAL_DIR()}/src/__fixtures__/" "${dir}/src/__fixtures__/"`);
 
   return babelBuild(dir);
 }
@@ -101,53 +91,87 @@ function babelBuild(dir) {
 }
 
 function findFiles(cwd, pattern) {
-  const out = execSync(`find . -path '${pattern}'`, { cwd, encoding: 'utf8' });
+  const out = exec(`find . -path '${pattern}'`, { cwd });
   return out.split('\n').filter(Boolean);
 }
 
-// Run a given benchmark test with the provided revisions.
-function runBenchmark(benchmark, environments) {
-  let benchmarkName;
-  const benches = environments.map(environment => {
-    const module = require(path.join(environment.distPath, benchmark));
-    benchmarkName = module.name;
-    return new Benchmark(environment.revision, module.measure);
-  });
+async function collectSamples(modulePath) {
+  const samples = [];
 
-  console.log('⏱️   ' + benchmarkName);
-  for (let i = 0; i < benches.length; ++i) {
-    benches[i].run({ async: false });
-    process.stdout.write('  ' + cyan(i + 1) + ' tests completed.\u000D');
+  // If time permits, increase sample size to reduce the margin of error.
+  const start = Date.now();
+  while (samples.length < minSamples || (Date.now() - start) / 1e3 < maxTime) {
+    const { clocked } = await sampleModule(modulePath);
+    assert(clocked > 0);
+    samples.push(clocked);
   }
-  console.log('\n');
+  return samples;
+}
 
-  beautifyBenchmark(benches);
-  console.log('');
+// T-Distribution two-tailed critical values for 95% confidence.
+// See http://www.itl.nist.gov/div898/handbook/eda/section3/eda3672.htm.
+const tTable = /* prettier-ignore */ {
+  '1':  12.706, '2':  4.303, '3':  3.182, '4':  2.776, '5':  2.571, '6':  2.447,
+  '7':  2.365,  '8':  2.306, '9':  2.262, '10': 2.228, '11': 2.201, '12': 2.179,
+  '13': 2.16,   '14': 2.145, '15': 2.131, '16': 2.12,  '17': 2.11,  '18': 2.101,
+  '19': 2.093,  '20': 2.086, '21': 2.08,  '22': 2.074, '23': 2.069, '24': 2.064,
+  '25': 2.06,   '26': 2.056, '27': 2.052, '28': 2.048, '29': 2.045, '30': 2.042,
+  infinity: 1.96,
+};
+
+// Computes stats on benchmark results.
+function computeStats(samples) {
+  assert(samples.length > 1);
+
+  // Compute the sample mean (estimate of the population mean).
+  let mean = 0;
+  for (const x of samples) {
+    mean += x;
+  }
+  mean /= samples.length;
+
+  // Compute the sample variance (estimate of the population variance).
+  let variance = 0;
+  for (const x of samples) {
+    variance += Math.pow(x - mean, 2);
+  }
+  variance /= samples.length - 1;
+
+  // Compute the sample standard deviation (estimate of the population standard deviation).
+  const sd = Math.sqrt(variance);
+
+  // Compute the standard error of the mean (a.k.a. the standard deviation of the sampling distribution of the sample mean).
+  const sem = sd / Math.sqrt(samples.length);
+
+  // Compute the degrees of freedom.
+  const df = samples.length - 1;
+
+  // Compute the critical value.
+  const critical = tTable[df] || tTable.infinity;
+
+  // Compute the margin of error.
+  const moe = sem * critical;
+
+  // The relative margin of error (expressed as a percentage of the mean).
+  const rme = (moe / mean) * 100 || 0;
+
+  return {
+    ops: NS_PER_SEC / mean,
+    deviation: rme,
+  };
 }
 
 function beautifyBenchmark(results) {
-  const benches = results.map(result => ({
-    name: result.name,
-    error: result.error,
-    ops: result.hz,
-    deviation: result.stats.rme,
-    numRuns: result.stats.sample.length,
-  }));
+  const nameMaxLen = maxBy(results, ({ name }) => name.length);
+  const opsTop = maxBy(results, ({ ops }) => ops);
+  const opsMaxLen = maxBy(results, ({ ops }) => beautifyNumber(ops).length);
 
-  const nameMaxLen = maxBy(benches, ({ name }) => name.length);
-  const opsTop = maxBy(benches, ({ ops }) => ops);
-  const opsMaxLen = maxBy(benches, ({ ops }) => beautifyNumber(ops).length);
-
-  for (const bench of benches) {
-    if (bench.error) {
-      console.log('  ' + bench.name + ': ' + red(String(bench.error)));
-      continue;
-    }
-    printBench(bench);
+  for (const result of results) {
+    printBench(result);
   }
 
   function printBench(bench) {
-    const { name, ops, deviation, numRuns } = bench;
+    const { name, ops, deviation, samples } = bench;
     console.log(
       '  ' +
         nameStr() +
@@ -157,7 +181,7 @@ function beautifyBenchmark(results) {
         grey('\xb1') +
         deviationStr() +
         cyan('%') +
-        grey(' (' + numRuns + ' runs sampled)'),
+        grey(' (' + samples.length + ' runs sampled)'),
     );
 
     function nameStr() {
@@ -178,22 +202,6 @@ function beautifyBenchmark(results) {
   }
 }
 
-function red(str) {
-  return '\u001b[31m' + str + '\u001b[0m';
-}
-function green(str) {
-  return '\u001b[32m' + str + '\u001b[0m';
-}
-function yellow(str) {
-  return '\u001b[33m' + str + '\u001b[0m';
-}
-function cyan(str) {
-  return '\u001b[36m' + str + '\u001b[0m';
-}
-function grey(str) {
-  return '\u001b[90m' + str + '\u001b[0m';
-}
-
 function beautifyNumber(num) {
   return Number(num.toFixed(num > 100 ? 0 : 2)).toLocaleString();
 }
@@ -203,30 +211,60 @@ function maxBy(array, fn) {
 }
 
 // Prepare all revisions and run benchmarks matching a pattern against them.
-function prepareAndRunBenchmarks(benchmarkPatterns, revisions) {
-  // Find all benchmark tests to be run.
+async function prepareAndRunBenchmarks(benchmarkPatterns, revisions) {
+  const environments = revisions.map(revision => ({
+    revision,
+    distPath: prepareRevision(revision),
+  }));
+
+  for (const benchmark of matchBenchmarks(benchmarkPatterns)) {
+    const results = [];
+    for (let i = 0; i < environments.length; ++i) {
+      const environment = environments[i];
+      const modulePath = path.join(environment.distPath, benchmark);
+
+      if (i === 0) {
+        const { name } = await sampleModule(modulePath);
+        console.log('⏱️   ' + name);
+      }
+
+      try {
+        const samples = await collectSamples(modulePath);
+
+        results.push({
+          name: environment.revision,
+          samples,
+          ...computeStats(samples),
+        });
+        process.stdout.write('  ' + cyan(i + 1) + ' tests completed.\u000D');
+      } catch (error) {
+        console.log('  ' + environment.revision + ': ' + red(String(error)));
+      }
+    }
+    console.log('\n');
+
+    beautifyBenchmark(results);
+    console.log('');
+  }
+}
+
+// Find all benchmark tests to be run.
+function matchBenchmarks(patterns) {
   let benchmarks = findFiles(LOCAL_DIR('src'), '*/__tests__/*-benchmark.js');
-  if (benchmarkPatterns.length !== 0) {
+  if (patterns.length > 0) {
     benchmarks = benchmarks.filter(benchmark =>
-      benchmarkPatterns.some(pattern =>
-        path.join('src', benchmark).includes(pattern),
-      ),
+      patterns.some(pattern => path.join('src', benchmark).includes(pattern)),
     );
   }
 
   if (benchmarks.length === 0) {
     console.warn(
       'No benchmarks matching: ' +
-        `\u001b[1m${benchmarkPatterns.join('\u001b[0m or \u001b[1m')}\u001b[0m`,
+        `\u001b[1m${patterns.join('\u001b[0m or \u001b[1m')}\u001b[0m`,
     );
-    return;
   }
 
-  const environments = revisions.map(revision => ({
-    revision,
-    distPath: prepareRevision(revision),
-  }));
-  benchmarks.forEach(benchmark => runBenchmark(benchmark, environments));
+  return benchmarks;
 }
 
 function getArguments(argv) {
