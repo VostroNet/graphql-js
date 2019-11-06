@@ -113,7 +113,13 @@ export const QueryDocumentKeys = {
     'defaultValue',
     'directives',
   ],
-  InterfaceTypeDefinition: ['description', 'name', 'directives', 'fields'],
+  InterfaceTypeDefinition: [
+    'description',
+    'name',
+    'interfaces',
+    'directives',
+    'fields',
+  ],
   UnionTypeDefinition: ['description', 'name', 'directives', 'types'],
   EnumTypeDefinition: ['description', 'name', 'directives', 'values'],
   EnumValueDefinition: ['description', 'name', 'directives'],
@@ -125,7 +131,7 @@ export const QueryDocumentKeys = {
 
   ScalarTypeExtension: ['name', 'directives'],
   ObjectTypeExtension: ['name', 'interfaces', 'directives', 'fields'],
-  InterfaceTypeExtension: ['name', 'directives', 'fields'],
+  InterfaceTypeExtension: ['name', 'interfaces', 'directives', 'fields'],
   UnionTypeExtension: ['name', 'directives', 'types'],
   EnumTypeExtension: ['name', 'directives', 'values'],
   InputObjectTypeExtension: ['name', 'directives', 'fields'],
@@ -346,7 +352,7 @@ export function visit(
 }
 
 function isNode(maybeNode): boolean %checks {
-  return Boolean(maybeNode && typeof maybeNode.kind === 'string');
+  return maybeNode != null && typeof maybeNode.kind === 'string';
 }
 
 /**

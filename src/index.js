@@ -178,7 +178,7 @@ export {
   printLocation,
   printSourceLocation,
   // Lex
-  createLexer,
+  Lexer,
   TokenKind,
   // Parse
   parse,
@@ -207,7 +207,6 @@ export {
 } from './language';
 
 export type {
-  Lexer,
   ParseOptions,
   SourceLocation,
   Location,
@@ -345,8 +344,6 @@ export {
   // Produce the GraphQL query recommended for a full schema introspection.
   // Accepts optional IntrospectionOptions.
   getIntrospectionQuery,
-  // @deprecated: use getIntrospectionQuery - will be removed in v15.
-  introspectionQuery,
   // Gets the target Operation from a Document.
   getOperationAST,
   // Gets the Type for the target Operation AST.
@@ -387,12 +384,6 @@ export {
   TypeInfo,
   // Coerces a JavaScript value to a GraphQL type, or produces errors.
   coerceInputValue,
-  // @deprecated use coerceInputValue - will be removed in v15
-  coerceValue,
-  // @deprecated use coerceInputValue - will be removed in v15
-  isValidJSValue,
-  // @deprecated use validation - will be removed in v15
-  isValidLiteralValue,
   // Concatenates multiple AST together.
   concatAST,
   // Separates an AST into an AST per Operation.

@@ -3,11 +3,16 @@
 import objectEntries from '../polyfills/objectEntries';
 
 import inspect from '../jsutils/inspect';
+import toObjMap from '../jsutils/toObjMap';
 import devAssert from '../jsutils/devAssert';
 import instanceOf from '../jsutils/instanceOf';
 import defineToJSON from '../jsutils/defineToJSON';
 import isObjectLike from '../jsutils/isObjectLike';
 import defineToStringTag from '../jsutils/defineToStringTag';
+import {
+  type ReadOnlyObjMap,
+  type ReadOnlyObjMapLike,
+} from '../jsutils/ObjMap';
 
 import { type DirectiveDefinitionNode } from '../language/ast';
 import {
@@ -51,17 +56,19 @@ export class GraphQLDirective {
   name: string;
   description: ?string;
   locations: Array<DirectiveLocationEnum>;
-  isRepeatable: boolean;
   args: Array<GraphQLArgument>;
+  isRepeatable: boolean;
+  extensions: ?ReadOnlyObjMap<mixed>;
   astNode: ?DirectiveDefinitionNode;
 
   constructor(config: GraphQLDirectiveConfig): void {
     this.name = config.name;
     this.description = config.description;
-
     this.locations = config.locations;
     this.isRepeatable = config.isRepeatable != null && config.isRepeatable;
+    this.extensions = config.extensions && toObjMap(config.extensions);
     this.astNode = config.astNode;
+
     devAssert(config.name, 'Directive must be named.');
     devAssert(
       Array.isArray(config.locations),
@@ -74,23 +81,21 @@ export class GraphQLDirective {
       `@${config.name} args must be an object with argument names as keys.`,
     );
 
-    this.args = objectEntries(args).map(([argName, arg]) => ({
+    this.args = objectEntries(args).map(([argName, argConfig]) => ({
       name: argName,
-      description: arg.description === undefined ? null : arg.description,
-      type: arg.type,
-      defaultValue: arg.defaultValue,
-      astNode: arg.astNode,
+      description: argConfig.description,
+      type: argConfig.type,
+      defaultValue: argConfig.defaultValue,
+      extensions: argConfig.extensions && toObjMap(argConfig.extensions),
+      astNode: argConfig.astNode,
     }));
-  }
-
-  toString(): string {
-    return '@' + this.name;
   }
 
   toConfig(): {|
     ...GraphQLDirectiveConfig,
     args: GraphQLFieldConfigArgumentMap,
     isRepeatable: boolean,
+    extensions: ?ReadOnlyObjMap<mixed>,
   |} {
     return {
       name: this.name,
@@ -98,8 +103,13 @@ export class GraphQLDirective {
       locations: this.locations,
       args: argsToArgsConfig(this.args),
       isRepeatable: this.isRepeatable,
+      extensions: this.extensions,
       astNode: this.astNode,
     };
+  }
+
+  toString(): string {
+    return '@' + this.name;
   }
 }
 
@@ -113,6 +123,7 @@ export type GraphQLDirectiveConfig = {|
   locations: Array<DirectiveLocationEnum>,
   args?: ?GraphQLFieldConfigArgumentMap,
   isRepeatable?: ?boolean,
+  extensions?: ?ReadOnlyObjMapLike<mixed>,
   astNode?: ?DirectiveDefinitionNode,
 |};
 
@@ -187,9 +198,8 @@ export const specifiedDirectives = Object.freeze([
   GraphQLDeprecatedDirective,
 ]);
 
-export function isSpecifiedDirective(directive: mixed): boolean %checks {
-  return (
-    isDirective(directive) &&
-    specifiedDirectives.some(({ name }) => name === directive.name)
-  );
+export function isSpecifiedDirective(
+  directive: GraphQLDirective,
+): boolean %checks {
+  return specifiedDirectives.some(({ name }) => name === directive.name);
 }

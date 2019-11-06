@@ -12,32 +12,29 @@ import { GraphQLError } from '../../error/GraphQLError';
 
 import { Source } from '../source';
 import { TokenKind } from '../tokenKind';
-import { createLexer, isPunctuatorToken } from '../lexer';
+import { Lexer, isPunctuatorTokenKind } from '../lexer';
 
 function lexOne(str) {
-  const lexer = createLexer(new Source(str));
+  const lexer = new Lexer(new Source(str));
   return lexer.advance();
 }
 
 function lexSecond(str) {
-  const lexer = createLexer(new Source(str));
+  const lexer = new Lexer(new Source(str));
   lexer.advance();
   return lexer.advance();
 }
 
-function expectSyntaxError(text, message, location) {
-  expect(() => lexOne(text))
-    .to.throw('Syntax Error: ' + message)
-    .with.deep.property('locations', [location]);
+function expectSyntaxError(text) {
+  return expect(() => lexSecond(text)).to.throw();
 }
 
 describe('Lexer', () => {
   it('disallows uncommon control characters', () => {
-    expectSyntaxError(
-      '\u0007',
-      'Cannot contain the invalid character "\\u0007".',
-      { line: 1, column: 1 },
-    );
+    expectSyntaxError('\u0007').to.deep.equal({
+      message: 'Syntax Error: Cannot contain the invalid character "\\u0007".',
+      locations: [{ line: 1, column: 1 }],
+    });
   });
 
   it('accepts BOM header', () => {
@@ -45,6 +42,65 @@ describe('Lexer', () => {
       kind: TokenKind.NAME,
       start: 2,
       end: 5,
+      value: 'foo',
+    });
+  });
+
+  it('tracks line breaks', () => {
+    expect(lexOne('foo')).to.contain({
+      kind: TokenKind.NAME,
+      start: 0,
+      end: 3,
+      line: 1,
+      column: 1,
+      value: 'foo',
+    });
+    expect(lexOne('\nfoo')).to.contain({
+      kind: TokenKind.NAME,
+      start: 1,
+      end: 4,
+      line: 2,
+      column: 1,
+      value: 'foo',
+    });
+    expect(lexOne('\rfoo')).to.contain({
+      kind: TokenKind.NAME,
+      start: 1,
+      end: 4,
+      line: 2,
+      column: 1,
+      value: 'foo',
+    });
+    expect(lexOne('\r\nfoo')).to.contain({
+      kind: TokenKind.NAME,
+      start: 2,
+      end: 5,
+      line: 2,
+      column: 1,
+      value: 'foo',
+    });
+    expect(lexOne('\n\rfoo')).to.contain({
+      kind: TokenKind.NAME,
+      start: 2,
+      end: 5,
+      line: 3,
+      column: 1,
+      value: 'foo',
+    });
+    expect(lexOne('\r\r\n\nfoo')).to.contain({
+      kind: TokenKind.NAME,
+      start: 4,
+      end: 7,
+      line: 4,
+      column: 1,
+      value: 'foo',
+    });
+    expect(lexOne('\n\n\r\rfoo')).to.contain({
+      kind: TokenKind.NAME,
+      start: 4,
+      end: 7,
+      line: 5,
+      column: 1,
       value: 'foo',
     });
   });
@@ -111,13 +167,7 @@ describe('Lexer', () => {
   it('errors respect whitespace', () => {
     let caughtError;
     try {
-      lexOne(dedent`
-      
-      
-          ?
-      
-      
-      `);
+      lexOne(['', '', '    ?', ''].join('\n'));
     } catch (error) {
       caughtError = error;
     }
@@ -125,10 +175,10 @@ describe('Lexer', () => {
       Syntax Error: Cannot parse the unexpected character "?".
 
       GraphQL request:3:5
-      2 | 
+      2 |
       3 |     ?
         |     ^
-      4 | 
+      4 |
     `);
   });
 
@@ -137,7 +187,7 @@ describe('Lexer', () => {
     try {
       const str = ['', '', '     ?', ''].join('\n');
       const source = new Source(str, 'foo.js', { line: 11, column: 12 });
-      createLexer(source).advance();
+      new Lexer(source).advance();
     } catch (error) {
       caughtError = error;
     }
@@ -145,10 +195,10 @@ describe('Lexer', () => {
       Syntax Error: Cannot parse the unexpected character "?".
 
       foo.js:13:6
-      12 | 
+      12 |
       13 |      ?
          |      ^
-      14 | 
+      14 |
     `);
   });
 
@@ -156,7 +206,7 @@ describe('Lexer', () => {
     let caughtError;
     try {
       const source = new Source('?', 'foo.js', { line: 1, column: 5 });
-      createLexer(source).advance();
+      new Lexer(source).advance();
     } catch (error) {
       caughtError = error;
     }
@@ -170,6 +220,13 @@ describe('Lexer', () => {
   });
 
   it('lexes strings', () => {
+    expect(lexOne('""')).to.contain({
+      kind: TokenKind.STRING,
+      start: 0,
+      end: 2,
+      value: '',
+    });
+
     expect(lexOne('"simple"')).to.contain({
       kind: TokenKind.STRING,
       start: 0,
@@ -214,85 +271,98 @@ describe('Lexer', () => {
   });
 
   it('lex reports useful string errors', () => {
-    expectSyntaxError('"', 'Unterminated string.', { line: 1, column: 2 });
-
-    expectSyntaxError('"no end quote', 'Unterminated string.', {
-      line: 1,
-      column: 14,
+    expectSyntaxError('"').to.deep.equal({
+      message: 'Syntax Error: Unterminated string.',
+      locations: [{ line: 1, column: 2 }],
     });
 
-    expectSyntaxError(
-      "'single quotes'",
-      'Unexpected single quote character (\'), did you mean to use a double quote (")?',
-      { line: 1, column: 1 },
-    );
-
-    expectSyntaxError(
-      '"contains unescaped \u0007 control char"',
-      'Invalid character within String: "\\u0007".',
-      { line: 1, column: 21 },
-    );
-
-    expectSyntaxError(
-      '"null-byte is not \u0000 end of file"',
-      'Invalid character within String: "\\u0000".',
-      { line: 1, column: 19 },
-    );
-
-    expectSyntaxError('"multi\nline"', 'Unterminated string.', {
-      line: 1,
-      column: 7,
+    expectSyntaxError('"""').to.deep.equal({
+      message: 'Syntax Error: Unterminated string.',
+      locations: [{ line: 1, column: 4 }],
     });
 
-    expectSyntaxError('"multi\rline"', 'Unterminated string.', {
-      line: 1,
-      column: 7,
+    expectSyntaxError('""""').to.deep.equal({
+      message: 'Syntax Error: Unterminated string.',
+      locations: [{ line: 1, column: 5 }],
     });
 
-    expectSyntaxError(
-      '"bad \\z esc"',
-      'Invalid character escape sequence: \\z.',
-      { line: 1, column: 7 },
+    expectSyntaxError('"no end quote').to.deep.equal({
+      message: 'Syntax Error: Unterminated string.',
+      locations: [{ line: 1, column: 14 }],
+    });
+
+    expectSyntaxError("'single quotes'").to.deep.equal({
+      message:
+        'Syntax Error: Unexpected single quote character (\'), did you mean to use a double quote (")?',
+      locations: [{ line: 1, column: 1 }],
+    });
+
+    expectSyntaxError('"contains unescaped \u0007 control char"').to.deep.equal(
+      {
+        message: 'Syntax Error: Invalid character within String: "\\u0007".',
+        locations: [{ line: 1, column: 21 }],
+      },
     );
 
-    expectSyntaxError(
-      '"bad \\x esc"',
-      'Invalid character escape sequence: \\x.',
-      { line: 1, column: 7 },
-    );
+    expectSyntaxError('"null-byte is not \u0000 end of file"').to.deep.equal({
+      message: 'Syntax Error: Invalid character within String: "\\u0000".',
+      locations: [{ line: 1, column: 19 }],
+    });
 
-    expectSyntaxError(
-      '"bad \\u1 esc"',
-      'Invalid character escape sequence: \\u1 es.',
-      { line: 1, column: 7 },
-    );
+    expectSyntaxError('"multi\nline"').to.deep.equal({
+      message: 'Syntax Error: Unterminated string.',
+      locations: [{ line: 1, column: 7 }],
+    });
 
-    expectSyntaxError(
-      '"bad \\u0XX1 esc"',
-      'Invalid character escape sequence: \\u0XX1.',
-      { line: 1, column: 7 },
-    );
+    expectSyntaxError('"multi\rline"').to.deep.equal({
+      message: 'Syntax Error: Unterminated string.',
+      locations: [{ line: 1, column: 7 }],
+    });
 
-    expectSyntaxError(
-      '"bad \\uXXXX esc"',
-      'Invalid character escape sequence: \\uXXXX.',
-      { line: 1, column: 7 },
-    );
+    expectSyntaxError('"bad \\z esc"').to.deep.equal({
+      message: 'Syntax Error: Invalid character escape sequence: \\z.',
+      locations: [{ line: 1, column: 7 }],
+    });
 
-    expectSyntaxError(
-      '"bad \\uFXXX esc"',
-      'Invalid character escape sequence: \\uFXXX.',
-      { line: 1, column: 7 },
-    );
+    expectSyntaxError('"bad \\x esc"').to.deep.equal({
+      message: 'Syntax Error: Invalid character escape sequence: \\x.',
+      locations: [{ line: 1, column: 7 }],
+    });
 
-    expectSyntaxError(
-      '"bad \\uXXXF esc"',
-      'Invalid character escape sequence: \\uXXXF.',
-      { line: 1, column: 7 },
-    );
+    expectSyntaxError('"bad \\u1 esc"').to.deep.equal({
+      message: 'Syntax Error: Invalid character escape sequence: \\u1 es.',
+      locations: [{ line: 1, column: 7 }],
+    });
+
+    expectSyntaxError('"bad \\u0XX1 esc"').to.deep.equal({
+      message: 'Syntax Error: Invalid character escape sequence: \\u0XX1.',
+      locations: [{ line: 1, column: 7 }],
+    });
+
+    expectSyntaxError('"bad \\uXXXX esc"').to.deep.equal({
+      message: 'Syntax Error: Invalid character escape sequence: \\uXXXX.',
+      locations: [{ line: 1, column: 7 }],
+    });
+
+    expectSyntaxError('"bad \\uFXXX esc"').to.deep.equal({
+      message: 'Syntax Error: Invalid character escape sequence: \\uFXXX.',
+      locations: [{ line: 1, column: 7 }],
+    });
+
+    expectSyntaxError('"bad \\uXXXF esc"').to.deep.equal({
+      message: 'Syntax Error: Invalid character escape sequence: \\uXXXF.',
+      locations: [{ line: 1, column: 7 }],
+    });
   });
 
   it('lexes block strings', () => {
+    expect(lexOne('""""""')).to.contain({
+      kind: TokenKind.BLOCK_STRING,
+      start: 0,
+      end: 6,
+      value: '',
+    });
+
     expect(lexOne('"""simple"""')).to.contain({
       kind: TokenKind.BLOCK_STRING,
       start: 0,
@@ -404,24 +474,29 @@ describe('Lexer', () => {
   });
 
   it('lex reports useful block string errors', () => {
-    expectSyntaxError('"""', 'Unterminated string.', { line: 1, column: 4 });
+    expectSyntaxError('"""').to.deep.equal({
+      message: 'Syntax Error: Unterminated string.',
+      locations: [{ line: 1, column: 4 }],
+    });
 
-    expectSyntaxError('"""no end quote', 'Unterminated string.', {
-      line: 1,
-      column: 16,
+    expectSyntaxError('"""no end quote').to.deep.equal({
+      message: 'Syntax Error: Unterminated string.',
+      locations: [{ line: 1, column: 16 }],
     });
 
     expectSyntaxError(
       '"""contains unescaped \u0007 control char"""',
-      'Invalid character within String: "\\u0007".',
-      { line: 1, column: 23 },
-    );
+    ).to.deep.equal({
+      message: 'Syntax Error: Invalid character within String: "\\u0007".',
+      locations: [{ line: 1, column: 23 }],
+    });
 
     expectSyntaxError(
       '"""null-byte is not \u0000 end of file"""',
-      'Invalid character within String: "\\u0000".',
-      { line: 1, column: 21 },
-    );
+    ).to.deep.equal({
+      message: 'Syntax Error: Invalid character within String: "\\u0000".',
+      locations: [{ line: 1, column: 21 }],
+    });
   });
 
   it('lexes numbers', () => {
@@ -539,50 +614,119 @@ describe('Lexer', () => {
   });
 
   it('lex reports useful number errors', () => {
-    expectSyntaxError('00', 'Invalid number, unexpected digit after 0: "0".', {
-      line: 1,
-      column: 2,
+    expectSyntaxError('00').to.deep.equal({
+      message: 'Syntax Error: Invalid number, unexpected digit after 0: "0".',
+      locations: [{ line: 1, column: 2 }],
     });
 
-    expectSyntaxError('+1', 'Cannot parse the unexpected character "+".', {
-      line: 1,
-      column: 1,
+    expectSyntaxError('01').to.deep.equal({
+      message: 'Syntax Error: Invalid number, unexpected digit after 0: "1".',
+      locations: [{ line: 1, column: 2 }],
     });
 
-    expectSyntaxError('1.', 'Invalid number, expected digit but got: <EOF>.', {
-      line: 1,
-      column: 3,
+    expectSyntaxError('01.23').to.deep.equal({
+      message: 'Syntax Error: Invalid number, unexpected digit after 0: "1".',
+      locations: [{ line: 1, column: 2 }],
     });
 
-    expectSyntaxError('1.e1', 'Invalid number, expected digit but got: "e".', {
-      line: 1,
-      column: 3,
+    expectSyntaxError('+1').to.deep.equal({
+      message: 'Syntax Error: Cannot parse the unexpected character "+".',
+      locations: [{ line: 1, column: 1 }],
     });
 
-    expectSyntaxError('.123', 'Cannot parse the unexpected character ".".', {
-      line: 1,
-      column: 1,
+    expectSyntaxError('1.').to.deep.equal({
+      message: 'Syntax Error: Invalid number, expected digit but got: <EOF>.',
+      locations: [{ line: 1, column: 3 }],
     });
 
-    expectSyntaxError('1.A', 'Invalid number, expected digit but got: "A".', {
-      line: 1,
-      column: 3,
+    expectSyntaxError('1e').to.deep.equal({
+      message: 'Syntax Error: Invalid number, expected digit but got: <EOF>.',
+      locations: [{ line: 1, column: 3 }],
     });
 
-    expectSyntaxError('-A', 'Invalid number, expected digit but got: "A".', {
-      line: 1,
-      column: 2,
+    expectSyntaxError('1E').to.deep.equal({
+      message: 'Syntax Error: Invalid number, expected digit but got: <EOF>.',
+      locations: [{ line: 1, column: 3 }],
     });
 
-    expectSyntaxError(
-      '1.0e',
-      'Invalid number, expected digit but got: <EOF>.',
-      { line: 1, column: 5 },
-    );
+    expectSyntaxError('1.e1').to.deep.equal({
+      message: 'Syntax Error: Invalid number, expected digit but got: "e".',
+      locations: [{ line: 1, column: 3 }],
+    });
 
-    expectSyntaxError('1.0eA', 'Invalid number, expected digit but got: "A".', {
-      line: 1,
-      column: 5,
+    expectSyntaxError('.123').to.deep.equal({
+      message: 'Syntax Error: Cannot parse the unexpected character ".".',
+      locations: [{ line: 1, column: 1 }],
+    });
+
+    expectSyntaxError('1.A').to.deep.equal({
+      message: 'Syntax Error: Invalid number, expected digit but got: "A".',
+      locations: [{ line: 1, column: 3 }],
+    });
+
+    expectSyntaxError('-A').to.deep.equal({
+      message: 'Syntax Error: Invalid number, expected digit but got: "A".',
+      locations: [{ line: 1, column: 2 }],
+    });
+
+    expectSyntaxError('1.0e').to.deep.equal({
+      message: 'Syntax Error: Invalid number, expected digit but got: <EOF>.',
+      locations: [{ line: 1, column: 5 }],
+    });
+
+    expectSyntaxError('1.0eA').to.deep.equal({
+      message: 'Syntax Error: Invalid number, expected digit but got: "A".',
+      locations: [{ line: 1, column: 5 }],
+    });
+
+    expectSyntaxError('1.2e3e').to.deep.equal({
+      message: 'Syntax Error: Invalid number, expected digit but got: "e".',
+      locations: [{ line: 1, column: 6 }],
+    });
+
+    expectSyntaxError('1.2e3.4').to.deep.equal({
+      message: 'Syntax Error: Invalid number, expected digit but got: ".".',
+      locations: [{ line: 1, column: 6 }],
+    });
+
+    expectSyntaxError('1.23.4').to.deep.equal({
+      message: 'Syntax Error: Invalid number, expected digit but got: ".".',
+      locations: [{ line: 1, column: 5 }],
+    });
+  });
+
+  it('lex does not allow name-start after a number', () => {
+    expectSyntaxError('0xF1').to.deep.equal({
+      message: 'Syntax Error: Invalid number, expected digit but got: "x".',
+      locations: [{ line: 1, column: 2 }],
+    });
+    expectSyntaxError('0b10').to.deep.equal({
+      message: 'Syntax Error: Invalid number, expected digit but got: "b".',
+      locations: [{ line: 1, column: 2 }],
+    });
+    expectSyntaxError('123abc').to.deep.equal({
+      message: 'Syntax Error: Invalid number, expected digit but got: "a".',
+      locations: [{ line: 1, column: 4 }],
+    });
+    expectSyntaxError('1_234').to.deep.equal({
+      message: 'Syntax Error: Invalid number, expected digit but got: "_".',
+      locations: [{ line: 1, column: 2 }],
+    });
+    expectSyntaxError('1ß').to.deep.equal({
+      message: 'Syntax Error: Cannot parse the unexpected character "\\u00DF".',
+      locations: [{ line: 1, column: 2 }],
+    });
+    expectSyntaxError('1.23f').to.deep.equal({
+      message: 'Syntax Error: Invalid number, expected digit but got: "f".',
+      locations: [{ line: 1, column: 5 }],
+    });
+    expectSyntaxError('1.234_5').to.deep.equal({
+      message: 'Syntax Error: Invalid number, expected digit but got: "_".',
+      locations: [{ line: 1, column: 6 }],
+    });
+    expectSyntaxError('1ß').to.deep.equal({
+      message: 'Syntax Error: Cannot parse the unexpected character "\\u00DF".',
+      locations: [{ line: 1, column: 2 }],
     });
   });
 
@@ -680,32 +824,30 @@ describe('Lexer', () => {
   });
 
   it('lex reports useful unknown character error', () => {
-    expectSyntaxError('..', 'Cannot parse the unexpected character ".".', {
-      line: 1,
-      column: 1,
+    expectSyntaxError('..').to.deep.equal({
+      message: 'Syntax Error: Cannot parse the unexpected character ".".',
+      locations: [{ line: 1, column: 1 }],
     });
 
-    expectSyntaxError('?', 'Cannot parse the unexpected character "?".', {
-      line: 1,
-      column: 1,
+    expectSyntaxError('?').to.deep.equal({
+      message: 'Syntax Error: Cannot parse the unexpected character "?".',
+      locations: [{ line: 1, column: 1 }],
     });
 
-    expectSyntaxError(
-      '\u203B',
-      'Cannot parse the unexpected character "\\u203B".',
-      { line: 1, column: 1 },
-    );
+    expectSyntaxError('\u203B').to.deep.equal({
+      message: 'Syntax Error: Cannot parse the unexpected character "\\u203B".',
+      locations: [{ line: 1, column: 1 }],
+    });
 
-    expectSyntaxError(
-      '\u200b',
-      'Cannot parse the unexpected character "\\u200B".',
-      { line: 1, column: 1 },
-    );
+    expectSyntaxError('\u200b').to.deep.equal({
+      message: 'Syntax Error: Cannot parse the unexpected character "\\u200B".',
+      locations: [{ line: 1, column: 1 }],
+    });
   });
 
   it('lex reports useful information for dashes in names', () => {
     const source = new Source('a-b');
-    const lexer = createLexer(source);
+    const lexer = new Lexer(source);
     const firstToken = lexer.advance();
     expect(firstToken).to.contain({
       kind: TokenKind.NAME,
@@ -730,7 +872,7 @@ describe('Lexer', () => {
       }
     `);
 
-    const lexer = createLexer(source);
+    const lexer = new Lexer(source);
     const startToken = lexer.token;
     let endToken;
     do {
@@ -763,30 +905,34 @@ describe('Lexer', () => {
   });
 });
 
-describe('isPunctuatorToken', () => {
+describe('isPunctuatorTokenKind', () => {
+  function isPunctuatorToken(text) {
+    return isPunctuatorTokenKind(lexOne(text).kind);
+  }
+
   it('returns true for punctuator tokens', () => {
-    expect(isPunctuatorToken(lexOne('!'))).to.equal(true);
-    expect(isPunctuatorToken(lexOne('$'))).to.equal(true);
-    expect(isPunctuatorToken(lexOne('&'))).to.equal(true);
-    expect(isPunctuatorToken(lexOne('('))).to.equal(true);
-    expect(isPunctuatorToken(lexOne(')'))).to.equal(true);
-    expect(isPunctuatorToken(lexOne('...'))).to.equal(true);
-    expect(isPunctuatorToken(lexOne(':'))).to.equal(true);
-    expect(isPunctuatorToken(lexOne('='))).to.equal(true);
-    expect(isPunctuatorToken(lexOne('@'))).to.equal(true);
-    expect(isPunctuatorToken(lexOne('['))).to.equal(true);
-    expect(isPunctuatorToken(lexOne(']'))).to.equal(true);
-    expect(isPunctuatorToken(lexOne('{'))).to.equal(true);
-    expect(isPunctuatorToken(lexOne('|'))).to.equal(true);
-    expect(isPunctuatorToken(lexOne('}'))).to.equal(true);
+    expect(isPunctuatorToken('!')).to.equal(true);
+    expect(isPunctuatorToken('$')).to.equal(true);
+    expect(isPunctuatorToken('&')).to.equal(true);
+    expect(isPunctuatorToken('(')).to.equal(true);
+    expect(isPunctuatorToken(')')).to.equal(true);
+    expect(isPunctuatorToken('...')).to.equal(true);
+    expect(isPunctuatorToken(':')).to.equal(true);
+    expect(isPunctuatorToken('=')).to.equal(true);
+    expect(isPunctuatorToken('@')).to.equal(true);
+    expect(isPunctuatorToken('[')).to.equal(true);
+    expect(isPunctuatorToken(']')).to.equal(true);
+    expect(isPunctuatorToken('{')).to.equal(true);
+    expect(isPunctuatorToken('|')).to.equal(true);
+    expect(isPunctuatorToken('}')).to.equal(true);
   });
 
   it('returns false for non-punctuator tokens', () => {
-    expect(isPunctuatorToken(lexOne(''))).to.equal(false);
-    expect(isPunctuatorToken(lexOne('name'))).to.equal(false);
-    expect(isPunctuatorToken(lexOne('1'))).to.equal(false);
-    expect(isPunctuatorToken(lexOne('3.14'))).to.equal(false);
-    expect(isPunctuatorToken(lexOne('"str"'))).to.equal(false);
-    expect(isPunctuatorToken(lexOne('"""str"""'))).to.equal(false);
+    expect(isPunctuatorToken('')).to.equal(false);
+    expect(isPunctuatorToken('name')).to.equal(false);
+    expect(isPunctuatorToken('1')).to.equal(false);
+    expect(isPunctuatorToken('3.14')).to.equal(false);
+    expect(isPunctuatorToken('"str"')).to.equal(false);
+    expect(isPunctuatorToken('"""str"""')).to.equal(false);
   });
 });

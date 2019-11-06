@@ -66,7 +66,7 @@ function coerceInputValueImpl(
       pathToArray(path),
       inputValue,
       new GraphQLError(
-        `Expected non-nullable type ${inspect(type)} not to be null.`,
+        `Expected non-nullable type "${inspect(type)}" not to be null.`,
       ),
     );
     return;
@@ -102,7 +102,7 @@ function coerceInputValueImpl(
       onError(
         pathToArray(path),
         inputValue,
-        new GraphQLError(`Expected type ${type.name} to be an object.`),
+        new GraphQLError(`Expected type "${type.name}" to be an object.`),
       );
       return;
     }
@@ -122,7 +122,7 @@ function coerceInputValueImpl(
             pathToArray(path),
             inputValue,
             new GraphQLError(
-              `Field ${field.name} of required type ${typeStr} was not provided.`,
+              `Field "${field.name}" of required type "${typeStr}" was not provided.`,
             ),
           );
         }
@@ -148,7 +148,7 @@ function coerceInputValueImpl(
           pathToArray(path),
           inputValue,
           new GraphQLError(
-            `Field "${fieldName}" is not defined by type ${type.name}.` +
+            `Field "${fieldName}" is not defined by type "${type.name}".` +
               didYouMean(suggestions),
           ),
         );
@@ -166,25 +166,29 @@ function coerceInputValueImpl(
     try {
       parseResult = type.parseValue(inputValue);
     } catch (error) {
-      onError(
-        pathToArray(path),
-        inputValue,
-        new GraphQLError(
-          `Expected type ${type.name}. ` + error.message,
-          undefined,
-          undefined,
-          undefined,
-          undefined,
-          error,
-        ),
-      );
+      if (error instanceof GraphQLError) {
+        onError(pathToArray(path), inputValue, error);
+      } else {
+        onError(
+          pathToArray(path),
+          inputValue,
+          new GraphQLError(
+            `Expected type "${type.name}". ` + error.message,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            error,
+          ),
+        );
+      }
       return;
     }
     if (parseResult === undefined) {
       onError(
         pathToArray(path),
         inputValue,
-        new GraphQLError(`Expected type ${type.name}.`),
+        new GraphQLError(`Expected type "${type.name}".`),
       );
     }
     return parseResult;
@@ -204,7 +208,10 @@ function coerceInputValueImpl(
     onError(
       pathToArray(path),
       inputValue,
-      new GraphQLError(`Expected type ${type.name}.` + didYouMean(suggestions)),
+      new GraphQLError(
+        `Expected type "${type.name}".` +
+          didYouMean('the enum value', suggestions),
+      ),
     );
     return;
   }

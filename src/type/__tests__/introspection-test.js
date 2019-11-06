@@ -8,7 +8,7 @@ import invariant from '../../jsutils/invariant';
 import { missingFieldArgMessage } from '../../validation/rules/ProvidedRequiredArguments';
 
 import { graphqlSync } from '../../graphql';
-import { getIntrospectionQuery } from '../../utilities/introspectionQuery';
+import { getIntrospectionQuery } from '../../utilities/getIntrospectionQuery';
 
 import { GraphQLSchema } from '../schema';
 import { GraphQLString } from '../scalars';
@@ -1357,7 +1357,7 @@ describe('Introspection', () => {
             },
             {
               description:
-                'Indicates this type is an interface. `fields` and `possibleTypes` are valid fields.',
+                'Indicates this type is an interface. `fields`, `interfaces`, and `possibleTypes` are valid fields.',
               name: 'INTERFACE',
             },
             {

@@ -50,7 +50,7 @@ import {
   type IntrospectionInputTypeRef,
   type IntrospectionOutputTypeRef,
   type IntrospectionNamedTypeRef,
-} from './introspectionQuery';
+} from './getIntrospectionQuery';
 
 type Options = {|
   ...GraphQLSchemaValidationOptions,
@@ -121,7 +121,6 @@ export function buildClientSchema(
     types: objectValues(typeMap),
     directives,
     assumeValid: options && options.assumeValid,
-    allowedLegacyNames: options && options.allowedLegacyNames,
   });
 
   // Given a type reference in introspection, return the GraphQLType instance.
@@ -233,19 +232,37 @@ export function buildClientSchema(
     });
   }
 
+  function buildImplementationsList(
+    implementingIntrospection:
+      | IntrospectionObjectType
+      | IntrospectionInterfaceType,
+  ) {
+    // TODO: Temprorary workaround until GraphQL ecosystem will fully support
+    // 'interfaces' on interface types.
+    if (
+      implementingIntrospection.interfaces === null &&
+      implementingIntrospection.kind === TypeKind.INTERFACE
+    ) {
+      return [];
+    }
+
+    if (!implementingIntrospection.interfaces) {
+      throw new Error(
+        'Introspection result missing interfaces: ' +
+          inspect(implementingIntrospection),
+      );
+    }
+
+    return implementingIntrospection.interfaces.map(getInterfaceType);
+  }
+
   function buildObjectDef(
     objectIntrospection: IntrospectionObjectType,
   ): GraphQLObjectType {
-    if (!objectIntrospection.interfaces) {
-      throw new Error(
-        'Introspection result missing interfaces: ' +
-          inspect(objectIntrospection),
-      );
-    }
     return new GraphQLObjectType({
       name: objectIntrospection.name,
       description: objectIntrospection.description,
-      interfaces: () => objectIntrospection.interfaces.map(getInterfaceType),
+      interfaces: () => buildImplementationsList(objectIntrospection),
       fields: () => buildFieldDefMap(objectIntrospection),
     });
   }
@@ -256,6 +273,7 @@ export function buildClientSchema(
     return new GraphQLInterfaceType({
       name: interfaceIntrospection.name,
       description: interfaceIntrospection.description,
+      interfaces: () => buildImplementationsList(interfaceIntrospection),
       fields: () => buildFieldDefMap(interfaceIntrospection),
     });
   }
@@ -351,9 +369,10 @@ export function buildClientSchema(
 
   function buildInputValue(inputValueIntrospection) {
     const type = getInputType(inputValueIntrospection.type);
-    const defaultValue = inputValueIntrospection.defaultValue
-      ? valueFromAST(parseValue(inputValueIntrospection.defaultValue), type)
-      : undefined;
+    const defaultValue =
+      inputValueIntrospection.defaultValue != null
+        ? valueFromAST(parseValue(inputValueIntrospection.defaultValue), type)
+        : undefined;
     return {
       description: inputValueIntrospection.description,
       type,

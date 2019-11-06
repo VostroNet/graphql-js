@@ -2,11 +2,7 @@
 
 import { describe, it } from 'mocha';
 
-import {
-  FragmentsOnCompositeTypes,
-  inlineFragmentOnNonCompositeErrorMessage,
-  fragmentOnNonCompositeErrorMessage,
-} from '../rules/FragmentsOnCompositeTypes';
+import { FragmentsOnCompositeTypes } from '../rules/FragmentsOnCompositeTypes';
 
 import { expectValidationErrors } from './harness';
 
@@ -16,13 +12,6 @@ function expectErrors(queryStr) {
 
 function expectValid(queryStr) {
   expectErrors(queryStr).to.deep.equal([]);
-}
-
-function fragmentOnNonComposite(fragName, typeName, line, column) {
-  return {
-    message: fragmentOnNonCompositeErrorMessage(fragName, typeName),
-    locations: [{ line, column }],
-  };
 }
 
 describe('Validate: Fragments on composite types', () => {
@@ -52,6 +41,16 @@ describe('Validate: Fragments on composite types', () => {
     `);
   });
 
+  it('interface is valid inline fragment type', () => {
+    expectValid(`
+      fragment validFragment on Mammal {
+        ... on Canine {
+          name
+        }
+      }
+    `);
+  });
+
   it('inline fragment without type is valid', () => {
     expectValid(`
       fragment validFragment on Pet {
@@ -76,7 +75,11 @@ describe('Validate: Fragments on composite types', () => {
         bad
       }
     `).to.deep.equal([
-      fragmentOnNonComposite('scalarFragment', 'Boolean', 2, 34),
+      {
+        message:
+          'Fragment "scalarFragment" cannot condition on non composite type "Boolean".',
+        locations: [{ line: 2, column: 34 }],
+      },
     ]);
   });
 
@@ -86,7 +89,11 @@ describe('Validate: Fragments on composite types', () => {
         bad
       }
     `).to.deep.equal([
-      fragmentOnNonComposite('scalarFragment', 'FurColor', 2, 34),
+      {
+        message:
+          'Fragment "scalarFragment" cannot condition on non composite type "FurColor".',
+        locations: [{ line: 2, column: 34 }],
+      },
     ]);
   });
 
@@ -96,7 +103,11 @@ describe('Validate: Fragments on composite types', () => {
         stringField
       }
     `).to.deep.equal([
-      fragmentOnNonComposite('inputFragment', 'ComplexInput', 2, 33),
+      {
+        message:
+          'Fragment "inputFragment" cannot condition on non composite type "ComplexInput".',
+        locations: [{ line: 2, column: 33 }],
+      },
     ]);
   });
 
@@ -109,7 +120,7 @@ describe('Validate: Fragments on composite types', () => {
       }
     `).to.deep.equal([
       {
-        message: inlineFragmentOnNonCompositeErrorMessage('String'),
+        message: 'Fragment cannot condition on non composite type "String".',
         locations: [{ line: 3, column: 16 }],
       },
     ]);

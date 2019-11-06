@@ -111,11 +111,10 @@ export type ExecutionContext = {|
  *   - `errors` is included when any errors occurred as a non-empty array.
  *   - `data` is the result of a successful execution of the query.
  */
-export type ExecutionResult = {
+export type ExecutionResult = {|
   errors?: $ReadOnlyArray<GraphQLError>,
   data?: ObjMap<mixed> | null,
-  ...
-};
+|};
 
 export type ExecutionArgs = {|
   schema: GraphQLSchema,
@@ -181,7 +180,7 @@ export function execute(
       });
 }
 
-function executeImpl(args: ExecutionArgs): ExecutionResult {
+function executeImpl(args: ExecutionArgs): PromiseOrValue<ExecutionResult> {
   const {
     schema,
     document,
@@ -232,7 +231,7 @@ function executeImpl(args: ExecutionArgs): ExecutionResult {
 function buildResponse(
   exeContext: ExecutionContext,
   data: PromiseOrValue<ObjMap<mixed> | null>,
-): ExecutionResult {
+): PromiseOrValue<ExecutionResult> {
   if (isPromise(data)) {
     return data.then(resolved => buildResponse(exeContext, resolved));
   }
@@ -244,6 +243,8 @@ function buildResponse(
 /**
  * Essential assertions before executing to provide developer feedback for
  * improper use of the GraphQL library.
+ *
+ * @internal
  */
 export function assertValidExecutionArguments(
   schema: GraphQLSchema,
@@ -267,6 +268,8 @@ export function assertValidExecutionArguments(
  * execute, which we will pass throughout the other execution methods.
  *
  * Throws a GraphQLError if a valid execution context cannot be created.
+ *
+ * @internal
  */
 export function buildExecutionContext(
   schema: GraphQLSchema,
@@ -279,18 +282,20 @@ export function buildExecutionContext(
   typeResolver?: ?GraphQLTypeResolver<mixed, mixed>,
 ): $ReadOnlyArray<GraphQLError> | ExecutionContext {
   let operation: OperationDefinitionNode | void;
-  let hasMultipleAssumedOperations = false;
   const fragments: ObjMap<FragmentDefinitionNode> = Object.create(null);
-  for (let i = 0; i < document.definitions.length; i++) {
-    const definition = document.definitions[i];
+  for (const definition of document.definitions) {
     switch (definition.kind) {
       case Kind.OPERATION_DEFINITION:
-        if (!operationName && operation) {
-          hasMultipleAssumedOperations = true;
-        } else if (
-          !operationName ||
-          (definition.name && definition.name.value === operationName)
-        ) {
+        if (operationName == null) {
+          if (operation !== undefined) {
+            return [
+              new GraphQLError(
+                'Must provide operation name if query contains multiple operations.',
+              ),
+            ];
+          }
+          operation = definition;
+        } else if (definition.name && definition.name.value === operationName) {
           operation = definition;
         }
         break;
@@ -301,18 +306,10 @@ export function buildExecutionContext(
   }
 
   if (!operation) {
-    if (operationName) {
+    if (operationName != null) {
       return [new GraphQLError(`Unknown operation named "${operationName}".`)];
     }
     return [new GraphQLError('Must provide an operation.')];
-  }
-
-  if (hasMultipleAssumedOperations) {
-    return [
-      new GraphQLError(
-        'Must provide operation name if query contains multiple operations.',
-      ),
-    ];
   }
 
   const coercedVariableValues = getVariableValues(
@@ -434,8 +431,7 @@ function executeFields(
   const results = Object.create(null);
   let containsPromise = false;
 
-  for (let i = 0, keys = Object.keys(fields); i < keys.length; ++i) {
-    const responseName = keys[i];
+  for (const responseName of Object.keys(fields)) {
     const fieldNodes = fields[responseName];
     const fieldPath = addPath(path, responseName);
     const result = resolveField(
@@ -472,6 +468,8 @@ function executeFields(
  * CollectFields requires the "runtime type" of an object. For a field which
  * returns an Interface or Union type, the "runtime type" will be the actual
  * Object type returned by that field.
+ *
+ * @internal
  */
 export function collectFields(
   exeContext: ExecutionContext,
@@ -480,8 +478,7 @@ export function collectFields(
   fields: ObjMap<Array<FieldNode>>,
   visitedFragmentNames: ObjMap<boolean>,
 ): ObjMap<Array<FieldNode>> {
-  for (let i = 0; i < selectionSet.selections.length; i++) {
-    const selection = selectionSet.selections[i];
+  for (const selection of selectionSet.selections) {
     switch (selection.kind) {
       case Kind.FIELD: {
         if (!shouldIncludeNode(exeContext, selection)) {
@@ -585,7 +582,7 @@ function doesFragmentConditionMatch(
     return true;
   }
   if (isAbstractType(conditionalType)) {
-    return exeContext.schema.isPossibleType(conditionalType, type);
+    return exeContext.schema.isSubType(conditionalType, type);
   }
   return false;
 }
@@ -649,6 +646,9 @@ function resolveField(
   );
 }
 
+/**
+ * @internal
+ */
 export function buildResolveInfo(
   exeContext: ExecutionContext,
   fieldDef: GraphQLField<mixed, mixed>,
@@ -672,8 +672,12 @@ export function buildResolveInfo(
   };
 }
 
-// Isolates the "ReturnOrAbrupt" behavior to not de-opt the `resolveField`
-// function. Returns the result of resolveFn or the abrupt-return Error object.
+/**
+ * Isolates the "ReturnOrAbrupt" behavior to not de-opt the `resolveField`
+ * function. Returns the result of resolveFn or the abrupt-return Error object.
+ *
+ * @internal
+ */
 export function resolveFieldValueOrError(
   exeContext: ExecutionContext,
   fieldDef: GraphQLField<mixed, mixed>,
@@ -895,7 +899,7 @@ function completeListValue(
 ): PromiseOrValue<$ReadOnlyArray<mixed>> {
   if (!isCollection(result)) {
     throw new GraphQLError(
-      `Expected Iterable, but did not find one for field ${info.parentType.name}.${info.fieldName}.`,
+      `Expected Iterable, but did not find one for field "${info.parentType.name}.${info.fieldName}".`,
     );
   }
 
@@ -1009,14 +1013,14 @@ function ensureValidRuntimeType(
 
   if (!isObjectType(runtimeType)) {
     throw new GraphQLError(
-      `Abstract type ${returnType.name} must resolve to an Object type at runtime for field ${info.parentType.name}.${info.fieldName} with ` +
+      `Abstract type "${returnType.name}" must resolve to an Object type at runtime for field "${info.parentType.name}.${info.fieldName}" with ` +
         `value ${inspect(result)}, received "${inspect(runtimeType)}". ` +
-        `Either the ${returnType.name} type should provide a "resolveType" function or each possible type should provide an "isTypeOf" function.`,
+        `Either the "${returnType.name}" type should provide a "resolveType" function or each possible type should provide an "isTypeOf" function.`,
       fieldNodes,
     );
   }
 
-  if (!exeContext.schema.isPossibleType(returnType, runtimeType)) {
+  if (!exeContext.schema.isSubType(returnType, runtimeType)) {
     throw new GraphQLError(
       `Runtime Object type "${runtimeType.name}" is not a possible type for "${returnType.name}".`,
       fieldNodes,
@@ -1108,13 +1112,12 @@ function _collectSubfields(
 ): ObjMap<Array<FieldNode>> {
   let subFieldNodes = Object.create(null);
   const visitedFragmentNames = Object.create(null);
-  for (let i = 0; i < fieldNodes.length; i++) {
-    const selectionSet = fieldNodes[i].selectionSet;
-    if (selectionSet) {
+  for (const node of fieldNodes) {
+    if (node.selectionSet) {
       subFieldNodes = collectFields(
         exeContext,
         returnType,
-        selectionSet,
+        node.selectionSet,
         subFieldNodes,
         visitedFragmentNames,
       );
@@ -1201,6 +1204,8 @@ export const defaultFieldResolver: GraphQLFieldResolver<
  * are allowed, like on a Union. __schema could get automatically
  * added to the query type, but that would require mutating type
  * definitions, which would cause issues.
+ *
+ * @internal
  */
 export function getFieldDef(
   schema: GraphQLSchema,

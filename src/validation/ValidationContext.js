@@ -41,7 +41,7 @@ type VariableUsage = {|
  */
 export class ASTValidationContext {
   _ast: DocumentNode;
-  _errors: Array<GraphQLError>;
+  _onError: (err: GraphQLError) => void;
   _fragments: ?ObjMap<FragmentDefinitionNode>;
   _fragmentSpreads: Map<SelectionSetNode, $ReadOnlyArray<FragmentSpreadNode>>;
   _recursivelyReferencedFragments: Map<
@@ -49,20 +49,16 @@ export class ASTValidationContext {
     $ReadOnlyArray<FragmentDefinitionNode>,
   >;
 
-  constructor(ast: DocumentNode): void {
+  constructor(ast: DocumentNode, onError: (err: GraphQLError) => void): void {
     this._ast = ast;
-    this._errors = [];
     this._fragments = undefined;
     this._fragmentSpreads = new Map();
     this._recursivelyReferencedFragments = new Map();
+    this._onError = onError;
   }
 
   reportError(error: GraphQLError): void {
-    this._errors.push(error);
-  }
-
-  getErrors(): $ReadOnlyArray<GraphQLError> {
-    return this._errors;
+    this._onError(error);
   }
 
   getDocument(): DocumentNode {
@@ -140,8 +136,12 @@ export type ASTValidationRule = ASTValidationContext => ASTVisitor;
 export class SDLValidationContext extends ASTValidationContext {
   _schema: ?GraphQLSchema;
 
-  constructor(ast: DocumentNode, schema?: ?GraphQLSchema): void {
-    super(ast);
+  constructor(
+    ast: DocumentNode,
+    schema: ?GraphQLSchema,
+    onError: (err: GraphQLError) => void,
+  ): void {
+    super(ast, onError);
     this._schema = schema;
   }
 
@@ -165,8 +165,9 @@ export class ValidationContext extends ASTValidationContext {
     schema: GraphQLSchema,
     ast: DocumentNode,
     typeInfo: TypeInfo,
+    onError: (err: GraphQLError) => void,
   ): void {
-    super(ast);
+    super(ast, onError);
     this._schema = schema;
     this._typeInfo = typeInfo;
     this._variableUsages = new Map();

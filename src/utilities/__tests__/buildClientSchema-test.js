@@ -72,6 +72,8 @@ describe('Type System: build schema from introspection', () => {
 
     const schema = buildSchema(sdl);
     const introspection = introspectionFromSchema(schema);
+
+    // $DisableFlowOnNegativeTest
     delete introspection.__schema.queryType;
 
     const clientSchema = buildClientSchema(introspection);
@@ -201,6 +203,36 @@ describe('Type System: build schema from introspection', () => {
 
       type Human implements Friendly {
         bestFriend: Friendly
+      }
+
+      type Query {
+        friendly: Friendly
+      }
+    `;
+
+    expect(cycleIntrospection(sdl)).to.equal(sdl);
+  });
+
+  it('builds a schema with an interface heirarchy', () => {
+    const sdl = dedent`
+      type Dog implements Friendly & Named {
+        bestFriend: Friendly
+        name: String
+      }
+
+      interface Friendly implements Named {
+        """The best friend of this friendly thing"""
+        bestFriend: Friendly
+        name: String
+      }
+
+      type Human implements Friendly & Named {
+        bestFriend: Friendly
+        name: String
+      }
+
+      interface Named {
+        name: String
       }
 
       type Query {
@@ -358,42 +390,47 @@ describe('Type System: build schema from introspection', () => {
     expect(clientFoodEnum.getValues()).to.deep.equal([
       {
         name: 'VEGETABLES',
-        value: 'VEGETABLES',
         description: 'Foods that are vegetables.',
+        value: 'VEGETABLES',
         isDeprecated: false,
         deprecationReason: null,
+        extensions: undefined,
         astNode: undefined,
       },
       {
         name: 'FRUITS',
-        value: 'FRUITS',
         description: 'Foods that are fruits.',
+        value: 'FRUITS',
         isDeprecated: false,
         deprecationReason: null,
+        extensions: undefined,
         astNode: undefined,
       },
       {
         name: 'OILS',
-        value: 'OILS',
         description: 'Foods that are oils.',
+        value: 'OILS',
         isDeprecated: false,
         deprecationReason: null,
+        extensions: undefined,
         astNode: undefined,
       },
       {
         name: 'DAIRY',
-        value: 'DAIRY',
         description: 'Foods that are dairy.',
+        value: 'DAIRY',
         isDeprecated: false,
         deprecationReason: null,
+        extensions: undefined,
         astNode: undefined,
       },
       {
         name: 'MEAT',
-        value: 'MEAT',
         description: 'Foods that are meat.',
+        value: 'MEAT',
         isDeprecated: false,
         deprecationReason: null,
+        extensions: undefined,
         astNode: undefined,
       },
     ]);
@@ -466,30 +503,14 @@ describe('Type System: build schema from introspection', () => {
 
     const schema = buildSchema(sdl);
     const introspection = introspectionFromSchema(schema);
+
+    // $DisableFlowOnNegativeTest
     delete introspection.__schema.directives;
 
     const clientSchema = buildClientSchema(introspection);
 
     expect(schema.getDirectives()).to.have.lengthOf.above(0);
     expect(clientSchema.getDirectives()).to.deep.equal([]);
-    expect(printSchema(clientSchema)).to.equal(sdl);
-  });
-
-  it('builds a schema with legacy names', () => {
-    const sdl = dedent`
-      type Query {
-        __badName: String
-      }
-    `;
-    const allowedLegacyNames = ['__badName'];
-    const schema = buildSchema(sdl, { allowedLegacyNames });
-
-    const introspection = introspectionFromSchema(schema);
-    const clientSchema = buildClientSchema(introspection, {
-      allowedLegacyNames,
-    });
-
-    expect(schema.__allowedLegacyNames).to.deep.equal(['__badName']);
     expect(printSchema(clientSchema)).to.equal(sdl);
   });
 
@@ -516,6 +537,20 @@ describe('Type System: build schema from introspection', () => {
         """This is a deprecated string field"""
         deprecatedString: String @deprecated(reason: "Use shinyString")
         color: Color
+      }
+    `;
+
+    expect(cycleIntrospection(sdl)).to.equal(sdl);
+  });
+
+  it('builds a schema with empty deprecation reasons', () => {
+    const sdl = dedent`
+      type Query {
+        someField: String @deprecated(reason: "")
+      }
+
+      enum SomeEnum {
+        SOME_VALUE @deprecated(reason: "")
       }
     `;
 
@@ -549,6 +584,10 @@ describe('Type System: build schema from introspection', () => {
     const dummySchema = buildSchema(`
       type Query {
         foo(bar: String): String
+      }
+
+      interface SomeInterface {
+        foo: String
       }
 
       union SomeUnion = Query
@@ -609,6 +648,8 @@ describe('Type System: build schema from introspection', () => {
       const introspection = introspectionFromSchema(dummySchema);
 
       expect(introspection).to.have.nested.property('__schema.queryType.name');
+
+      // $DisableFlowOnNegativeTest
       delete introspection.__schema.queryType.name;
 
       expect(() => buildClientSchema(introspection)).to.throw(
@@ -623,6 +664,7 @@ describe('Type System: build schema from introspection', () => {
       );
 
       expect(queryTypeIntrospection).to.have.property('kind');
+
       // $DisableFlowOnNegativeTest
       delete queryTypeIntrospection.kind;
 
@@ -638,12 +680,27 @@ describe('Type System: build schema from introspection', () => {
       );
 
       expect(queryTypeIntrospection).to.have.property('interfaces');
+
       // $DisableFlowOnNegativeTest
       delete queryTypeIntrospection.interfaces;
 
       expect(() => buildClientSchema(introspection)).to.throw(
         'Introspection result missing interfaces: { kind: "OBJECT", name: "Query",',
       );
+    });
+
+    it('Legacy support for interfaces with null as interfaces field', () => {
+      const introspection = introspectionFromSchema(dummySchema);
+      const someInterfaceIntrospection = introspection.__schema.types.find(
+        ({ name }) => name === 'SomeInterface',
+      );
+
+      expect(someInterfaceIntrospection).to.have.property('interfaces');
+      // $DisableFlowOnNegativeTest
+      someInterfaceIntrospection.interfaces = null;
+
+      const clientSchema = buildClientSchema(introspection);
+      expect(printSchema(clientSchema)).to.equal(printSchema(dummySchema));
     });
 
     it('throws when missing fields', () => {
@@ -653,6 +710,7 @@ describe('Type System: build schema from introspection', () => {
       );
 
       expect(queryTypeIntrospection).to.have.property('fields');
+
       // $DisableFlowOnNegativeTest
       delete queryTypeIntrospection.fields;
 
@@ -668,6 +726,7 @@ describe('Type System: build schema from introspection', () => {
       );
 
       expect(queryTypeIntrospection).to.have.nested.property('fields[0].args');
+
       // $DisableFlowOnNegativeTest
       delete queryTypeIntrospection.fields[0].args;
 
@@ -719,6 +778,7 @@ describe('Type System: build schema from introspection', () => {
       );
 
       expect(someUnionIntrospection).to.have.property('possibleTypes');
+
       // $DisableFlowOnNegativeTest
       delete someUnionIntrospection.possibleTypes;
 
@@ -734,6 +794,7 @@ describe('Type System: build schema from introspection', () => {
       );
 
       expect(someEnumIntrospection).to.have.property('enumValues');
+
       // $DisableFlowOnNegativeTest
       delete someEnumIntrospection.enumValues;
 
@@ -749,6 +810,7 @@ describe('Type System: build schema from introspection', () => {
       );
 
       expect(someInputObjectIntrospection).to.have.property('inputFields');
+
       // $DisableFlowOnNegativeTest
       delete someInputObjectIntrospection.inputFields;
 
@@ -765,6 +827,8 @@ describe('Type System: build schema from introspection', () => {
         name: 'SomeDirective',
         locations: ['QUERY'],
       });
+
+      // $DisableFlowOnNegativeTest
       delete someDirectiveIntrospection.locations;
 
       expect(() => buildClientSchema(introspection)).to.throw(
@@ -780,6 +844,8 @@ describe('Type System: build schema from introspection', () => {
         name: 'SomeDirective',
         args: [],
       });
+
+      // $DisableFlowOnNegativeTest
       delete someDirectiveIntrospection.args;
 
       expect(() => buildClientSchema(introspection)).to.throw(

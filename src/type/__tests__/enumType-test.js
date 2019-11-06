@@ -155,7 +155,7 @@ describe('Type System: Enum Values', () => {
       errors: [
         {
           message:
-            'Expected type Color, found "GREEN". Did you mean the enum value GREEN?',
+            'Expected value of type "Color", found "GREEN". Did you mean the enum value "GREEN"?',
           locations: [{ line: 1, column: 23 }],
         },
       ],
@@ -169,7 +169,7 @@ describe('Type System: Enum Values', () => {
       errors: [
         {
           message:
-            'Expected type Color, found GREENISH. Did you mean the enum value GREEN?',
+            'Expected value of type "Color", found GREENISH. Did you mean the enum value "GREEN"?',
           locations: [{ line: 1, column: 23 }],
         },
       ],
@@ -183,7 +183,7 @@ describe('Type System: Enum Values', () => {
       errors: [
         {
           message:
-            'Expected type Color, found green. Did you mean the enum value GREEN?',
+            'Expected value of type "Color", found green. Did you mean the enum value "GREEN"?',
           locations: [{ line: 1, column: 23 }],
         },
       ],
@@ -211,7 +211,7 @@ describe('Type System: Enum Values', () => {
     expect(result).to.deep.equal({
       errors: [
         {
-          message: 'Expected type Color, found 1.',
+          message: 'Expected value of type "Color", found 1.',
           locations: [{ line: 1, column: 23 }],
         },
       ],
@@ -224,7 +224,7 @@ describe('Type System: Enum Values', () => {
     expect(result).to.deep.equal({
       errors: [
         {
-          message: 'Expected type Int, found GREEN.',
+          message: 'Int cannot represent non-integer value: GREEN',
           locations: [{ line: 1, column: 22 }],
         },
       ],
@@ -267,7 +267,7 @@ describe('Type System: Enum Values', () => {
       errors: [
         {
           message:
-            'Variable "$color" got invalid value 2; Expected type Color.',
+            'Variable "$color" got invalid value 2; Expected type "Color".',
           locations: [{ line: 1, column: 8 }],
         },
       ],
@@ -341,18 +341,20 @@ describe('Type System: Enum Values', () => {
     expect(values).to.have.deep.ordered.members([
       {
         name: 'ONE',
-        value: Complex1,
         description: undefined,
+        value: Complex1,
         isDeprecated: false,
         deprecationReason: undefined,
+        extensions: undefined,
         astNode: undefined,
       },
       {
         name: 'TWO',
-        value: Complex2,
         description: undefined,
+        value: Complex2,
         isDeprecated: false,
         deprecationReason: undefined,
+        extensions: undefined,
         astNode: undefined,
       },
     ]);

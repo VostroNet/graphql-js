@@ -41,7 +41,7 @@ describe('Validate: Supports full validation', () => {
       {
         locations: [{ line: 3, column: 25 }],
         message:
-          'Expected type Invalid, found "bad value"; Invalid scalar is always invalid: "bad value"',
+          'Expected value of type "Invalid", found "bad value"; Invalid scalar is always invalid: "bad value"',
       },
     ]);
   });
@@ -71,6 +71,49 @@ describe('Validate: Supports full validation', () => {
       'Cannot query field "catOrDog" on type "QueryRoot". Did you mean "catOrDog"?',
       'Cannot query field "furColor" on type "Cat". Did you mean "furColor"?',
       'Cannot query field "isHousetrained" on type "Dog". Did you mean "isHousetrained"?',
+    ]);
+  });
+});
+
+describe('Validate: Limit maximum number of validation errors', () => {
+  const query = `
+    {
+      firstUnknownField
+      secondUnknownField
+      thirdUnknownField
+    }
+  `;
+  const doc = parse(query, { noLocation: true });
+
+  function validateDocument(options) {
+    return validate(testSchema, doc, undefined, undefined, options);
+  }
+
+  function invalidFieldError(fieldName) {
+    return {
+      message: `Cannot query field "${fieldName}" on type "QueryRoot".`,
+      locations: [],
+    };
+  }
+
+  it('when maxErrors is equal to number of errors', () => {
+    const errors = validateDocument({ maxErrors: 3 });
+    expect(errors).to.be.deep.equal([
+      invalidFieldError('firstUnknownField'),
+      invalidFieldError('secondUnknownField'),
+      invalidFieldError('thirdUnknownField'),
+    ]);
+  });
+
+  it('when maxErrors is less than number of errors', () => {
+    const errors = validateDocument({ maxErrors: 2 });
+    expect(errors).to.be.deep.equal([
+      invalidFieldError('firstUnknownField'),
+      invalidFieldError('secondUnknownField'),
+      {
+        message:
+          'Too many validation errors, error limit reached. Validation aborted.',
+      },
     ]);
   });
 });
