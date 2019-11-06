@@ -4,11 +4,16 @@ import find from '../polyfills/find';
 import objectValues from '../polyfills/objectValues';
 
 import inspect from '../jsutils/inspect';
+import toObjMap from '../jsutils/toObjMap';
 import devAssert from '../jsutils/devAssert';
 import instanceOf from '../jsutils/instanceOf';
-import { type ObjMap } from '../jsutils/ObjMap';
 import isObjectLike from '../jsutils/isObjectLike';
 import defineToStringTag from '../jsutils/defineToStringTag';
+import {
+  type ObjMap,
+  type ReadOnlyObjMap,
+  type ReadOnlyObjMapLike,
+} from '../jsutils/ObjMap';
 
 import { type GraphQLError } from '../error/GraphQLError';
 import {
@@ -115,8 +120,10 @@ export function assertSchema(schema: mixed): GraphQLSchema {
  *
  */
 export class GraphQLSchema {
+  extensions: ?ReadOnlyObjMap<mixed>;
   astNode: ?SchemaDefinitionNode;
   extensionASTNodes: ?$ReadOnlyArray<SchemaExtensionNode>;
+
   _queryType: ?GraphQLObjectType;
   _mutationType: ?GraphQLObjectType;
   _subscriptionType: ?GraphQLObjectType;
@@ -156,14 +163,16 @@ export class GraphQLSchema {
       );
     }
 
+    this.extensions = config.extensions && toObjMap(config.extensions);
+    this.astNode = config.astNode;
+    this.extensionASTNodes = config.extensionASTNodes;
+
     this.__allowedLegacyNames = config.allowedLegacyNames || [];
     this._queryType = config.query;
     this._mutationType = config.mutation;
     this._subscriptionType = config.subscription;
     // Provide specified directives (e.g. @include and @skip) by default.
     this._directives = config.directives || specifiedDirectives;
-    this.astNode = config.astNode;
-    this.extensionASTNodes = config.extensionASTNodes;
 
     // Build type map now to detect any errors within this schema.
     const initialTypes: Array<?GraphQLNamedType> = [
@@ -261,16 +270,18 @@ export class GraphQLSchema {
     ...GraphQLSchemaConfig,
     types: Array<GraphQLNamedType>,
     directives: Array<GraphQLDirective>,
+    extensions: ?ReadOnlyObjMap<mixed>,
     extensionASTNodes: $ReadOnlyArray<SchemaExtensionNode>,
     assumeValid: boolean,
     allowedLegacyNames: $ReadOnlyArray<string>,
   |} {
     return {
-      types: objectValues(this.getTypeMap()),
-      directives: this.getDirectives().slice(),
       query: this.getQueryType(),
       mutation: this.getMutationType(),
       subscription: this.getSubscriptionType(),
+      types: objectValues(this.getTypeMap()),
+      directives: this.getDirectives().slice(),
+      extensions: this.extensions,
       astNode: this.astNode,
       extensionASTNodes: this.extensionASTNodes || [],
       assumeValid: this.__validationErrors !== undefined,
@@ -310,6 +321,7 @@ export type GraphQLSchemaConfig = {|
   subscription?: ?GraphQLObjectType,
   types?: ?Array<GraphQLNamedType>,
   directives?: ?Array<GraphQLDirective>,
+  extensions?: ?ReadOnlyObjMapLike<mixed>,
   astNode?: ?SchemaDefinitionNode,
   extensionASTNodes?: ?$ReadOnlyArray<SchemaExtensionNode>,
   ...GraphQLSchemaValidationOptions,

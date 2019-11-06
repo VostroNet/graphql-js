@@ -187,11 +187,16 @@ describe('Type System: Objects', () => {
     });
 
     expect(TypeWithDeprecatedField.getFields().bar).to.deep.equal({
-      type: ScalarType,
-      deprecationReason: 'A terrible reason',
-      isDeprecated: true,
       name: 'bar',
+      description: undefined,
+      type: ScalarType,
       args: [],
+      resolve: undefined,
+      subscribe: undefined,
+      isDeprecated: true,
+      deprecationReason: 'A terrible reason',
+      extensions: undefined,
+      astNode: undefined,
     });
   });
 
@@ -203,7 +208,18 @@ describe('Type System: Objects', () => {
       }),
     });
     expect(objType.getFields()).to.deep.equal({
-      f: { name: 'f', type: ScalarType, args: [], isDeprecated: false },
+      f: {
+        name: 'f',
+        description: undefined,
+        type: ScalarType,
+        args: [],
+        resolve: undefined,
+        subscribe: undefined,
+        isDeprecated: false,
+        deprecationReason: undefined,
+        extensions: undefined,
+        astNode: undefined,
+      },
     });
   });
 
@@ -222,17 +238,24 @@ describe('Type System: Objects', () => {
     expect(objType.getFields()).to.deep.equal({
       f: {
         name: 'f',
+        description: undefined,
         type: ScalarType,
         args: [
           {
             name: 'arg',
-            type: ScalarType,
             description: null,
+            type: ScalarType,
             defaultValue: undefined,
+            extensions: undefined,
             astNode: undefined,
           },
         ],
+        resolve: undefined,
+        subscribe: undefined,
         isDeprecated: false,
+        deprecationReason: undefined,
+        extensions: undefined,
+        astNode: undefined,
       },
     });
   });
@@ -505,6 +528,7 @@ describe('Type System: Enums', () => {
       isDeprecated: true,
       deprecationReason: 'Just because',
       value: 'foo',
+      extensions: undefined,
       astNode: undefined,
     });
   });
@@ -522,17 +546,19 @@ describe('Type System: Enums', () => {
       {
         name: 'NULL',
         description: undefined,
+        value: null,
         isDeprecated: false,
         deprecationReason: undefined,
-        value: null,
+        extensions: undefined,
         astNode: undefined,
       },
       {
         name: 'UNDEFINED',
         description: undefined,
+        value: undefined,
         isDeprecated: false,
         deprecationReason: undefined,
-        value: undefined,
+        extensions: undefined,
         astNode: undefined,
       },
     ]);
@@ -625,7 +651,14 @@ describe('Type System: Input Objects', () => {
         },
       });
       expect(inputObjType.getFields()).to.deep.equal({
-        f: { name: 'f', type: ScalarType },
+        f: {
+          name: 'f',
+          description: undefined,
+          type: ScalarType,
+          defaultValue: undefined,
+          extensions: undefined,
+          astNode: undefined,
+        },
       });
     });
 
@@ -637,7 +670,14 @@ describe('Type System: Input Objects', () => {
         }),
       });
       expect(inputObjType.getFields()).to.deep.equal({
-        f: { name: 'f', type: ScalarType },
+        f: {
+          name: 'f',
+          description: undefined,
+          type: ScalarType,
+          defaultValue: undefined,
+          extensions: undefined,
+          astNode: undefined,
+        },
       });
     });
 
