@@ -58,6 +58,39 @@ const numberHolderType = new GraphQLObjectType({
   },
   name: 'NumberHolder',
 });
+const subFieldType = new GraphQLObjectType({
+  name: 'subFieldMutation',
+  fields: {
+    immediatelyChangeTheNumber: {
+      type: numberHolderType,
+      args: { newNumber: { type: GraphQLInt } },
+      resolve(obj, { newNumber }) {
+        return obj.immediatelyChangeTheNumber(newNumber);
+      },
+    },
+    promiseToChangeTheNumber: {
+      type: numberHolderType,
+      args: { newNumber: { type: GraphQLInt } },
+      resolve(obj, { newNumber }) {
+        return obj.promiseToChangeTheNumber(newNumber);
+      },
+    },
+    failToChangeTheNumber: {
+      type: numberHolderType,
+      args: { newNumber: { type: GraphQLInt } },
+      resolve(obj, { newNumber }) {
+        return obj.failToChangeTheNumber(newNumber);
+      },
+    },
+    promiseAndFailToChangeTheNumber: {
+      type: numberHolderType,
+      args: { newNumber: { type: GraphQLInt } },
+      resolve(obj, { newNumber }) {
+        return obj.promiseAndFailToChangeTheNumber(newNumber);
+      },
+    },
+  },
+});
 
 const schema = new GraphQLSchema({
   query: new GraphQLObjectType({
@@ -68,6 +101,12 @@ const schema = new GraphQLSchema({
   }),
   mutation: new GraphQLObjectType({
     fields: {
+      subField: {
+        type: subFieldType,
+        resolve(obj) {
+          return obj;
+        },
+      },
       immediatelyChangeTheNumber: {
         type: numberHolderType,
         args: { newNumber: { type: GraphQLInt } },
@@ -121,7 +160,30 @@ describe('Execute: Handles mutation execution ordering', () => {
           theNumber
         }
       }
-    `);
+      fourth: promiseToChangeTheNumber(newNumber: 4) {
+        theNumber
+      },
+      fifth: immediatelyChangeTheNumber(newNumber: 5) {
+        theNumber
+      }
+      subField {
+        first: immediatelyChangeTheNumber(newNumber: 6) {
+          theNumber
+        },
+        second: promiseToChangeTheNumber(newNumber: 7) {
+          theNumber
+        },
+        third: immediatelyChangeTheNumber(newNumber: 8) {
+          theNumber
+        }
+        fourth: promiseToChangeTheNumber(newNumber: 9) {
+          theNumber
+        },
+        fifth: immediatelyChangeTheNumber(newNumber: 10) {
+          theNumber
+        }
+      }
+    }`;
 
     const rootValue = new Root(6);
     const mutationResult = await execute({ schema, document, rootValue });
@@ -133,6 +195,13 @@ describe('Execute: Handles mutation execution ordering', () => {
         third: { theNumber: 3 },
         fourth: { theNumber: 4 },
         fifth: { theNumber: 5 },
+        subField: {
+          first: { theNumber: 6 },
+          second: { theNumber: 7 },
+          third: { theNumber: 8 },
+          fourth: { theNumber: 9 },
+          fifth: { theNumber: 10 },
+        },
       },
     });
   });
@@ -168,7 +237,36 @@ describe('Execute: Handles mutation execution ordering', () => {
           theNumber
         }
       }
-    `);
+      fourth: promiseToChangeTheNumber(newNumber: 4) {
+        theNumber
+      },
+      fifth: immediatelyChangeTheNumber(newNumber: 5) {
+        theNumber
+      }
+      sixth: promiseAndFailToChangeTheNumber(newNumber: 6) {
+        theNumber
+      }
+      subField {
+        first: immediatelyChangeTheNumber(newNumber: 7) {
+          theNumber
+        },
+        second: promiseToChangeTheNumber(newNumber: 8) {
+          theNumber
+        },
+        third: failToChangeTheNumber(newNumber: 9) {
+          theNumber
+        }
+        fourth: promiseToChangeTheNumber(newNumber: 10) {
+          theNumber
+        },
+        fifth: immediatelyChangeTheNumber(newNumber: 11) {
+          theNumber
+        }
+        sixth: promiseAndFailToChangeTheNumber(newNumber: 12) {
+          theNumber
+        }
+      }
+    }`;
 
     const rootValue = new Root(6);
     const result = await execute({ schema, document, rootValue });
@@ -181,6 +279,14 @@ describe('Execute: Handles mutation execution ordering', () => {
         fourth: { theNumber: 4 },
         fifth: { theNumber: 5 },
         sixth: null,
+        subField: {
+          first: { theNumber: 7 },
+          second: { theNumber: 8 },
+          third: null,
+          fourth: { theNumber: 10 },
+          fifth: { theNumber: 11 },
+          sixth: null,
+        },
       },
       errors: [
         {
@@ -192,6 +298,16 @@ describe('Execute: Handles mutation execution ordering', () => {
           message: 'Cannot change the number',
           locations: [{ line: 18, column: 9 }],
           path: ['sixth'],
+        },
+        {
+          message: 'Cannot change the number',
+          locations: [{ line: 27, column: 9 }],
+          path: ['subField', 'third'],
+        },
+        {
+          message: 'Cannot change the number',
+          locations: [{ line: 36, column: 9 }],
+          path: ['subField', 'sixth'],
         },
       ],
     });
