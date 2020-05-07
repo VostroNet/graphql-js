@@ -5,7 +5,9 @@
 const fs = require('fs');
 const path = require('path');
 const assert = require('assert');
+
 const babel = require('@babel/core');
+
 const {
   copyFile,
   writeFile,
@@ -26,13 +28,8 @@ if (require.main === module) {
   for (const filepath of srcFiles) {
     if (filepath.endsWith('.js')) {
       buildJSFile(filepath);
-    }
-  }
-
-  const tsFiles = readdirRecursive('./tstypes', { ignoreDir: /^__.*__$/ });
-  for (const filepath of tsFiles) {
-    if (filepath.endsWith('.d.ts')) {
-      const srcPath = path.join('./tstypes', filepath);
+    } else if (filepath.endsWith('.d.ts')) {
+      const srcPath = path.join('./src', filepath);
       const destPath = path.join('./dist', filepath);
 
       copyFile(srcPath, destPath);
@@ -55,8 +52,8 @@ function showStats() {
 
   for (const filepath of readdirRecursive('./dist')) {
     const name = filepath.split(path.sep).pop();
-    const [base, ...splitedExt] = name.split('.');
-    const ext = splitedExt.join('.');
+    const [base, ...splitExt] = name.split('.');
+    const ext = splitExt.join('.');
 
     const filetype = ext ? '*.' + ext : base;
     fileTypes[filetype] = fileTypes[filetype] || { filepaths: [], size: 0 };
@@ -80,8 +77,8 @@ function showStats() {
   stats.sort((a, b) => b[1] - a[1]);
   stats = stats.map(([type, size]) => [type, (size / 1024).toFixed(2) + ' KB']);
 
-  const typeMaxLength = Math.max(...stats.map(x => x[0].length));
-  const sizeMaxLength = Math.max(...stats.map(x => x[1].length));
+  const typeMaxLength = Math.max(...stats.map((x) => x[0].length));
+  const sizeMaxLength = Math.max(...stats.map((x) => x[1].length));
   for (const [type, size] of stats) {
     console.log(
       type.padStart(typeMaxLength) + ' | ' + size.padStart(sizeMaxLength),
@@ -117,7 +114,7 @@ function buildPackageJSON() {
   const { preReleaseTag } = parseSemver(packageJSON.version);
   if (preReleaseTag != null) {
     const [tag] = preReleaseTag.split('.');
-    assert(tag === 'rc', 'Only "rc" tag is supported.');
+    assert(['alpha', 'beta', 'rc'].includes(tag), `"${tag}" tag is supported.`);
 
     assert(!packageJSON.publishConfig, 'Can not override "publishConfig".');
     packageJSON.publishConfig = { tag: tag || 'latest' };

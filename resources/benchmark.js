@@ -21,7 +21,7 @@ const { sampleModule } = require('./benchmark-fork');
 const NS_PER_SEC = 1e9;
 const LOCAL = 'local';
 
-// The maximum time in secounds a benchmark is allowed to run before finishing.
+// The maximum time in seconds a benchmark is allowed to run before finishing.
 const maxTime = 5;
 // The minimum sample size required to perform statistical analysis.
 const minSamples = 5;
@@ -30,11 +30,7 @@ function LOCAL_DIR(...paths) {
   return path.join(__dirname, '..', ...paths);
 }
 
-function TEMP_DIR(...paths) {
-  return path.join(os.tmpdir(), 'graphql-js-benchmark', ...paths);
-}
-
-// Build a benchmarkable environment for the given revision
+// Build a benchmark-friendly environment for the given revision
 // and returns path to its 'dist' directory.
 function prepareRevision(revision) {
   console.log(`🍳  Preparing ${revision}...`);
@@ -43,19 +39,16 @@ function prepareRevision(revision) {
     return babelBuild(LOCAL_DIR());
   }
 
-  if (!fs.existsSync(TEMP_DIR())) {
-    fs.mkdirSync(TEMP_DIR());
-  }
-
   // Returns the complete git hash for a given git revision reference.
   const hash = exec(`git rev-parse "${revision}"`);
-  const dir = TEMP_DIR(hash);
 
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir);
-    exec(`git archive "${hash}" | tar -xC "${dir}"`);
-    exec('yarn install', { cwd: dir });
-  }
+  const dir = path.join(os.tmpdir(), 'graphql-js-benchmark', hash);
+  rmdirRecursive(dir);
+  mkdirRecursive(dir);
+
+  exec(`git archive "${hash}" | tar -xC "${dir}"`);
+  exec('yarn install', { cwd: dir });
+
   for (const file of findFiles(LOCAL_DIR('src'), '*/__tests__/*')) {
     const from = LOCAL_DIR('src', file);
     const to = path.join(dir, 'src', file);
@@ -138,7 +131,7 @@ function computeStats(samples) {
   // Compute the sample variance (estimate of the population variance).
   let variance = 0;
   for (const { clocked } of samples) {
-    variance += Math.pow(clocked - mean, 2);
+    variance += (clocked - mean) ** 2;
   }
   variance /= samples.length - 1;
 
@@ -223,7 +216,7 @@ function beautifyBenchmark(results) {
 function beautifyBytes(bytes) {
   const sizes = ['Bytes', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log2(bytes) / 10);
-  return beautifyNumber(bytes / Math.pow(2, i * 10)) + ' ' + sizes[i];
+  return beautifyNumber(bytes / 2 ** (i * 10)) + ' ' + sizes[i];
 }
 
 function beautifyNumber(num) {
@@ -236,7 +229,7 @@ function maxBy(array, fn) {
 
 // Prepare all revisions and run benchmarks matching a pattern against them.
 async function prepareAndRunBenchmarks(benchmarkPatterns, revisions) {
-  const environments = revisions.map(revision => ({
+  const environments = revisions.map((revision) => ({
     revision,
     distPath: prepareRevision(revision),
   }));
@@ -276,16 +269,13 @@ async function prepareAndRunBenchmarks(benchmarkPatterns, revisions) {
 function matchBenchmarks(patterns) {
   let benchmarks = findFiles(LOCAL_DIR('src'), '*/__tests__/*-benchmark.js');
   if (patterns.length > 0) {
-    benchmarks = benchmarks.filter(benchmark =>
-      patterns.some(pattern => path.join('src', benchmark).includes(pattern)),
+    benchmarks = benchmarks.filter((benchmark) =>
+      patterns.some((pattern) => path.join('src', benchmark).includes(pattern)),
     );
   }
 
   if (benchmarks.length === 0) {
-    console.warn(
-      'No benchmarks matching: ' +
-        `\u001b[1m${patterns.join('\u001b[0m or \u001b[1m')}\u001b[0m`,
-    );
+    console.warn('No benchmarks matching: ' + patterns.map(bold).join(''));
   }
 
   return benchmarks;
@@ -312,10 +302,14 @@ function getArguments(argv) {
   }
   if (assumeArgs) {
     console.warn(
-      `Assuming you meant: \u001b[1mbenchmark ${assumeArgs.join(' ')}\u001b[0m`,
+      'Assuming you meant: ' + bold('benchmark ' + assumeArgs.join(' ')),
     );
   }
   return { benchmarkPatterns, revisions };
+}
+
+function bold(str) {
+  return '\u001b[1m' + str + '\u001b[0m';
 }
 
 // Get the revisions and make things happen!

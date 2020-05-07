@@ -1,5 +1,8 @@
 // @flow strict
 
+// FIXME temporary hack until https://github.com/eslint/eslint/pull/12484 is merged
+/* eslint-disable require-await */
+
 import EventEmitter from 'events';
 
 import { expect } from 'chai';
@@ -32,11 +35,11 @@ const InboxType = new GraphQLObjectType({
   fields: {
     total: {
       type: GraphQLInt,
-      resolve: inbox => inbox.emails.length,
+      resolve: (inbox) => inbox.emails.length,
     },
     unread: {
       type: GraphQLInt,
-      resolve: inbox => inbox.emails.filter(email => email.unread).length,
+      resolve: (inbox) => inbox.emails.filter((email) => email.unread).length,
     },
     emails: { type: GraphQLList(EmailType) },
   },
@@ -78,7 +81,26 @@ function emailSchemaWithResolvers(subscribeFn, resolveFn) {
   });
 }
 
-async function createSubscription(pubsub, schema = emailSchema, ast, vars) {
+const defaultSubscriptionAST = parse(`
+  subscription ($priority: Int = 0) {
+    importantEmail(priority: $priority) {
+      email {
+        from
+        subject
+      }
+      inbox {
+        unread
+        total
+      }
+    }
+  }
+`);
+
+async function createSubscription(
+  pubsub,
+  schema = emailSchema,
+  document = defaultSubscriptionAST,
+) {
   const data = {
     inbox: {
       emails: [
@@ -106,41 +128,28 @@ async function createSubscription(pubsub, schema = emailSchema, ast, vars) {
     });
   }
 
-  const defaultAST = parse(`
-    subscription ($priority: Int = 0) {
-      importantEmail(priority: $priority) {
-        email {
-          from
-          subject
-        }
-        inbox {
-          unread
-          total
-        }
-      }
-    }
-  `);
-
   // `subscribe` returns Promise<AsyncIterator | ExecutionResult>
   return {
     sendImportantEmail,
     // $FlowFixMe
-    subscription: await subscribe(schema, ast || defaultAST, data, null, vars),
+    subscription: await subscribe({ schema, document, rootValue: data }),
   };
 }
 
 async function expectPromiseToThrow(promise, message) {
   try {
     await promise();
+    /* istanbul ignore next */
     expect.fail('promise should have thrown but did not');
   } catch (error) {
-    expect(error && error.message).to.equal(message);
+    expect(error).to.be.an.instanceOf(Error);
+    expect(error.message).to.equal(message);
   }
 }
 
 // Check all error cases when initializing the subscription.
 describe('Subscription Initialization Phase', () => {
-  it('accepts an object with named properties as arguments', async () => {
+  it('accepts positional arguments', async () => {
     const document = parse(`
       subscription {
         importantEmail
@@ -151,15 +160,12 @@ describe('Subscription Initialization Phase', () => {
       // Empty
     }
 
-    const ai = await subscribe({
-      schema: emailSchema,
-      document,
-      rootValue: {
-        importantEmail: emptyAsyncIterator,
-      },
+    // $FlowFixMe
+    const ai = await subscribe(emailSchema, document, {
+      importantEmail: emptyAsyncIterator,
     });
 
-    // $FlowFixMe
+    ai.next();
     ai.return();
   });
 
@@ -209,19 +215,20 @@ describe('Subscription Initialization Phase', () => {
       }),
     });
 
-    const ast = parse(`
-      subscription {
-        importantEmail
-      }
-    `);
-
-    const subscription = await subscribe(schema, ast);
+    // $FlowFixMe
+    const subscription = await subscribe({
+      schema,
+      document: parse(`
+        subscription {
+          importantEmail
+        }
+      `),
+    });
 
     pubsub.emit('importantEmail', {
       importantEmail: {},
     });
 
-    // $FlowFixMe
     await subscription.next();
   });
 
@@ -243,19 +250,20 @@ describe('Subscription Initialization Phase', () => {
       }),
     });
 
-    const ast = parse(`
-      subscription {
-        importantEmail
-      }
-    `);
-
-    const subscription = await subscribe(schema, ast);
+    // $FlowFixMe
+    const subscription = await subscribe({
+      schema,
+      document: parse(`
+        subscription {
+          importantEmail
+        }
+      `),
+    });
 
     pubsub.emit('importantEmail', {
       importantEmail: {},
     });
 
-    // $FlowFixMe
     await subscription.next();
   });
 
@@ -275,6 +283,7 @@ describe('Subscription Initialization Phase', () => {
         },
         nonImportantEmail: {
           type: EmailEventType,
+          /* istanbul ignore next (shouldn't be called) */
           subscribe() {
             didResolveNonImportantEmail = true;
             return eventEmitterAsyncIterator(new EventEmitter(), 'event');
@@ -283,20 +292,22 @@ describe('Subscription Initialization Phase', () => {
       },
     });
 
-    const testSchema = new GraphQLSchema({
+    const schema = new GraphQLSchema({
       query: QueryType,
       subscription: SubscriptionTypeMultiple,
     });
 
-    const ast = parse(`
-      subscription {
-        importantEmail
-        nonImportantEmail
-      }
-    `);
-
-    const subscription = await subscribe(testSchema, ast);
     // $FlowFixMe
+    const subscription = await subscribe({
+      schema,
+      document: parse(`
+        subscription {
+          importantEmail
+          nonImportantEmail
+        }
+      `),
+    });
+
     subscription.next(); // Ask for a result, but ignore it.
 
     expect(didResolveImportantEmail).to.equal(true);
@@ -330,13 +341,13 @@ describe('Subscription Initialization Phase', () => {
     await expectPromiseToThrow(
       // $DisableFlowOnNegativeTest
       () => subscribe(emailSchema, null),
-      'Must provide document',
+      'Must provide document.',
     );
 
     await expectPromiseToThrow(
       // $DisableFlowOnNegativeTest
       () => subscribe({ schema: emailSchema }),
-      'Must provide document',
+      'Must provide document.',
     );
   });
 
@@ -361,6 +372,17 @@ describe('Subscription Initialization Phase', () => {
     });
   });
 
+  it('should pass through unexpected errors thrown in subscribe', async () => {
+    let expectedError;
+    try {
+      // $DisableFlowOnNegativeTest
+      await subscribe({ schema: emailSchema, document: {} });
+    } catch (error) {
+      expectedError = error;
+    }
+    expect(expectedError).to.be.instanceOf(Error);
+  });
+
   it('throws an error if subscribe does not return an iterator', async () => {
     const invalidEmailSchema = new GraphQLSchema({
       query: QueryType,
@@ -379,7 +401,7 @@ describe('Subscription Initialization Phase', () => {
 
     await expectPromiseToThrow(
       () => createSubscription(pubsub, invalidEmailSchema),
-      'Subscription field must return Async Iterable. Received: "test"',
+      'Subscription field must return Async Iterable. Received: "test".',
     );
   });
 
@@ -397,29 +419,27 @@ describe('Subscription Initialization Phase', () => {
     await testReportsError(subscriptionThrowingErrorSchema);
 
     // Resolving to an error
-    const subscriptionResolvingErrorSchema = emailSchemaWithResolvers(
-      async () => new Error('test error'),
+    const subscriptionResolvingErrorSchema = emailSchemaWithResolvers(() =>
+      Promise.resolve(new Error('test error')),
     );
     await testReportsError(subscriptionResolvingErrorSchema);
 
     // Rejecting with an error
-    const subscriptionRejectingErrorSchema = emailSchemaWithResolvers(
-      async () => {
-        throw new Error('test error');
-      },
+    const subscriptionRejectingErrorSchema = emailSchemaWithResolvers(() =>
+      Promise.reject(new Error('test error')),
     );
     await testReportsError(subscriptionRejectingErrorSchema);
 
     async function testReportsError(schema) {
       // Promise<AsyncIterable<ExecutionResult> | ExecutionResult>
-      const result = await subscribe(
+      const result = await subscribe({
         schema,
-        parse(`
+        document: parse(`
           subscription {
             importantEmail
           }
         `),
-      );
+      });
 
       expect(result).to.deep.equal({
         errors: [
@@ -453,10 +473,8 @@ describe('Subscription Initialization Phase', () => {
     await testReportsError(subscriptionResolvingErrorSchema);
 
     // Rejecting with an error
-    const subscriptionRejectingErrorSchema = emailSchemaWithResolvers(
-      async () => {
-        throw new Error('test error');
-      },
+    const subscriptionRejectingErrorSchema = emailSchemaWithResolvers(() =>
+      Promise.reject(new Error('test error')),
     );
     await testReportsError(subscriptionRejectingErrorSchema);
 
@@ -502,39 +520,21 @@ describe('Subscription Initialization Phase', () => {
       }
     `);
 
-    const pubsub = new EventEmitter();
-    const data = {
-      inbox: {
-        emails: [
-          {
-            from: 'joe@graphql.org',
-            subject: 'Hello',
-            message: 'Hello World',
-            unread: false,
-          },
-        ],
-      },
-      importantEmail() {
-        return eventEmitterAsyncIterator(pubsub, 'importantEmail');
-      },
-    };
-
-    // $FlowFixMe
-    const result = await subscribe(emailSchema, ast, data, null, {
-      priority: 'meow',
+    const result = await subscribe({
+      schema: emailSchema,
+      document: ast,
+      variableValues: { priority: 'meow' },
     });
 
     expect(result).to.deep.equal({
       errors: [
         {
           message:
-            'Variable "$priority" got invalid value "meow"; Expected type Int. Int cannot represent non-integer value: "meow"',
+            'Variable "$priority" got invalid value "meow"; Int cannot represent non-integer value: "meow"',
           locations: [{ line: 2, column: 21 }],
         },
       ],
     });
-
-    expect(result.errors[0].originalError).not.to.equal(undefined);
   });
 });
 
@@ -792,6 +792,68 @@ describe('Subscription Publish Phase', () => {
     });
   });
 
+  it('should not trigger when subscription is thrown', async () => {
+    const pubsub = new EventEmitter();
+    const { sendImportantEmail, subscription } = await createSubscription(
+      pubsub,
+    );
+    let payload = subscription.next();
+
+    // A new email arrives!
+    expect(
+      sendImportantEmail({
+        from: 'yuzhi@graphql.org',
+        subject: 'Alright',
+        message: 'Tests are good',
+        unread: true,
+      }),
+    ).to.equal(true);
+
+    expect(await payload).to.deep.equal({
+      done: false,
+      value: {
+        data: {
+          importantEmail: {
+            email: {
+              from: 'yuzhi@graphql.org',
+              subject: 'Alright',
+            },
+            inbox: {
+              unread: 1,
+              total: 2,
+            },
+          },
+        },
+      },
+    });
+
+    payload = subscription.next();
+
+    // Throw error
+    let caughtError;
+    try {
+      await subscription.throw('ouch');
+    } catch (e) {
+      caughtError = e;
+    }
+    expect(caughtError).to.equal('ouch');
+
+    // A new email arrives!
+    expect(
+      sendImportantEmail({
+        from: 'yuzhi@graphql.org',
+        subject: 'Alright 2',
+        message: 'Tests are good 2',
+        unread: true,
+      }),
+    ).to.equal(false);
+
+    expect(await payload).to.deep.equal({
+      done: true,
+      value: undefined,
+    });
+  });
+
   it('event order is correct for multiple publishes', async () => {
     const pubsub = new EventEmitter();
     const { sendImportantEmail, subscription } = await createSubscription(
@@ -860,12 +922,12 @@ describe('Subscription Publish Phase', () => {
 
   it('should handle error during execution of source event', async () => {
     const erroringEmailSchema = emailSchemaWithResolvers(
-      async function*() {
+      async function* () {
         yield { email: { subject: 'Hello' } };
         yield { email: { subject: 'Goodbye' } };
         yield { email: { subject: 'Bonjour' } };
       },
-      event => {
+      (event) => {
         if (event.email.subject === 'Goodbye') {
           throw new Error('Never leave.');
         }
@@ -873,9 +935,10 @@ describe('Subscription Publish Phase', () => {
       },
     );
 
-    const subscription = await subscribe(
-      erroringEmailSchema,
-      parse(`
+    // $FlowFixMe
+    const subscription = await subscribe({
+      schema: erroringEmailSchema,
+      document: parse(`
         subscription {
           importantEmail {
             email {
@@ -884,9 +947,8 @@ describe('Subscription Publish Phase', () => {
           }
         }
       `),
-    );
+    });
 
-    // $FlowFixMe
     const payload1 = await subscription.next();
     expect(payload1).to.deep.equal({
       done: false,
@@ -938,16 +1000,17 @@ describe('Subscription Publish Phase', () => {
 
   it('should pass through error thrown in source event stream', async () => {
     const erroringEmailSchema = emailSchemaWithResolvers(
-      async function*() {
+      async function* () {
         yield { email: { subject: 'Hello' } };
         throw new Error('test error');
       },
-      email => email,
+      (email) => email,
     );
 
-    const subscription = await subscribe(
-      erroringEmailSchema,
-      parse(`
+    // $FlowFixMe
+    const subscription = await subscribe({
+      schema: erroringEmailSchema,
+      document: parse(`
         subscription {
           importantEmail {
             email {
@@ -956,9 +1019,8 @@ describe('Subscription Publish Phase', () => {
           }
         }
       `),
-    );
+    });
 
-    // $FlowFixMe
     const payload1 = await subscription.next();
     expect(payload1).to.deep.equal({
       done: false,
@@ -992,16 +1054,17 @@ describe('Subscription Publish Phase', () => {
 
   it('should resolve GraphQL error from source event stream', async () => {
     const erroringEmailSchema = emailSchemaWithResolvers(
-      async function*() {
+      async function* () {
         yield { email: { subject: 'Hello' } };
         throw new GraphQLError('test error');
       },
-      email => email,
+      (email) => email,
     );
 
-    const subscription = await subscribe(
-      erroringEmailSchema,
-      parse(`
+    // $FlowFixMe
+    const subscription = await subscribe({
+      schema: erroringEmailSchema,
+      document: parse(`
         subscription {
           importantEmail {
             email {
@@ -1010,9 +1073,8 @@ describe('Subscription Publish Phase', () => {
           }
         }
       `),
-    );
+    });
 
-    // $FlowFixMe
     const payload1 = await subscription.next();
     expect(payload1).to.deep.equal({
       done: false,

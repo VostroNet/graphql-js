@@ -25,23 +25,13 @@ import { getVariableValues } from '../values';
 
 const TestComplexScalar = new GraphQLScalarType({
   name: 'ComplexScalar',
-  serialize(value) {
-    if (value === 'DeserializedValue') {
-      return 'SerializedValue';
-    }
-    return null;
-  },
   parseValue(value) {
-    if (value === 'SerializedValue') {
-      return 'DeserializedValue';
-    }
-    return null;
+    invariant(value === 'SerializedValue');
+    return 'DeserializedValue';
   },
   parseLiteral(ast) {
-    if (ast.value === 'SerializedValue') {
-      return 'DeserializedValue';
-    }
-    return null;
+    invariant(ast.value === 'SerializedValue');
+    return 'DeserializedValue';
   },
 });
 
@@ -295,9 +285,11 @@ describe('Execute: Handles inputs', () => {
 
       it('does not use default value when provided', () => {
         const result = executeQuery(
-          `query q($input: String = "Default value") {
-            fieldWithNullableStringInput(input: $input)
-          }`,
+          `
+            query q($input: String = "Default value") {
+              fieldWithNullableStringInput(input: $input)
+            }
+          `,
           { input: 'Variable value' },
         );
 
@@ -372,7 +364,7 @@ describe('Execute: Handles inputs', () => {
           errors: [
             {
               message:
-                'Variable "$input" got invalid value null at "input.c"; Expected non-nullable type String! not to be null.',
+                'Variable "$input" got invalid value null at "input.c"; Expected non-nullable type "String!" not to be null.',
               locations: [{ line: 2, column: 16 }],
             },
           ],
@@ -386,7 +378,7 @@ describe('Execute: Handles inputs', () => {
           errors: [
             {
               message:
-                'Variable "$input" got invalid value "foo bar"; Expected type TestInputObject to be an object.',
+                'Variable "$input" got invalid value "foo bar"; Expected type "TestInputObject" to be an object.',
               locations: [{ line: 2, column: 16 }],
             },
           ],
@@ -400,7 +392,7 @@ describe('Execute: Handles inputs', () => {
           errors: [
             {
               message:
-                'Variable "$input" got invalid value { a: "foo", b: "bar" }; Field c of required type String! was not provided.',
+                'Variable "$input" got invalid value { a: "foo", b: "bar" }; Field "c" of required type "String!" was not provided.',
               locations: [{ line: 2, column: 16 }],
             },
           ],
@@ -419,12 +411,12 @@ describe('Execute: Handles inputs', () => {
           errors: [
             {
               message:
-                'Variable "$input" got invalid value { a: "foo" } at "input.na"; Field c of required type String! was not provided.',
+                'Variable "$input" got invalid value { a: "foo" } at "input.na"; Field "c" of required type "String!" was not provided.',
               locations: [{ line: 2, column: 18 }],
             },
             {
               message:
-                'Variable "$input" got invalid value { na: { a: "foo" } }; Field nb of required type String! was not provided.',
+                'Variable "$input" got invalid value { na: { a: "foo" } }; Field "nb" of required type "String!" was not provided.',
               locations: [{ line: 2, column: 18 }],
             },
           ],
@@ -441,7 +433,7 @@ describe('Execute: Handles inputs', () => {
           errors: [
             {
               message:
-                'Variable "$input" got invalid value { a: "foo", b: "bar", c: "baz", extra: "dog" }; Field "extra" is not defined by type TestInputObject.',
+                'Variable "$input" got invalid value { a: "foo", b: "bar", c: "baz", extra: "dog" }; Field "extra" is not defined by type "TestInputObject".',
               locations: [{ line: 2, column: 16 }],
             },
           ],
@@ -577,6 +569,20 @@ describe('Execute: Handles inputs', () => {
   });
 
   describe('Handles non-nullable scalars', () => {
+    it('allows non-nullable variable to be omitted given a default', () => {
+      const result = executeQuery(`
+        query ($value: String! = "default") {
+          fieldWithNullableStringInput(input: $value)
+        }
+      `);
+
+      expect(result).to.deep.equal({
+        data: {
+          fieldWithNullableStringInput: '"default"',
+        },
+      });
+    });
+
     it('allows non-nullable inputs to be omitted given a default', () => {
       const result = executeQuery(`
         query ($value: String = "default") {
@@ -687,7 +693,7 @@ describe('Execute: Handles inputs', () => {
         errors: [
           {
             message:
-              'Variable "$value" got invalid value [1, 2, 3]; Expected type String. String cannot represent a non string value: [1, 2, 3]',
+              'Variable "$value" got invalid value [1, 2, 3]; String cannot represent a non string value: [1, 2, 3]',
             locations: [{ line: 2, column: 16 }],
           },
         ],
@@ -833,7 +839,7 @@ describe('Execute: Handles inputs', () => {
         errors: [
           {
             message:
-              'Variable "$input" got invalid value null at "input[1]"; Expected non-nullable type String! not to be null.',
+              'Variable "$input" got invalid value null at "input[1]"; Expected non-nullable type "String!" not to be null.',
             locations: [{ line: 2, column: 16 }],
           },
         ],
@@ -882,7 +888,7 @@ describe('Execute: Handles inputs', () => {
         errors: [
           {
             message:
-              'Variable "$input" got invalid value null at "input[1]"; Expected non-nullable type String! not to be null.',
+              'Variable "$input" got invalid value null at "input[1]"; Expected non-nullable type "String!" not to be null.',
             locations: [{ line: 2, column: 16 }],
           },
         ],
@@ -914,7 +920,7 @@ describe('Execute: Handles inputs', () => {
           fieldWithObjectInput(input: $input)
         }
       `;
-      const result = executeQuery(doc, { input: 'whoknows' });
+      const result = executeQuery(doc, { input: 'WhoKnows' });
 
       expect(result).to.deep.equal({
         errors: [
@@ -1006,10 +1012,22 @@ describe('Execute: Handles inputs', () => {
 
     function invalidValueError(value, index) {
       return {
-        message: `Variable "$input" got invalid value ${value} at "input[${index}]"; Expected type String. String cannot represent a non string value: ${value}`,
+        message: `Variable "$input" got invalid value ${value} at "input[${index}]"; String cannot represent a non string value: ${value}`,
         locations: [{ line: 2, column: 14 }],
       };
     }
+
+    it('return all errors by default', () => {
+      const result = getVariableValues(schema, variableDefinitions, inputValue);
+
+      expect(result).to.deep.equal({
+        errors: [
+          invalidValueError(0, 0),
+          invalidValueError(1, 1),
+          invalidValueError(2, 2),
+        ],
+      });
+    });
 
     it('when maxErrors is equal to number of errors', () => {
       const result = getVariableValues(

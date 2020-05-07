@@ -5,7 +5,7 @@ import { describe, it } from 'mocha';
 
 import dedent from '../../jsutils/dedent';
 
-import { printSchema } from '../../utilities/schemaPrinter';
+import { printSchema } from '../../utilities/printSchema';
 
 import { GraphQLSchema } from '../schema';
 import { GraphQLDirective } from '../directives';
@@ -86,12 +86,25 @@ describe('Type System: Schema', () => {
     });
 
     const schema = new GraphQLSchema({
+      description: 'Sample schema',
       query: BlogQuery,
       mutation: BlogMutation,
       subscription: BlogSubscription,
     });
 
     expect(printSchema(schema)).to.equal(dedent`
+      """Sample schema"""
+      schema {
+        query: Query
+        mutation: Mutation
+        subscription: Subscription
+      }
+
+      type Query {
+        article(id: String): Article
+        feed: [Article]
+      }
+
       type Article {
         id: String
         isPublished: Boolean
@@ -115,11 +128,6 @@ describe('Type System: Schema', () => {
 
       type Mutation {
         writeArticle: Article
-      }
-
-      type Query {
-        article(id: String): Article
-        feed: [Article]
       }
 
       type Subscription {
@@ -175,11 +183,20 @@ describe('Type System: Schema', () => {
 
       expect(schema.getType('SomeInterface')).to.equal(SomeInterface);
       expect(schema.getType('SomeSubtype')).to.equal(SomeSubtype);
+
+      expect(schema.isSubType(SomeInterface, SomeSubtype)).to.equal(true);
+      expect(schema.isPossibleType(SomeInterface, SomeSubtype)).to.equal(true);
     });
 
-    it("includes interfaces' thunk subtypes in the type map", () => {
+    it("includes interface's thunk subtypes in the type map", () => {
       const SomeInterface = new GraphQLInterfaceType({
         name: 'SomeInterface',
+        fields: {},
+        interfaces: () => [AnotherInterface],
+      });
+
+      const AnotherInterface = new GraphQLInterfaceType({
+        name: 'AnotherInterface',
         fields: {},
       });
 
@@ -189,17 +206,10 @@ describe('Type System: Schema', () => {
         interfaces: () => [SomeInterface],
       });
 
-      const schema = new GraphQLSchema({
-        query: new GraphQLObjectType({
-          name: 'Query',
-          fields: {
-            iface: { type: SomeInterface },
-          },
-        }),
-        types: [SomeSubtype],
-      });
+      const schema = new GraphQLSchema({ types: [SomeSubtype] });
 
       expect(schema.getType('SomeInterface')).to.equal(SomeInterface);
+      expect(schema.getType('AnotherInterface')).to.equal(AnotherInterface);
       expect(schema.getType('SomeSubtype')).to.equal(SomeSubtype);
     });
 
@@ -251,6 +261,57 @@ describe('Type System: Schema', () => {
     });
   });
 
+  it('preserves the order of user provided types', () => {
+    const aType = new GraphQLObjectType({
+      name: 'A',
+      fields: {
+        sub: { type: new GraphQLScalarType({ name: 'ASub' }) },
+      },
+    });
+    const zType = new GraphQLObjectType({
+      name: 'Z',
+      fields: {
+        sub: { type: new GraphQLScalarType({ name: 'ZSub' }) },
+      },
+    });
+    const queryType = new GraphQLObjectType({
+      name: 'Query',
+      fields: {
+        a: { type: aType },
+        z: { type: zType },
+        sub: { type: new GraphQLScalarType({ name: 'QuerySub' }) },
+      },
+    });
+    const schema = new GraphQLSchema({
+      types: [zType, queryType, aType],
+      query: queryType,
+    });
+
+    const typeNames = Object.keys(schema.getTypeMap());
+    expect(typeNames).to.deep.equal([
+      'Z',
+      'ZSub',
+      'Query',
+      'QuerySub',
+      'A',
+      'ASub',
+      'Boolean',
+      'String',
+      '__Schema',
+      '__Type',
+      '__TypeKind',
+      '__Field',
+      '__InputValue',
+      '__EnumValue',
+      '__Directive',
+      '__DirectiveLocation',
+    ]);
+
+    // Also check that this order is stable
+    const copySchema = new GraphQLSchema(schema.toConfig());
+    expect(Object.keys(copySchema.getTypeMap())).to.deep.equal(typeNames);
+  });
+
   it('can be Object.toStringified', () => {
     const schema = new GraphQLSchema({});
 
@@ -269,23 +330,13 @@ describe('Type System: Schema', () => {
         ).to.equal(undefined);
       });
 
-      it('configures the schema for allowed legacy names', () => {
-        expect(
-          new GraphQLSchema({
-            allowedLegacyNames: ['__badName'],
-          }).__allowedLegacyNames,
-        ).to.deep.equal(['__badName']);
-      });
-
       it('checks the configuration for mistakes', () => {
         // $DisableFlowOnNegativeTest
-        expect(() => new GraphQLSchema(() => null)).to.throw();
+        expect(() => new GraphQLSchema(JSON.parse)).to.throw();
         // $DisableFlowOnNegativeTest
         expect(() => new GraphQLSchema({ types: {} })).to.throw();
         // $DisableFlowOnNegativeTest
         expect(() => new GraphQLSchema({ directives: {} })).to.throw();
-        // $DisableFlowOnNegativeTest
-        expect(() => new GraphQLSchema({ allowedLegacyNames: {} })).to.throw();
       });
     });
 
@@ -303,6 +354,19 @@ describe('Type System: Schema', () => {
 
         expect(() => new GraphQLSchema({ query: QueryType })).to.throw(
           'Schema must contain uniquely named types but contains multiple types named "String".',
+        );
+      });
+
+      it('rejects a Schema when a provided type has no name', () => {
+        const query = new GraphQLObjectType({
+          name: 'Query',
+          fields: { foo: { type: GraphQLString } },
+        });
+        const types = [{}, query, {}];
+
+        // $DisableFlowOnNegativeTest
+        expect(() => new GraphQLSchema({ query, types })).to.throw(
+          'One of the provided types for building the Schema is missing a name.',
         );
       });
 
@@ -340,33 +404,6 @@ describe('Type System: Schema', () => {
             assumeValid: true,
           }).__validationErrors,
         ).to.deep.equal([]);
-      });
-
-      it('still configures the schema for allowed legacy names', () => {
-        expect(
-          new GraphQLSchema({
-            assumeValid: true,
-            allowedLegacyNames: ['__badName'],
-          }).__allowedLegacyNames,
-        ).to.deep.equal(['__badName']);
-      });
-
-      it('does not check the configuration for mistakes', () => {
-        const config = () => null;
-        config.assumeValid = true;
-        // $DisableFlowOnNegativeTest
-        expect(() => new GraphQLSchema(config)).to.not.throw();
-
-        expect(
-          () =>
-            // $DisableFlowOnNegativeTest
-            new GraphQLSchema({
-              assumeValid: true,
-              types: {},
-              directives: { reduce: () => [] },
-              allowedLegacyNames: {},
-            }),
-        ).to.not.throw();
       });
     });
   });

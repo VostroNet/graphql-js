@@ -8,7 +8,7 @@ import dedent from '../../jsutils/dedent';
 import { parse } from '../parser';
 import { print } from '../printer';
 
-import { kitchenSinkQuery } from '../../__fixtures__';
+import { kitchenSinkQuery } from '../../__fixtures__/index';
 
 describe('Printer: Query document', () => {
   it('does not alter ast', () => {
@@ -27,7 +27,7 @@ describe('Printer: Query document', () => {
     const badAST = { random: 'Data' };
     // $DisableFlowOnNegativeTest
     expect(() => print(badAST)).to.throw(
-      'Invalid AST Node: { random: "Data" }',
+      'Invalid AST Node: { random: "Data" }.',
     );
   });
 
@@ -165,7 +165,7 @@ describe('Printer: Query document', () => {
       }
 
       {
-        unnamed(truthy: true, falsey: false, nullish: null)
+        unnamed(truthy: true, falsy: false, nullish: null)
         query
       }
 

@@ -19,7 +19,7 @@ const ColorType = new GraphQLEnumType({
   },
 });
 
-const Complex1 = { someRandomFunction: () => {} };
+const Complex1 = { someRandomObject: new Date() };
 const Complex2 = { someRandomValue: 123 };
 
 const ComplexEnum = new GraphQLEnumType({
@@ -40,7 +40,7 @@ const QueryType = new GraphQLObjectType({
         fromInt: { type: GraphQLInt },
         fromString: { type: GraphQLString },
       },
-      resolve(value, { fromEnum, fromInt, fromString }) {
+      resolve(_source, { fromEnum, fromInt, fromString }) {
         return fromInt !== undefined
           ? fromInt
           : fromString !== undefined
@@ -52,10 +52,9 @@ const QueryType = new GraphQLObjectType({
       type: GraphQLInt,
       args: {
         fromEnum: { type: ColorType },
-        fromInt: { type: GraphQLInt },
       },
-      resolve(value, { fromEnum, fromInt }) {
-        return fromInt !== undefined ? fromInt : fromEnum;
+      resolve(_source, { fromEnum }) {
+        return fromEnum;
       },
     },
     complexEnum: {
@@ -70,7 +69,7 @@ const QueryType = new GraphQLObjectType({
         provideGoodValue: { type: GraphQLBoolean },
         provideBadValue: { type: GraphQLBoolean },
       },
-      resolve(value, { fromEnum, provideGoodValue, provideBadValue }) {
+      resolve(_source, { fromEnum, provideGoodValue, provideBadValue }) {
         if (provideGoodValue) {
           // Note: this is one of the references of the internal values which
           // ComplexEnum allows.
@@ -93,9 +92,7 @@ const MutationType = new GraphQLObjectType({
     favoriteEnum: {
       type: ColorType,
       args: { color: { type: ColorType } },
-      resolve(value, { color }) {
-        return color;
-      },
+      resolve: (_source, { color }) => color,
     },
   },
 });
@@ -106,9 +103,7 @@ const SubscriptionType = new GraphQLObjectType({
     subscribeToEnum: {
       type: ColorType,
       args: { color: { type: ColorType } },
-      resolve(value, { color }) {
-        return color;
-      },
+      resolve: (_source, { color }) => color,
     },
   },
 });
@@ -155,7 +150,7 @@ describe('Type System: Enum Values', () => {
       errors: [
         {
           message:
-            'Expected type Color, found "GREEN". Did you mean the enum value GREEN?',
+            'Enum "Color" cannot represent non-enum value: "GREEN". Did you mean the enum value "GREEN"?',
           locations: [{ line: 1, column: 23 }],
         },
       ],
@@ -169,7 +164,7 @@ describe('Type System: Enum Values', () => {
       errors: [
         {
           message:
-            'Expected type Color, found GREENISH. Did you mean the enum value GREEN?',
+            'Value "GREENISH" does not exist in "Color" enum. Did you mean the enum value "GREEN"?',
           locations: [{ line: 1, column: 23 }],
         },
       ],
@@ -183,7 +178,7 @@ describe('Type System: Enum Values', () => {
       errors: [
         {
           message:
-            'Expected type Color, found green. Did you mean the enum value GREEN?',
+            'Value "green" does not exist in "Color" enum. Did you mean the enum value "GREEN" or "RED"?',
           locations: [{ line: 1, column: 23 }],
         },
       ],
@@ -197,7 +192,7 @@ describe('Type System: Enum Values', () => {
       data: { colorEnum: null },
       errors: [
         {
-          message: 'Expected a value of type "Color" but received: "GREEN"',
+          message: 'Enum "Color" cannot represent value: "GREEN"',
           locations: [{ line: 1, column: 3 }],
           path: ['colorEnum'],
         },
@@ -211,7 +206,7 @@ describe('Type System: Enum Values', () => {
     expect(result).to.deep.equal({
       errors: [
         {
-          message: 'Expected type Color, found 1.',
+          message: 'Enum "Color" cannot represent non-enum value: 1.',
           locations: [{ line: 1, column: 23 }],
         },
       ],
@@ -224,7 +219,7 @@ describe('Type System: Enum Values', () => {
     expect(result).to.deep.equal({
       errors: [
         {
-          message: 'Expected type Int, found GREEN.',
+          message: 'Int cannot represent non-integer value: GREEN',
           locations: [{ line: 1, column: 22 }],
         },
       ],
@@ -267,7 +262,7 @@ describe('Type System: Enum Values', () => {
       errors: [
         {
           message:
-            'Variable "$color" got invalid value 2; Expected type Color.',
+            'Variable "$color" got invalid value 2; Enum "Color" cannot represent non-string value: 2.',
           locations: [{ line: 1, column: 8 }],
         },
       ],
@@ -283,7 +278,10 @@ describe('Type System: Enum Values', () => {
         {
           message:
             'Variable "$color" of type "String!" used in position expecting type "Color".',
-          locations: [{ line: 1, column: 8 }, { line: 1, column: 47 }],
+          locations: [
+            { line: 1, column: 8 },
+            { line: 1, column: 47 },
+          ],
         },
       ],
     });
@@ -298,7 +296,10 @@ describe('Type System: Enum Values', () => {
         {
           message:
             'Variable "$color" of type "Int!" used in position expecting type "Color".',
-          locations: [{ line: 1, column: 8 }, { line: 1, column: 44 }],
+          locations: [
+            { line: 1, column: 8 },
+            { line: 1, column: 44 },
+          ],
         },
       ],
     });
@@ -389,7 +390,7 @@ describe('Type System: Enum Values', () => {
       errors: [
         {
           message:
-            'Expected a value of type "Complex" but received: { someRandomValue: 123 }',
+            'Enum "Complex" cannot represent value: { someRandomValue: 123 }',
           locations: [{ line: 6, column: 9 }],
           path: ['bad'],
         },

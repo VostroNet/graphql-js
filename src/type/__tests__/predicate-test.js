@@ -90,14 +90,14 @@ describe('Type predicates', () => {
   describe('isType', () => {
     it('returns true for unwrapped types', () => {
       expect(isType(GraphQLString)).to.equal(true);
-      expect(() => assertType(GraphQLString)).not.to.throw();
+      expect(() => assertType(GraphQLString)).to.not.throw();
       expect(isType(ObjectType)).to.equal(true);
-      expect(() => assertType(ObjectType)).not.to.throw();
+      expect(() => assertType(ObjectType)).to.not.throw();
     });
 
     it('returns true for wrapped types', () => {
       expect(isType(GraphQLNonNull(GraphQLString))).to.equal(true);
-      expect(() => assertType(GraphQLNonNull(GraphQLString))).not.to.throw();
+      expect(() => assertType(GraphQLNonNull(GraphQLString))).to.not.throw();
     });
 
     it('returns false for type classes (rather than instances)', () => {
@@ -114,12 +114,12 @@ describe('Type predicates', () => {
   describe('isScalarType', () => {
     it('returns true for spec defined scalar', () => {
       expect(isScalarType(GraphQLString)).to.equal(true);
-      expect(() => assertScalarType(GraphQLString)).not.to.throw();
+      expect(() => assertScalarType(GraphQLString)).to.not.throw();
     });
 
     it('returns true for custom scalar', () => {
       expect(isScalarType(ScalarType)).to.equal(true);
-      expect(() => assertScalarType(ScalarType)).not.to.throw();
+      expect(() => assertScalarType(ScalarType)).to.not.throw();
     });
 
     it('returns false for scalar class (rather than instance)', () => {
@@ -157,41 +157,12 @@ describe('Type predicates', () => {
     it('returns false for custom scalar', () => {
       expect(isSpecifiedScalarType(ScalarType)).to.equal(false);
     });
-
-    it('returns false for scalar class (rather than specified instance)', () => {
-      expect(isSpecifiedScalarType(GraphQLScalarType)).to.equal(false);
-    });
-
-    it('returns false for wrapped specified scalar', () => {
-      expect(isSpecifiedScalarType(GraphQLList(GraphQLString))).to.equal(false);
-    });
-
-    it('returns false for non-scalar', () => {
-      expect(isSpecifiedScalarType(EnumType)).to.equal(false);
-      expect(isSpecifiedScalarType(Directive)).to.equal(false);
-    });
-
-    it('returns false for spec defined directive', () => {
-      expect(isSpecifiedScalarType(GraphQLSkipDirective)).to.equal(false);
-    });
-
-    it('returns false for object type named like specified scalar', () => {
-      const ObjectNamedLikeScalar = new GraphQLObjectType({
-        name: 'String',
-        fields: { serialize: { type: GraphQLString } },
-      });
-      expect(isSpecifiedScalarType(ObjectNamedLikeScalar)).to.equal(false);
-    });
-
-    it('returns false for random garbage', () => {
-      expect(isSpecifiedScalarType({ what: 'is this' })).to.equal(false);
-    });
   });
 
   describe('isObjectType', () => {
     it('returns true for object type', () => {
       expect(isObjectType(ObjectType)).to.equal(true);
-      expect(() => assertObjectType(ObjectType)).not.to.throw();
+      expect(() => assertObjectType(ObjectType)).to.not.throw();
     });
 
     it('returns false for wrapped object type', () => {
@@ -208,7 +179,7 @@ describe('Type predicates', () => {
   describe('isInterfaceType', () => {
     it('returns true for interface type', () => {
       expect(isInterfaceType(InterfaceType)).to.equal(true);
-      expect(() => assertInterfaceType(InterfaceType)).not.to.throw();
+      expect(() => assertInterfaceType(InterfaceType)).to.not.throw();
     });
 
     it('returns false for wrapped interface type', () => {
@@ -225,7 +196,7 @@ describe('Type predicates', () => {
   describe('isUnionType', () => {
     it('returns true for union type', () => {
       expect(isUnionType(UnionType)).to.equal(true);
-      expect(() => assertUnionType(UnionType)).not.to.throw();
+      expect(() => assertUnionType(UnionType)).to.not.throw();
     });
 
     it('returns false for wrapped union type', () => {
@@ -242,7 +213,7 @@ describe('Type predicates', () => {
   describe('isEnumType', () => {
     it('returns true for enum type', () => {
       expect(isEnumType(EnumType)).to.equal(true);
-      expect(() => assertEnumType(EnumType)).not.to.throw();
+      expect(() => assertEnumType(EnumType)).to.not.throw();
     });
 
     it('returns false for wrapped enum type', () => {
@@ -259,7 +230,7 @@ describe('Type predicates', () => {
   describe('isInputObjectType', () => {
     it('returns true for input object type', () => {
       expect(isInputObjectType(InputObjectType)).to.equal(true);
-      expect(() => assertInputObjectType(InputObjectType)).not.to.throw();
+      expect(() => assertInputObjectType(InputObjectType)).to.not.throw();
     });
 
     it('returns false for wrapped input object type', () => {
@@ -278,7 +249,7 @@ describe('Type predicates', () => {
   describe('isListType', () => {
     it('returns true for a list wrapped type', () => {
       expect(isListType(GraphQLList(ObjectType))).to.equal(true);
-      expect(() => assertListType(GraphQLList(ObjectType))).not.to.throw();
+      expect(() => assertListType(GraphQLList(ObjectType))).to.not.throw();
     });
 
     it('returns false for an unwrapped type', () => {
@@ -301,7 +272,7 @@ describe('Type predicates', () => {
       expect(isNonNullType(GraphQLNonNull(ObjectType))).to.equal(true);
       expect(() =>
         assertNonNullType(GraphQLNonNull(ObjectType)),
-      ).not.to.throw();
+      ).to.not.throw();
     });
 
     it('returns false for an unwrapped type', () => {
@@ -322,7 +293,7 @@ describe('Type predicates', () => {
   describe('isInputType', () => {
     function expectInputType(type) {
       expect(isInputType(type)).to.equal(true);
-      expect(() => assertInputType(type)).not.to.throw();
+      expect(() => assertInputType(type)).to.not.throw();
     }
 
     it('returns true for an input type', () => {
@@ -366,7 +337,7 @@ describe('Type predicates', () => {
   describe('isOutputType', () => {
     function expectOutputType(type) {
       expect(isOutputType(type)).to.equal(true);
-      expect(() => assertOutputType(type)).not.to.throw();
+      expect(() => assertOutputType(type)).to.not.throw();
     }
 
     it('returns true for an output type', () => {
@@ -409,9 +380,9 @@ describe('Type predicates', () => {
   describe('isLeafType', () => {
     it('returns true for scalar and enum types', () => {
       expect(isLeafType(ScalarType)).to.equal(true);
-      expect(() => assertLeafType(ScalarType)).not.to.throw();
+      expect(() => assertLeafType(ScalarType)).to.not.throw();
       expect(isLeafType(EnumType)).to.equal(true);
-      expect(() => assertLeafType(EnumType)).not.to.throw();
+      expect(() => assertLeafType(EnumType)).to.not.throw();
     });
 
     it('returns false for wrapped leaf type', () => {
@@ -433,11 +404,11 @@ describe('Type predicates', () => {
   describe('isCompositeType', () => {
     it('returns true for object, interface, and union types', () => {
       expect(isCompositeType(ObjectType)).to.equal(true);
-      expect(() => assertCompositeType(ObjectType)).not.to.throw();
+      expect(() => assertCompositeType(ObjectType)).to.not.throw();
       expect(isCompositeType(InterfaceType)).to.equal(true);
-      expect(() => assertCompositeType(InterfaceType)).not.to.throw();
+      expect(() => assertCompositeType(InterfaceType)).to.not.throw();
       expect(isCompositeType(UnionType)).to.equal(true);
-      expect(() => assertCompositeType(UnionType)).not.to.throw();
+      expect(() => assertCompositeType(UnionType)).to.not.throw();
     });
 
     it('returns false for wrapped composite type', () => {
@@ -461,9 +432,9 @@ describe('Type predicates', () => {
   describe('isAbstractType', () => {
     it('returns true for interface and union types', () => {
       expect(isAbstractType(InterfaceType)).to.equal(true);
-      expect(() => assertAbstractType(InterfaceType)).not.to.throw();
+      expect(() => assertAbstractType(InterfaceType)).to.not.throw();
       expect(isAbstractType(UnionType)).to.equal(true);
-      expect(() => assertAbstractType(UnionType)).not.to.throw();
+      expect(() => assertAbstractType(UnionType)).to.not.throw();
     });
 
     it('returns false for wrapped abstract type', () => {
@@ -485,11 +456,11 @@ describe('Type predicates', () => {
   describe('isWrappingType', () => {
     it('returns true for list and non-null types', () => {
       expect(isWrappingType(GraphQLList(ObjectType))).to.equal(true);
-      expect(() => assertWrappingType(GraphQLList(ObjectType))).not.to.throw();
+      expect(() => assertWrappingType(GraphQLList(ObjectType))).to.not.throw();
       expect(isWrappingType(GraphQLNonNull(ObjectType))).to.equal(true);
       expect(() =>
         assertWrappingType(GraphQLNonNull(ObjectType)),
-      ).not.to.throw();
+      ).to.not.throw();
     });
 
     it('returns false for unwrapped types', () => {
@@ -501,7 +472,7 @@ describe('Type predicates', () => {
   describe('isNullableType', () => {
     it('returns true for unwrapped types', () => {
       expect(isNullableType(ObjectType)).to.equal(true);
-      expect(() => assertNullableType(ObjectType)).not.to.throw();
+      expect(() => assertNullableType(ObjectType)).to.not.throw();
     });
 
     it('returns true for list of non-null types', () => {
@@ -510,7 +481,7 @@ describe('Type predicates', () => {
       );
       expect(() =>
         assertNullableType(GraphQLList(GraphQLNonNull(ObjectType))),
-      ).not.to.throw();
+      ).to.not.throw();
     });
 
     it('returns false for non-null types', () => {
@@ -539,7 +510,7 @@ describe('Type predicates', () => {
   describe('isNamedType', () => {
     it('returns true for unwrapped types', () => {
       expect(isNamedType(ObjectType)).to.equal(true);
-      expect(() => assertNamedType(ObjectType)).not.to.throw();
+      expect(() => assertNamedType(ObjectType)).to.not.throw();
     });
 
     it('returns false for list and non-null types', () => {
@@ -665,12 +636,12 @@ describe('Directive predicates', () => {
   describe('isDirective', () => {
     it('returns true for spec defined directive', () => {
       expect(isDirective(GraphQLSkipDirective)).to.equal(true);
-      expect(() => assertDirective(GraphQLSkipDirective)).not.to.throw();
+      expect(() => assertDirective(GraphQLSkipDirective)).to.not.throw();
     });
 
     it('returns true for custom directive', () => {
       expect(isDirective(Directive)).to.equal(true);
-      expect(() => assertDirective(Directive)).not.to.throw();
+      expect(() => assertDirective(Directive)).to.not.throw();
     });
 
     it('returns false for directive class (rather than instance)', () => {
@@ -699,30 +670,6 @@ describe('Directive predicates', () => {
 
     it('returns false for custom directive', () => {
       expect(isSpecifiedDirective(Directive)).to.equal(false);
-    });
-
-    it('returns false for directive class (rather than specified instance)', () => {
-      expect(isSpecifiedDirective(GraphQLDirective)).to.equal(false);
-    });
-
-    it('returns false for non-directive', () => {
-      expect(isSpecifiedDirective(EnumType)).to.equal(false);
-      expect(isSpecifiedDirective(ScalarType)).to.equal(false);
-    });
-
-    it('returns false for spec defined scalar type', () => {
-      expect(isSpecifiedDirective(GraphQLString)).to.equal(false);
-    });
-
-    it('returns false for scalar type named like specified directive', () => {
-      const ScalarNamedLikeDirective = new GraphQLScalarType({
-        name: 'deprecated',
-      });
-      expect(isSpecifiedDirective(ScalarNamedLikeDirective)).to.equal(false);
-    });
-
-    it('returns false for random garbage', () => {
-      expect(isSpecifiedDirective({ what: 'is this' })).to.equal(false);
     });
   });
 });

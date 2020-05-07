@@ -8,7 +8,7 @@ import dedent from '../../jsutils/dedent';
 import { parse } from '../parser';
 import { print } from '../printer';
 
-import { kitchenSinkSDL } from '../../__fixtures__';
+import { kitchenSinkSDL } from '../../__fixtures__/index';
 
 describe('Printer: SDL document', () => {
   it('prints minimal ast', () => {
@@ -23,7 +23,7 @@ describe('Printer: SDL document', () => {
     const badAST = { random: 'Data' };
     // $DisableFlowOnNegativeTest
     expect(() => print(badAST)).to.throw(
-      'Invalid AST Node: { random: "Data" }',
+      'Invalid AST Node: { random: "Data" }.',
     );
   });
 
@@ -38,6 +38,7 @@ describe('Printer: SDL document', () => {
     const printed = print(parse(kitchenSinkSDL));
 
     expect(printed).to.equal(dedent`
+      """This is a description of the schema as a whole."""
       schema {
         query: QueryType
         mutation: MutationType
@@ -47,7 +48,7 @@ describe('Printer: SDL document', () => {
       This is a description
       of the \`Foo\` type.
       """
-      type Foo implements Bar & Baz {
+      type Foo implements Bar & Baz & Two {
         "Description of the \`one\` field."
         one: Type
         """This is a description of the \`two\` field."""
@@ -86,11 +87,17 @@ describe('Printer: SDL document', () => {
 
       interface UndefinedInterface
 
-      extend interface Bar {
+      extend interface Bar implements Two {
         two(argument: InputType!): Type
       }
 
       extend interface Bar @onInterface
+
+      interface Baz implements Bar & Two {
+        one: Type
+        two(argument: InputType!): Type
+        four(argument: String = "string"): String
+      }
 
       union Feed = Story | Article | Advert
 
@@ -150,7 +157,10 @@ describe('Printer: SDL document', () => {
       extend input InputType @onInputObject
 
       """This is a description of the \`@skip\` directive"""
-      directive @skip(if: Boolean! @onArgumentDefinition) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
+      directive @skip(
+        """This is a description of the \`if\` argument"""
+        if: Boolean! @onArgumentDefinition
+      ) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
 
       directive @include(if: Boolean!) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
 

@@ -93,6 +93,17 @@ describe('Execute: synchronously when possible', () => {
   });
 
   describe('graphqlSync', () => {
+    it('report errors raised during schema validation', () => {
+      const badSchema = new GraphQLSchema({});
+      const result = graphqlSync({
+        schema: badSchema,
+        source: '{ __typename }',
+      });
+      expect(result).to.deep.equal({
+        errors: [{ message: 'Query root type must be provided.' }],
+      });
+    });
+
     it('does not return a Promise for syntax errors', () => {
       const doc = 'fragment Example on Query { { { syncField }';
       const result = graphqlSync({
@@ -102,7 +113,7 @@ describe('Execute: synchronously when possible', () => {
       expect(result).to.deep.equal({
         errors: [
           {
-            message: 'Syntax Error: Expected Name, found {',
+            message: 'Syntax Error: Expected Name, found "{".',
             locations: [{ line: 1, column: 29 }],
           },
         ],
