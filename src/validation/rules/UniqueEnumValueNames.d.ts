@@ -1,9 +1,8 @@
-import { ASTVisitor } from '../../language/visitor';
-import { SDLValidationContext } from '../ValidationContext';
-
 /**
- * Unique enum value names
- *
- * A GraphQL enum type is only valid if all its values are uniquely named.
+ * @deprecated and will be removed in v16
+ * Please use either:
+ *   import { UniqueEnumValueNamesRule } from 'graphql'
+ * or
+ *   import { UniqueEnumValueNamesRule } from 'graphql/validation'
  */
-export function UniqueEnumValueNames(context: SDLValidationContext): ASTVisitor;
+export { UniqueEnumValueNamesRule as UniqueEnumValueNames } from './UniqueEnumValueNamesRule';

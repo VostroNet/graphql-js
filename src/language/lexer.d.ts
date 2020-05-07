@@ -1,4 +1,3 @@
-import { syntaxError } from '../error';
 import { Token } from './ast';
 import { Source } from './source';
 
@@ -42,7 +41,7 @@ export class Lexer {
 
   /**
    * Looks ahead and returns the next non-ignored token, but does not change
-   * the Lexer's state.
+   * the state of Lexer.
    */
   lookahead(): Token;
 }

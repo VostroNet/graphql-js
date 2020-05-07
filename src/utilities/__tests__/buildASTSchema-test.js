@@ -11,6 +11,7 @@ import { parse } from '../../language/parser';
 import { print } from '../../language/printer';
 
 import { validateSchema } from '../../type/validate';
+import { __Schema } from '../../type/introspection';
 import {
   assertDirective,
   GraphQLSkipDirective,
@@ -35,7 +36,7 @@ import {
 
 import { graphqlSync } from '../../graphql';
 
-import { printSchema } from '../schemaPrinter';
+import { printType, printSchema } from '../printSchema';
 import { buildASTSchema, buildSchema } from '../buildASTSchema';
 
 /**
@@ -43,16 +44,25 @@ import { buildASTSchema, buildSchema } from '../buildASTSchema';
  * the SDL, parsed in a schema AST, materializing that schema AST into an
  * in-memory GraphQLSchema, and then finally printing that object into the SDL
  */
-function cycleSDL(sdl, options = {}) {
-  const commentDescriptions = options.commentDescriptions || false;
+function cycleSDL(sdl, options) {
   const ast = parse(sdl);
   const schema = buildASTSchema(ast, options);
+
+  const commentDescriptions = options?.commentDescriptions;
   return printSchema(schema, { commentDescriptions });
 }
 
 function printASTNode(obj) {
-  invariant(obj != null && obj.astNode != null);
+  invariant(obj?.astNode != null);
   return print(obj.astNode);
+}
+
+function printAllASTNodes(obj) {
+  invariant(obj.astNode != null && obj.extensionASTNodes != null);
+  return print({
+    kind: Kind.DOCUMENT,
+    definitions: [obj.astNode, ...obj.extensionASTNodes],
+  });
 }
 
 describe('Schema Builder', () => {
@@ -65,7 +75,11 @@ describe('Schema Builder', () => {
       `),
     );
 
-    const result = graphqlSync(schema, '{ str }', { str: 123 });
+    const result = graphqlSync({
+      schema,
+      source: '{ str }',
+      rootValue: { str: 123 },
+    });
     expect(result.data).to.deep.equal({ str: '123' });
   });
 
@@ -76,12 +90,26 @@ describe('Schema Builder', () => {
       }
     `);
 
-    const root = {
+    const source = '{ add(x: 34, y: 55) }';
+    const rootValue = {
       add: ({ x, y }) => x + y,
     };
-    expect(graphqlSync(schema, '{ add(x: 34, y: 55) }', root)).to.deep.equal({
+    expect(graphqlSync({ schema, source, rootValue })).to.deep.equal({
       data: { add: 89 },
     });
+  });
+
+  it('Ignores non-type system definitions', () => {
+    const sdl = `
+      type Query {
+        str: String
+      }
+
+      fragment SomeFragment on Query {
+        str
+      }
+    `;
+    expect(() => buildSchema(sdl)).to.not.throw();
   });
 
   it('Empty type', () => {
@@ -132,6 +160,11 @@ describe('Schema Builder', () => {
 
   it('Supports descriptions', () => {
     const sdl = dedent`
+      """Do you agree that this is the most creative schema ever?"""
+      schema {
+        query: Query
+      }
+
       """This is a directive"""
       directive @foo(
         """It has an argument"""
@@ -225,10 +258,10 @@ describe('Schema Builder', () => {
     const sdl = dedent`
       type Query {
         nonNullStr: String!
-        listOfStrs: [String]
-        listOfNonNullStrs: [String!]
-        nonNullListOfStrs: [String]!
-        nonNullListOfNonNullStrs: [String!]!
+        listOfStrings: [String]
+        listOfNonNullStrings: [String!]
+        nonNullListOfStrings: [String]!
+        nonNullListOfNonNullStrings: [String!]!
       }
     `;
     expect(cycleSDL(sdl)).to.equal(sdl);
@@ -307,7 +340,7 @@ describe('Schema Builder', () => {
     expect(cycleSDL(sdl)).to.equal(sdl);
   });
 
-  it('Simple interface heirarchy', () => {
+  it('Simple interface hierarchy', () => {
     const sdl = dedent`
       schema {
         query: Child
@@ -445,7 +478,7 @@ describe('Schema Builder', () => {
       }
     `);
 
-    const query = `
+    const source = `
       {
         fruits {
           ... on Apple {
@@ -458,7 +491,7 @@ describe('Schema Builder', () => {
       }
     `;
 
-    const root = {
+    const rootValue = {
       fruits: [
         {
           color: 'green',
@@ -471,7 +504,7 @@ describe('Schema Builder', () => {
       ],
     };
 
-    expect(graphqlSync(schema, query, root)).to.deep.equal({
+    expect(graphqlSync({ schema, source, rootValue })).to.deep.equal({
       data: {
         fruits: [
           {
@@ -506,7 +539,7 @@ describe('Schema Builder', () => {
       }
     `);
 
-    const query = `
+    const source = `
       {
         characters {
           name
@@ -520,7 +553,7 @@ describe('Schema Builder', () => {
       }
     `;
 
-    const root = {
+    const rootValue = {
       characters: [
         {
           name: 'Han Solo',
@@ -535,7 +568,7 @@ describe('Schema Builder', () => {
       ],
     };
 
-    expect(graphqlSync(schema, query, root)).to.deep.equal({
+    expect(graphqlSync({ schema, source, rootValue })).to.deep.equal({
       data: {
         characters: [
           {
@@ -644,16 +677,16 @@ describe('Schema Builder', () => {
 
   it('Unreferenced type implementing referenced interface', () => {
     const sdl = dedent`
-      type Concrete implements Iface {
+      type Concrete implements Interface {
         key: String
       }
 
-      interface Iface {
+      interface Interface {
         key: String
       }
 
       type Query {
-        iface: Iface
+        interface: Interface
       }
     `;
     expect(cycleSDL(sdl)).to.equal(sdl);
@@ -670,7 +703,7 @@ describe('Schema Builder', () => {
       }
 
       type Query {
-        iface: Parent
+        interfaceField: Parent
       }
     `;
     expect(cycleSDL(sdl)).to.equal(sdl);
@@ -737,6 +770,168 @@ describe('Schema Builder', () => {
     });
   });
 
+  it('Correctly extend scalar type', () => {
+    const scalarSDL = dedent`
+      scalar SomeScalar
+
+      extend scalar SomeScalar @foo
+
+      extend scalar SomeScalar @bar
+    `;
+    const schema = buildSchema(`
+      ${scalarSDL}
+      directive @foo on SCALAR
+      directive @bar on SCALAR
+    `);
+
+    const someScalar = assertScalarType(schema.getType('SomeScalar'));
+    expect(printType(someScalar) + '\n').to.equal(dedent`
+      scalar SomeScalar
+    `);
+
+    expect(printAllASTNodes(someScalar)).to.equal(scalarSDL);
+  });
+
+  it('Correctly extend object type', () => {
+    const objectSDL = dedent`
+      type SomeObject implements Foo {
+        first: String
+      }
+
+      extend type SomeObject implements Bar {
+        second: Int
+      }
+
+      extend type SomeObject implements Baz {
+        third: Float
+      }
+    `;
+    const schema = buildSchema(`
+      ${objectSDL}
+      interface Foo
+      interface Bar
+      interface Baz
+    `);
+
+    const someObject = assertObjectType(schema.getType('SomeObject'));
+    expect(printType(someObject) + '\n').to.equal(dedent`
+      type SomeObject implements Foo & Bar & Baz {
+        first: String
+        second: Int
+        third: Float
+      }
+    `);
+
+    expect(printAllASTNodes(someObject)).to.equal(objectSDL);
+  });
+
+  it('Correctly extend interface type', () => {
+    const interfaceSDL = dedent`
+      interface SomeInterface {
+        first: String
+      }
+
+      extend interface SomeInterface {
+        second: Int
+      }
+
+      extend interface SomeInterface {
+        third: Float
+      }
+    `;
+    const schema = buildSchema(interfaceSDL);
+
+    const someInterface = assertInterfaceType(schema.getType('SomeInterface'));
+    expect(printType(someInterface) + '\n').to.equal(dedent`
+      interface SomeInterface {
+        first: String
+        second: Int
+        third: Float
+      }
+    `);
+
+    expect(printAllASTNodes(someInterface)).to.equal(interfaceSDL);
+  });
+
+  it('Correctly extend union type', () => {
+    const unionSDL = dedent`
+      union SomeUnion = FirstType
+
+      extend union SomeUnion = SecondType
+
+      extend union SomeUnion = ThirdType
+    `;
+    const schema = buildSchema(`
+      ${unionSDL}
+      type FirstType
+      type SecondType
+      type ThirdType
+    `);
+
+    const someUnion = assertUnionType(schema.getType('SomeUnion'));
+    expect(printType(someUnion) + '\n').to.equal(dedent`
+      union SomeUnion = FirstType | SecondType | ThirdType
+    `);
+
+    expect(printAllASTNodes(someUnion)).to.equal(unionSDL);
+  });
+
+  it('Correctly extend enum type', () => {
+    const enumSDL = dedent`
+      enum SomeEnum {
+        FIRST
+      }
+
+      extend enum SomeEnum {
+        SECOND
+      }
+
+      extend enum SomeEnum {
+        THIRD
+      }
+    `;
+    const schema = buildSchema(enumSDL);
+
+    const someEnum = assertEnumType(schema.getType('SomeEnum'));
+    expect(printType(someEnum) + '\n').to.equal(dedent`
+      enum SomeEnum {
+        FIRST
+        SECOND
+        THIRD
+      }
+    `);
+
+    expect(printAllASTNodes(someEnum)).to.equal(enumSDL);
+  });
+
+  it('Correctly extend input object type', () => {
+    const inputSDL = dedent`
+      input SomeInput {
+        first: String
+      }
+
+      extend input SomeInput {
+        second: Int
+      }
+
+      extend input SomeInput {
+        third: Float
+      }
+    `;
+    const schema = buildSchema(inputSDL);
+
+    const someInput = assertInputObjectType(schema.getType('SomeInput'));
+    expect(printType(someInput) + '\n').to.equal(dedent`
+      input SomeInput {
+        first: String
+        second: Int
+        third: Float
+      }
+    `);
+
+    expect(printAllASTNodes(someInput)).to.equal(inputSDL);
+  });
+
   it('Correctly assign AST nodes', () => {
     const sdl = dedent`
       schema {
@@ -781,22 +976,17 @@ describe('Schema Builder', () => {
     const testScalar = assertScalarType(schema.getType('TestScalar'));
     const testDirective = assertDirective(schema.getDirective('test'));
 
-    const restoredSchemaAST = {
-      kind: Kind.DOCUMENT,
-      definitions: [
-        schema.astNode,
-        query.astNode,
-        testInput.astNode,
-        testEnum.astNode,
-        testUnion.astNode,
-        testInterface.astNode,
-        testType.astNode,
-        testScalar.astNode,
-        testDirective.astNode,
-      ],
-      loc: undefined,
-    };
-    expect(restoredSchemaAST).to.be.deep.equal(ast);
+    expect([
+      schema.astNode,
+      query.astNode,
+      testInput.astNode,
+      testEnum.astNode,
+      testUnion.astNode,
+      testInterface.astNode,
+      testType.astNode,
+      testScalar.astNode,
+      testDirective.astNode,
+    ]).to.be.deep.equal(ast.definitions);
 
     const testField = query.getFields().testField;
     expect(printASTNode(testField)).to.equal(
@@ -858,6 +1048,20 @@ describe('Schema Builder', () => {
     expect(errors).to.have.lengthOf.above(0);
   });
 
+  it('Do not override standard types', () => {
+    // NOTE: not sure it's desired behaviour to just silently ignore override
+    // attempts so just documenting it here.
+
+    const schema = buildSchema(`
+      scalar ID
+
+      scalar __Schema
+    `);
+
+    expect(schema.getType('ID')).to.equal(GraphQLID);
+    expect(schema.getType('__Schema')).to.equal(__Schema);
+  });
+
   it('Rejects invalid SDL', () => {
     const sdl = `
       type Query {
@@ -875,5 +1079,28 @@ describe('Schema Builder', () => {
     `;
     buildSchema(sdl, { assumeValid: true });
     buildSchema(sdl, { assumeValidSDL: true });
+  });
+
+  it('Throws on unknown types', () => {
+    const sdl = `
+      type Query {
+        unknown: UnknownType
+      }
+    `;
+    expect(() => buildSchema(sdl, { assumeValidSDL: true })).to.throw(
+      'Unknown type: "UnknownType".',
+    );
+  });
+
+  it('Rejects invalid AST', () => {
+    // $DisableFlowOnNegativeTest
+    expect(() => buildASTSchema(null)).to.throw(
+      'Must provide valid Document AST',
+    );
+
+    // $DisableFlowOnNegativeTest
+    expect(() => buildASTSchema({})).to.throw(
+      'Must provide valid Document AST',
+    );
   });
 });

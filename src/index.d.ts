@@ -1,4 +1,4 @@
-// TypeScript Version: 2.6
+// Minimum TypeScript Version: 2.6
 
 /**
  * GraphQL.js provides a reference implementation for the GraphQL specification
@@ -124,7 +124,7 @@ export {
   // Validate GraphQL schema.
   validateSchema,
   assertValidSchema,
-} from './type';
+} from './type/index';
 
 export {
   GraphQLType,
@@ -167,7 +167,7 @@ export {
   GraphQLScalarSerializer,
   GraphQLScalarValueParser,
   GraphQLScalarLiteralParser,
-} from './type';
+} from './type/index';
 
 // Parse and operate on GraphQL language source files.
 export {
@@ -188,7 +188,6 @@ export {
   // Visit
   visit,
   visitInParallel,
-  visitWithTypeInfo,
   getVisitFn,
   BREAK,
   Kind,
@@ -203,7 +202,7 @@ export {
   isTypeDefinitionNode,
   isTypeSystemExtensionNode,
   isTypeExtensionNode,
-} from './language';
+} from './language/index';
 
 export {
   ParseOptions,
@@ -275,7 +274,7 @@ export {
   UnionTypeExtensionNode,
   EnumTypeExtensionNode,
   InputObjectTypeExtensionNode,
-} from './language';
+} from './language/index';
 
 // Execute GraphQL queries.
 export {
@@ -286,13 +285,13 @@ export {
   getDirectiveValues,
   ExecutionArgs,
   ExecutionResult,
-} from './execution';
+} from './execution/index';
 
 export {
   subscribe,
   createSourceEventStream,
   SubscriptionArgs,
-} from './subscription';
+} from './subscription/index';
 
 // Validate GraphQL documents.
 export {
@@ -301,6 +300,7 @@ export {
   // All validation rules in the GraphQL Specification.
   specifiedRules,
   // Individual validation rules.
+  ExecutableDefinitionsRule,
   FieldsOnCorrectTypeRule,
   FragmentsOnCompositeTypesRule,
   KnownArgumentNamesRule,
@@ -326,8 +326,16 @@ export {
   ValuesOfCorrectTypeRule,
   VariablesAreInputTypesRule,
   VariablesInAllowedPositionRule,
+  // SDL-specific validation rules
+  LoneSchemaDefinitionRule,
+  UniqueOperationTypesRule,
+  UniqueTypeNamesRule,
+  UniqueEnumValueNamesRule,
+  UniqueFieldDefinitionNamesRule,
+  UniqueDirectiveNamesRule,
+  PossibleTypeExtensionsRule,
   ValidationRule,
-} from './validation';
+} from './validation/index';
 
 // Create, format, and print GraphQL errors.
 export {
@@ -337,7 +345,7 @@ export {
   printError,
   formatError,
   GraphQLFormattedError,
-} from './error';
+} from './error/index';
 
 // Utilities for operating on GraphQL type schema and parsed sources.
 export {
@@ -382,6 +390,7 @@ export {
   // A helper to use within recursive-descent visitors which need to be aware of
   // the GraphQL type system.
   TypeInfo,
+  visitWithTypeInfo,
   // Coerces a JavaScript value to a GraphQL type, or produces errors.
   coerceInputValue,
   // Concatenates multiple AST together.
@@ -406,7 +415,7 @@ export {
   findDangerousChanges,
   // Report all deprecated usage within a GraphQL document.
   findDeprecatedUsages,
-} from './utilities';
+} from './utilities/index';
 
 export {
   IntrospectionOptions,
@@ -434,4 +443,4 @@ export {
   BuildSchemaOptions,
   BreakingChange,
   DangerousChange,
-} from './utilities';
+} from './utilities/index';

@@ -5,12 +5,13 @@ cache: yarn
 
 # https://github.com/nodejs/Release
 node_js:
-  - '12'
-  - '10'
-  - '8'
+  - 10
+  - 12
+  - 13
+  - 14
 
 script: |
-  if [[ "$(node -pe process.version)" == v10.* ]]; then # Is latest LTS?
+  if [[ "$(node -pe process.version)" == v12.* ]]; then # Is latest LTS?
     npm run test:ci &&
     bash <(curl -s https://codecov.io/bash) -f coverage/tests/coverage-final.json
   else
@@ -20,10 +21,10 @@ script: |
 jobs:
   include:
     - stage: deploy
-      if: type = push AND branch = master
+      if: type = push AND branch = master AND fork = false
       script: npm run gitpublish
       skip_cleanup: true
-      node_js: '10'
+      node_js: 12
 
 notifications:
   irc:

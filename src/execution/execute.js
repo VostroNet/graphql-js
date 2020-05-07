@@ -1,16 +1,15 @@
 // @flow strict
 
-import { forEach, isCollection } from 'iterall';
+import arrayFrom from '../polyfills/arrayFrom';
 
 import inspect from '../jsutils/inspect';
 import memoize3 from '../jsutils/memoize3';
 import invariant from '../jsutils/invariant';
 import devAssert from '../jsutils/devAssert';
-import isInvalid from '../jsutils/isInvalid';
-import isNullish from '../jsutils/isNullish';
 import isPromise from '../jsutils/isPromise';
 import { type ObjMap } from '../jsutils/ObjMap';
 import isObjectLike from '../jsutils/isObjectLike';
+import isCollection from '../jsutils/isCollection';
 import promiseReduce from '../jsutils/promiseReduce';
 import promiseForObject from '../jsutils/promiseForObject';
 import { type PromiseOrValue } from '../jsutils/PromiseOrValue';
@@ -233,7 +232,7 @@ function buildResponse(
   data: PromiseOrValue<ObjMap<mixed> | null>,
 ): PromiseOrValue<ExecutionResult> {
   if (isPromise(data)) {
-    return data.then(resolved => buildResponse(exeContext, resolved));
+    return data.then((resolved) => buildResponse(exeContext, resolved));
   }
   return exeContext.errors.length === 0
     ? { data }
@@ -251,7 +250,7 @@ export function assertValidExecutionArguments(
   document: DocumentNode,
   rawVariableValues: ?{ +[variable: string]: mixed, ... },
 ): void {
-  devAssert(document, 'Must provide document');
+  devAssert(document, 'Must provide document.');
 
   // If the schema used for execution is invalid, throw an error.
   assertValidSchema(schema);
@@ -295,7 +294,7 @@ export function buildExecutionContext(
             ];
           }
           operation = definition;
-        } else if (definition.name && definition.name.value === operationName) {
+        } else if (definition.name?.value === operationName) {
           operation = definition;
         }
         break;
@@ -312,10 +311,13 @@ export function buildExecutionContext(
     return [new GraphQLError('Must provide an operation.')];
   }
 
+  /* istanbul ignore next (See https://github.com/graphql/graphql-js/issues/2203) */
+  const variableDefinitions = operation.variableDefinitions ?? [];
+
   const coercedVariableValues = getVariableValues(
     schema,
-    operation.variableDefinitions || [],
-    rawVariableValues || {},
+    variableDefinitions,
+    rawVariableValues ?? {},
     { maxErrors: 50 },
   );
 
@@ -330,8 +332,8 @@ export function buildExecutionContext(
     contextValue,
     operation,
     variableValues: coercedVariableValues.coerced,
-    fieldResolver: fieldResolver || defaultFieldResolver,
-    typeResolver: typeResolver || defaultTypeResolver,
+    fieldResolver: fieldResolver ?? defaultFieldResolver,
+    typeResolver: typeResolver ?? defaultTypeResolver,
     errors: [],
   };
 }
@@ -366,7 +368,7 @@ function executeOperation(
         ? executeFieldsSerially(exeContext, type, rootValue, path, fields)
         : executeFields(exeContext, type, rootValue, path, fields);
     if (isPromise(result)) {
-      return result.then(undefined, error => {
+      return result.then(undefined, (error) => {
         exeContext.errors.push(error);
         return Promise.resolve(null);
       });
@@ -405,7 +407,7 @@ function executeFieldsSerially(
         return results;
       }
       if (isPromise(result)) {
-        return result.then(resolvedResult => {
+        return result.then((resolvedResult) => {
           results[responseName] = resolvedResult;
           return results;
         });
@@ -550,7 +552,7 @@ function shouldIncludeNode(
     node,
     exeContext.variableValues,
   );
-  if (skip && skip.if === true) {
+  if (skip?.if === true) {
     return false;
   }
 
@@ -559,7 +561,7 @@ function shouldIncludeNode(
     node,
     exeContext.variableValues,
   );
-  if (include && include.if === false) {
+  if (include?.if === false) {
     return false;
   }
   return true;
@@ -615,7 +617,7 @@ function resolveField(
     return;
   }
 
-  const resolveFn = fieldDef.resolve || exeContext.fieldResolver;
+  const resolveFn = fieldDef.resolve ?? exeContext.fieldResolver;
 
   const info = buildResolveInfo(
     exeContext,
@@ -730,7 +732,7 @@ function completeValueCatchingError(
   try {
     let completed;
     if (isPromise(result)) {
-      completed = result.then(resolved =>
+      completed = result.then((resolved) =>
         completeValue(exeContext, returnType, fieldNodes, info, path, resolved),
       );
     } else {
@@ -747,7 +749,7 @@ function completeValueCatchingError(
     if (isPromise(completed)) {
       // Note: we don't rely on a `catch` method, but we do expect "thenable"
       // to take a second callback for the error case.
-      return completed.then(undefined, error =>
+      return completed.then(undefined, (error) =>
         handleFieldError(error, fieldNodes, path, returnType, exeContext),
       );
     }
@@ -829,8 +831,8 @@ function completeValue(
     return completed;
   }
 
-  // If result value is null-ish (null, undefined, or NaN) then return null.
-  if (isNullish(result)) {
+  // If result value is null or undefined then return null.
+  if (result == null) {
     return null;
   }
 
@@ -907,8 +909,7 @@ function completeListValue(
   // where the list contains no Promises by avoiding creating another Promise.
   const itemType = returnType.ofType;
   let containsPromise = false;
-  const completedResults = [];
-  forEach((result: any), (item, index) => {
+  const completedResults = arrayFrom(result, (item, index) => {
     // No need to modify the info object containing the path,
     // since from here on it is not ever accessed by resolver functions.
     const fieldPath = addPath(path, index);
@@ -924,7 +925,8 @@ function completeListValue(
     if (!containsPromise && isPromise(completedItem)) {
       containsPromise = true;
     }
-    completedResults.push(completedItem);
+
+    return completedItem;
   });
 
   return containsPromise ? Promise.all(completedResults) : completedResults;
@@ -936,7 +938,7 @@ function completeListValue(
  */
 function completeLeafValue(returnType: GraphQLLeafType, result: mixed): mixed {
   const serializedResult = returnType.serialize(result);
-  if (isInvalid(serializedResult)) {
+  if (serializedResult === undefined) {
     throw new Error(
       `Expected a value of type "${inspect(returnType)}" but ` +
         `received: ${inspect(result)}`,
@@ -957,12 +959,12 @@ function completeAbstractValue(
   path: Path,
   result: mixed,
 ): PromiseOrValue<ObjMap<mixed>> {
-  const resolveTypeFn = returnType.resolveType || exeContext.typeResolver;
+  const resolveTypeFn = returnType.resolveType ?? exeContext.typeResolver;
   const contextValue = exeContext.contextValue;
   const runtimeType = resolveTypeFn(result, contextValue, info, returnType);
 
   if (isPromise(runtimeType)) {
-    return runtimeType.then(resolvedRuntimeType =>
+    return runtimeType.then((resolvedRuntimeType) =>
       completeObjectValue(
         exeContext,
         ensureValidRuntimeType(
@@ -1048,7 +1050,7 @@ function completeObjectValue(
     const isTypeOf = returnType.isTypeOf(result, exeContext.contextValue, info);
 
     if (isPromise(isTypeOf)) {
-      return isTypeOf.then(resolvedIsTypeOf => {
+      return isTypeOf.then((resolvedIsTypeOf) => {
         if (!resolvedIsTypeOf) {
           throw invalidReturnTypeError(returnType, result, fieldNodes);
         }
@@ -1136,7 +1138,7 @@ function _collectSubfields(
  * Otherwise, test each possible type for the abstract type by calling
  * isTypeOf for the object being coerced, returning the first type that matches.
  */
-export const defaultTypeResolver: GraphQLTypeResolver<mixed, mixed> = function(
+export const defaultTypeResolver: GraphQLTypeResolver<mixed, mixed> = function (
   value,
   contextValue,
   info,
@@ -1166,7 +1168,7 @@ export const defaultTypeResolver: GraphQLTypeResolver<mixed, mixed> = function(
   }
 
   if (promisedIsTypeOfResults.length) {
-    return Promise.all(promisedIsTypeOfResults).then(isTypeOfResults => {
+    return Promise.all(promisedIsTypeOfResults).then((isTypeOfResults) => {
       for (let i = 0; i < isTypeOfResults.length; i++) {
         if (isTypeOfResults[i]) {
           return possibleTypes[i];
@@ -1185,7 +1187,7 @@ export const defaultTypeResolver: GraphQLTypeResolver<mixed, mixed> = function(
 export const defaultFieldResolver: GraphQLFieldResolver<
   mixed,
   mixed,
-> = function(source: any, args, contextValue, info) {
+> = function (source: any, args, contextValue, info) {
   // ensure source is a value for which property access is acceptable.
   if (isObjectLike(source) || typeof source === 'function') {
     const property = source[info.fieldName];

@@ -42,14 +42,16 @@ export { buildClientSchema } from './buildClientSchema';
 export {
   buildASTSchema,
   buildSchema,
-  // @deprecated: Get the description from a schema AST node and supports legacy
-  // syntax for specifying descriptions - will be removed in v16
-  getDescription,
   BuildSchemaOptions,
 } from './buildASTSchema';
 
 // Extends an existing GraphQLSchema from a parsed GraphQL Schema language AST.
-export { extendSchema } from './extendSchema';
+export {
+  extendSchema,
+  // @deprecated: Get the description from a schema AST node and supports legacy
+  // syntax for specifying descriptions - will be removed in v16
+  getDescription,
+} from './extendSchema';
 
 // Sort a GraphQLSchema.
 export { lexicographicSortSchema } from './lexicographicSortSchema';
@@ -59,7 +61,7 @@ export {
   printSchema,
   printType,
   printIntrospectionSchema,
-} from './schemaPrinter';
+} from './printSchema';
 
 // Create a GraphQLType from a GraphQL language AST.
 export { typeFromAST } from './typeFromAST';
@@ -75,7 +77,7 @@ export { astFromValue } from './astFromValue';
 
 // A helper to use within recursive-descent visitors which need to be aware of
 // the GraphQL type system.
-export { TypeInfo } from './TypeInfo';
+export { TypeInfo, visitWithTypeInfo } from './TypeInfo';
 
 // Coerces a JavaScript value to a GraphQL type, or produces errors.
 export { coerceInputValue } from './coerceInputValue';

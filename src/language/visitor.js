@@ -2,9 +2,7 @@
 
 import inspect from '../jsutils/inspect';
 
-import { type TypeInfo } from '../utilities/TypeInfo';
-
-import { type ASTNode, type ASTKindToNode } from './ast';
+import { type ASTNode, type ASTKindToNode, isNode } from './ast';
 
 /**
  * A visitor is provided to visit, it contains the collection of
@@ -50,7 +48,7 @@ export type VisitorKeyMap<KindToNode> = $ObjMap<
   <T>(T) => $ReadOnlyArray<$Keys<T>>,
 >;
 
-export const QueryDocumentKeys = {
+export const QueryDocumentKeys: VisitorKeyMap<ASTKindToNode> = {
   Name: [],
 
   Document: ['definitions'],
@@ -94,7 +92,7 @@ export const QueryDocumentKeys = {
   ListType: ['type'],
   NonNullType: ['type'],
 
-  SchemaDefinition: ['directives', 'operationTypes'],
+  SchemaDefinition: ['description', 'directives', 'operationTypes'],
   OperationTypeDefinition: ['type'],
 
   ScalarTypeDefinition: ['description', 'name', 'directives'],
@@ -137,7 +135,7 @@ export const QueryDocumentKeys = {
   InputObjectTypeExtension: ['name', 'directives', 'fields'],
 };
 
-export const BREAK = Object.freeze({});
+export const BREAK: { ... } = Object.freeze({});
 
 /**
  * visit() will walk through an AST using a depth first traversal, calling
@@ -296,7 +294,7 @@ export function visit(
     let result;
     if (!Array.isArray(node)) {
       if (!isNode(node)) {
-        throw new Error('Invalid AST Node: ' + inspect(node));
+        throw new Error(`Invalid AST Node: ${inspect(node)}.`);
       }
       const visitFn = getVisitFn(visitor, node.kind, isLeaving);
       if (visitFn) {
@@ -334,7 +332,7 @@ export function visit(
     } else {
       stack = { inArray, index, keys, edits, prev: stack };
       inArray = Array.isArray(node);
-      keys = inArray ? node : visitorKeys[node.kind] || [];
+      keys = inArray ? node : visitorKeys[node.kind] ?? [];
       index = -1;
       edits = [];
       if (parent) {
@@ -351,10 +349,6 @@ export function visit(
   return newRoot;
 }
 
-function isNode(maybeNode): boolean %checks {
-  return maybeNode != null && typeof maybeNode.kind === 'string';
-}
-
 /**
  * Creates a new visitor instance which delegates to many visitors to run in
  * parallel. Each visitor will be visited for each node before moving on.
@@ -369,7 +363,7 @@ export function visitInParallel(
   return {
     enter(node) {
       for (let i = 0; i < visitors.length; i++) {
-        if (!skipping[i]) {
+        if (skipping[i] == null) {
           const fn = getVisitFn(visitors[i], node.kind, /* isLeaving */ false);
           if (fn) {
             const result = fn.apply(visitors[i], arguments);
@@ -386,7 +380,7 @@ export function visitInParallel(
     },
     leave(node) {
       for (let i = 0; i < visitors.length; i++) {
-        if (!skipping[i]) {
+        if (skipping[i] == null) {
           const fn = getVisitFn(visitors[i], node.kind, /* isLeaving */ true);
           if (fn) {
             const result = fn.apply(visitors[i], arguments);
@@ -400,41 +394,6 @@ export function visitInParallel(
           skipping[i] = null;
         }
       }
-    },
-  };
-}
-
-/**
- * Creates a new visitor instance which maintains a provided TypeInfo instance
- * along with visiting visitor.
- */
-export function visitWithTypeInfo(
-  typeInfo: TypeInfo,
-  visitor: Visitor<ASTKindToNode>,
-): Visitor<ASTKindToNode> {
-  return {
-    enter(node) {
-      typeInfo.enter(node);
-      const fn = getVisitFn(visitor, node.kind, /* isLeaving */ false);
-      if (fn) {
-        const result = fn.apply(visitor, arguments);
-        if (result !== undefined) {
-          typeInfo.leave(node);
-          if (isNode(result)) {
-            typeInfo.enter(result);
-          }
-        }
-        return result;
-      }
-    },
-    leave(node) {
-      const fn = getVisitFn(visitor, node.kind, /* isLeaving */ true);
-      let result;
-      if (fn) {
-        result = fn.apply(visitor, arguments);
-      }
-      typeInfo.leave(node);
-      return result;
     },
   };
 }

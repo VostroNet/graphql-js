@@ -35,20 +35,23 @@ if (require.main === module) {
 
 function sampleModule(modulePath) {
   return new Promise((resolve, reject) => {
-    const env = { BENCHMARK_MODULE_PATH: modulePath };
+    const env = {
+      NODE_ENV: 'production',
+      BENCHMARK_MODULE_PATH: modulePath,
+    };
     const child = cp.fork(__filename, { env });
     let message;
     let error;
 
-    child.on('message', msg => (message = msg));
-    child.on('error', e => (error = e));
+    child.on('message', (msg) => (message = msg));
+    child.on('error', (e) => (error = e));
     child.on('close', () => {
       if (message) {
         return resolve(message);
       }
       reject(error || new Error('Forked process closed without error'));
     });
-  }).then(result => {
+  }).then((result) => {
     global.gc();
     return result;
   });

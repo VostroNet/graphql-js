@@ -21,7 +21,7 @@ import {
   GraphQLID,
 } from '../../type/scalars';
 
-import { printSchema } from '../schemaPrinter';
+import { printSchema } from '../printSchema';
 import { buildSchema } from '../buildASTSchema';
 import { buildClientSchema } from '../buildClientSchema';
 import { introspectionFromSchema } from '../introspectionFromSchema';
@@ -29,14 +29,16 @@ import { introspectionFromSchema } from '../introspectionFromSchema';
 /**
  * This function does a full cycle of going from a string with the contents of
  * the SDL, build in-memory GraphQLSchema from it, produce a client-side
- * representation of the schema by using "buildClientSchema"and then finally
- * printing that that schema into the SDL
+ * representation of the schema by using "buildClientSchema" and then
+ * returns that schema printed as SDL.
  */
-function cycleIntrospection(sdlString) {
+function cycleIntrospection(sdlString: string): string {
+  const options = { directiveIsRepeatable: true };
+
   const serverSchema = buildSchema(sdlString);
-  const initialIntrospection = introspectionFromSchema(serverSchema);
+  const initialIntrospection = introspectionFromSchema(serverSchema, options);
   const clientSchema = buildClientSchema(initialIntrospection);
-  const secondIntrospection = introspectionFromSchema(clientSchema);
+  const secondIntrospection = introspectionFromSchema(clientSchema, options);
 
   /**
    * If the client then runs the introspection query against the client-side
@@ -49,11 +51,12 @@ function cycleIntrospection(sdlString) {
 describe('Type System: build schema from introspection', () => {
   it('builds a simple schema', () => {
     const sdl = dedent`
+      """Simple schema"""
       schema {
         query: Simple
       }
 
-      """This is simple type"""
+      """This is a simple type"""
       type Simple {
         """This is a string field"""
         string: String
@@ -140,10 +143,10 @@ describe('Type System: build schema from introspection', () => {
 
     // Custom are built
     const customScalar = schema.getType('CustomScalar');
-    expect(clientSchema.getType('CustomScalar')).not.to.equal(customScalar);
+    expect(clientSchema.getType('CustomScalar')).to.not.equal(customScalar);
   });
 
-  it('include standard type only if it is used', () => {
+  it('includes standard types only if they are used', () => {
     const schema = buildSchema(`
       type Query {
         foo: String
@@ -213,7 +216,7 @@ describe('Type System: build schema from introspection', () => {
     expect(cycleIntrospection(sdl)).to.equal(sdl);
   });
 
-  it('builds a schema with an interface heirarchy', () => {
+  it('builds a schema with an interface hierarchy', () => {
     const sdl = dedent`
       type Dog implements Friendly & Named {
         bestFriend: Friendly
@@ -341,20 +344,11 @@ describe('Type System: build schema from introspection', () => {
           value: 1,
         },
         FRUITS: {
-          description: 'Foods that are fruits.',
           value: 2,
         },
         OILS: {
-          description: 'Foods that are oils.',
           value: 3,
-        },
-        DAIRY: {
-          description: 'Foods that are dairy.',
-          value: 4,
-        },
-        MEAT: {
-          description: 'Foods that are meat.',
-          value: 5,
+          deprecationReason: 'Too fatty',
         },
       },
     });
@@ -399,7 +393,7 @@ describe('Type System: build schema from introspection', () => {
       },
       {
         name: 'FRUITS',
-        description: 'Foods that are fruits.',
+        description: null,
         value: 'FRUITS',
         isDeprecated: false,
         deprecationReason: null,
@@ -408,28 +402,10 @@ describe('Type System: build schema from introspection', () => {
       },
       {
         name: 'OILS',
-        description: 'Foods that are oils.',
+        description: null,
         value: 'OILS',
-        isDeprecated: false,
-        deprecationReason: null,
-        extensions: undefined,
-        astNode: undefined,
-      },
-      {
-        name: 'DAIRY',
-        description: 'Foods that are dairy.',
-        value: 'DAIRY',
-        isDeprecated: false,
-        deprecationReason: null,
-        extensions: undefined,
-        astNode: undefined,
-      },
-      {
-        name: 'MEAT',
-        description: 'Foods that are meat.',
-        value: 'MEAT',
-        isDeprecated: false,
-        deprecationReason: null,
+        isDeprecated: true,
+        deprecationReason: 'Too fatty',
         extensions: undefined,
         astNode: undefined,
       },
@@ -484,7 +460,7 @@ describe('Type System: build schema from introspection', () => {
   it('builds a schema with custom directives', () => {
     const sdl = dedent`
       """This is a custom directive"""
-      directive @customDirective on FIELD
+      directive @customDirective repeatable on FIELD
 
       type Query {
         string: String
@@ -580,6 +556,17 @@ describe('Type System: build schema from introspection', () => {
     expect(result.data).to.deep.equal({ foo: 'bar' });
   });
 
+  describe('can build invalid schema', () => {
+    const schema = buildSchema('type Query', { assumeValid: true });
+
+    const introspection = introspectionFromSchema(schema);
+    const clientSchema = buildClientSchema(introspection, {
+      assumeValid: true,
+    });
+
+    expect(clientSchema.toConfig().assumeValid).to.equal(true);
+  });
+
   describe('throws when given invalid introspection', () => {
     const dummySchema = buildSchema(`
       type Query {
@@ -604,12 +591,12 @@ describe('Type System: build schema from introspection', () => {
     it('throws when introspection is missing __schema property', () => {
       // $DisableFlowOnNegativeTest
       expect(() => buildClientSchema(null)).to.throw(
-        'Invalid or incomplete introspection result. Ensure that you are passing "data" property of introspection response and no "errors" was returned alongside: null',
+        'Invalid or incomplete introspection result. Ensure that you are passing "data" property of introspection response and no "errors" was returned alongside: null.',
       );
 
       // $DisableFlowOnNegativeTest
       expect(() => buildClientSchema({})).to.throw(
-        'Invalid or incomplete introspection result. Ensure that you are passing "data" property of introspection response and no "errors" was returned alongside: {}',
+        'Invalid or incomplete introspection result. Ensure that you are passing "data" property of introspection response and no "errors" was returned alongside: {}.',
       );
     });
 
@@ -653,7 +640,7 @@ describe('Type System: build schema from introspection', () => {
       delete introspection.__schema.queryType.name;
 
       expect(() => buildClientSchema(introspection)).to.throw(
-        'Unknown type reference: {}',
+        'Unknown type reference: {}.',
       );
     });
 
@@ -669,7 +656,7 @@ describe('Type System: build schema from introspection', () => {
       delete queryTypeIntrospection.kind;
 
       expect(() => buildClientSchema(introspection)).to.throw(
-        'Invalid or incomplete introspection result. Ensure that a full introspection query is used in order to build a client schema',
+        /Invalid or incomplete introspection result. Ensure that a full introspection query is used in order to build a client schema: { name: "Query", .* }\./,
       );
     });
 
@@ -685,7 +672,7 @@ describe('Type System: build schema from introspection', () => {
       delete queryTypeIntrospection.interfaces;
 
       expect(() => buildClientSchema(introspection)).to.throw(
-        'Introspection result missing interfaces: { kind: "OBJECT", name: "Query",',
+        /Introspection result missing interfaces: { kind: "OBJECT", name: "Query", .* }\./,
       );
     });
 
@@ -715,7 +702,7 @@ describe('Type System: build schema from introspection', () => {
       delete queryTypeIntrospection.fields;
 
       expect(() => buildClientSchema(introspection)).to.throw(
-        'Introspection result missing fields: { kind: "OBJECT", name: "Query",',
+        /Introspection result missing fields: { kind: "OBJECT", name: "Query", .* }\./,
       );
     });
 
@@ -731,7 +718,7 @@ describe('Type System: build schema from introspection', () => {
       delete queryTypeIntrospection.fields[0].args;
 
       expect(() => buildClientSchema(introspection)).to.throw(
-        'Introspection result missing field args: { name: "foo",',
+        /Introspection result missing field args: { name: "foo", .* }\./,
       );
     });
 
@@ -783,7 +770,7 @@ describe('Type System: build schema from introspection', () => {
       delete someUnionIntrospection.possibleTypes;
 
       expect(() => buildClientSchema(introspection)).to.throw(
-        'Introspection result missing possibleTypes: { kind: "UNION", name: "SomeUnion",',
+        /Introspection result missing possibleTypes: { kind: "UNION", name: "SomeUnion",.* }\./,
       );
     });
 
@@ -799,7 +786,7 @@ describe('Type System: build schema from introspection', () => {
       delete someEnumIntrospection.enumValues;
 
       expect(() => buildClientSchema(introspection)).to.throw(
-        'Introspection result missing enumValues: { kind: "ENUM", name: "SomeEnum",',
+        /Introspection result missing enumValues: { kind: "ENUM", name: "SomeEnum", .* }\./,
       );
     });
 
@@ -815,7 +802,7 @@ describe('Type System: build schema from introspection', () => {
       delete someInputObjectIntrospection.inputFields;
 
       expect(() => buildClientSchema(introspection)).to.throw(
-        'Introspection result missing inputFields: { kind: "INPUT_OBJECT", name: "SomeInputObject",',
+        /Introspection result missing inputFields: { kind: "INPUT_OBJECT", name: "SomeInputObject", .* }\./,
       );
     });
 
@@ -832,7 +819,7 @@ describe('Type System: build schema from introspection', () => {
       delete someDirectiveIntrospection.locations;
 
       expect(() => buildClientSchema(introspection)).to.throw(
-        'Introspection result missing directive locations: { name: "SomeDirective",',
+        /Introspection result missing directive locations: { name: "SomeDirective", .* }\./,
       );
     });
 
@@ -849,7 +836,7 @@ describe('Type System: build schema from introspection', () => {
       delete someDirectiveIntrospection.args;
 
       expect(() => buildClientSchema(introspection)).to.throw(
-        'Introspection result missing directive args: { name: "SomeDirective",',
+        /Introspection result missing directive args: { name: "SomeDirective", .* }\./,
       );
     });
   });
@@ -907,7 +894,10 @@ describe('Type System: build schema from introspection', () => {
       const schema = buildSchema(sdl, { assumeValid: true });
       const introspection = introspectionFromSchema(schema);
 
-      expect(introspection.__schema.types[1]).to.deep.include({
+      const fooIntrospection = introspection.__schema.types.find(
+        (type) => type.name === 'Foo',
+      );
+      expect(fooIntrospection).to.deep.include({
         name: 'Foo',
         interfaces: [{ kind: 'OBJECT', name: 'Foo', ofType: null }],
       });
@@ -928,7 +918,10 @@ describe('Type System: build schema from introspection', () => {
       const schema = buildSchema(sdl, { assumeValid: true });
       const introspection = introspectionFromSchema(schema);
 
-      expect(introspection.__schema.types[1]).to.deep.include({
+      const fooIntrospection = introspection.__schema.types.find(
+        (type) => type.name === 'Foo',
+      );
+      expect(fooIntrospection).to.deep.include({
         name: 'Foo',
         possibleTypes: [{ kind: 'UNION', name: 'Foo', ofType: null }],
       });

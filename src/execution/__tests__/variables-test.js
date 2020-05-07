@@ -25,23 +25,13 @@ import { getVariableValues } from '../values';
 
 const TestComplexScalar = new GraphQLScalarType({
   name: 'ComplexScalar',
-  serialize(value) {
-    if (value === 'DeserializedValue') {
-      return 'SerializedValue';
-    }
-    return null;
-  },
   parseValue(value) {
-    if (value === 'SerializedValue') {
-      return 'DeserializedValue';
-    }
-    return null;
+    invariant(value === 'SerializedValue');
+    return 'DeserializedValue';
   },
   parseLiteral(ast) {
-    if (ast.value === 'SerializedValue') {
-      return 'DeserializedValue';
-    }
-    return null;
+    invariant(ast.value === 'SerializedValue');
+    return 'DeserializedValue';
   },
 });
 
@@ -295,9 +285,11 @@ describe('Execute: Handles inputs', () => {
 
       it('does not use default value when provided', () => {
         const result = executeQuery(
-          `query q($input: String = "Default value") {
-            fieldWithNullableStringInput(input: $input)
-          }`,
+          `
+            query q($input: String = "Default value") {
+              fieldWithNullableStringInput(input: $input)
+            }
+          `,
           { input: 'Variable value' },
         );
 
@@ -928,7 +920,7 @@ describe('Execute: Handles inputs', () => {
           fieldWithObjectInput(input: $input)
         }
       `;
-      const result = executeQuery(doc, { input: 'whoknows' });
+      const result = executeQuery(doc, { input: 'WhoKnows' });
 
       expect(result).to.deep.equal({
         errors: [
@@ -1024,6 +1016,18 @@ describe('Execute: Handles inputs', () => {
         locations: [{ line: 2, column: 14 }],
       };
     }
+
+    it('return all errors by default', () => {
+      const result = getVariableValues(schema, variableDefinitions, inputValue);
+
+      expect(result).to.deep.equal({
+        errors: [
+          invalidValueError(0, 0),
+          invalidValueError(1, 1),
+          invalidValueError(2, 2),
+        ],
+      });
+    });
 
     it('when maxErrors is equal to number of errors', () => {
       const result = getVariableValues(

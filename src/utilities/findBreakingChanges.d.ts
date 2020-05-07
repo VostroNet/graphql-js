@@ -1,6 +1,4 @@
-import { GraphQLDirective } from '../type/directives';
 import { GraphQLSchema } from '../type/schema';
-import { DirectiveLocationEnum } from '../language/directiveLocation';
 
 export const BreakingChangeType: _BreakingChangeType;
 
@@ -22,6 +20,7 @@ type _BreakingChangeType = {
   DIRECTIVE_REMOVED: 'DIRECTIVE_REMOVED';
   DIRECTIVE_ARG_REMOVED: 'DIRECTIVE_ARG_REMOVED';
   REQUIRED_DIRECTIVE_ARG_ADDED: 'REQUIRED_DIRECTIVE_ARG_ADDED';
+  DIRECTIVE_REPEATABLE_REMOVED: 'DIRECTIVE_REPEATABLE_REMOVED';
   DIRECTIVE_LOCATION_REMOVED: 'DIRECTIVE_LOCATION_REMOVED';
 };
 

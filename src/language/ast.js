@@ -45,7 +45,7 @@ export class Location {
 }
 
 // Print a simplified form when appearing in JSON/util.inspect.
-defineToJSON(Location, function() {
+defineToJSON(Location, function () {
   return { start: this.start, end: this.end };
 });
 
@@ -113,7 +113,7 @@ export class Token {
 }
 
 // Print a simplified form when appearing in JSON/util.inspect.
-defineToJSON(Token, function() {
+defineToJSON(Token, function () {
   return {
     kind: this.kind,
     value: this.value,
@@ -121,6 +121,13 @@ defineToJSON(Token, function() {
     column: this.column,
   };
 });
+
+/**
+ * @internal
+ */
+export function isNode(maybeNode: mixed): boolean %checks {
+  return maybeNode != null && typeof maybeNode.kind === 'string';
+}
 
 /**
  * The list of all possible AST node types.
@@ -434,6 +441,7 @@ export type TypeSystemDefinitionNode =
 export type SchemaDefinitionNode = {|
   +kind: 'SchemaDefinition',
   +loc?: Location,
+  +description?: StringValueNode,
   +directives?: $ReadOnlyArray<DirectiveNode>,
   +operationTypes: $ReadOnlyArray<OperationTypeDefinitionNode>,
 |};

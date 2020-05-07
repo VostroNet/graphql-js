@@ -1,11 +1,8 @@
-import { ASTVisitor } from '../../language/visitor';
-import { SDLValidationContext } from '../ValidationContext';
-
 /**
- * Possible type extension
- *
- * A type extension is only valid if the type is defined and has the same kind.
+ * @deprecated and will be removed in v16
+ * Please use either:
+ *   import { PossibleTypeExtensionsRule } from 'graphql'
+ * or
+ *   import { PossibleTypeExtensionsRule } from 'graphql/validation'
  */
-export function PossibleTypeExtensions(
-  context: SDLValidationContext,
-): ASTVisitor;
+export { PossibleTypeExtensionsRule as PossibleTypeExtensions } from './PossibleTypeExtensionsRule';

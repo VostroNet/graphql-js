@@ -140,7 +140,8 @@ describe('coerceInputValue', () => {
       const result = coerceValue('foo', TestEnum);
       expectErrors(result).to.deep.equal([
         {
-          error: 'Expected type "TestEnum". Did you mean the enum value "FOO"?',
+          error:
+            'Value "foo" does not exist in "TestEnum" enum. Did you mean the enum value "FOO"?',
           path: [],
           value: 'foo',
         },
@@ -151,7 +152,7 @@ describe('coerceInputValue', () => {
       const result1 = coerceValue(123, TestEnum);
       expectErrors(result1).to.deep.equal([
         {
-          error: 'Expected type "TestEnum".',
+          error: 'Enum "TestEnum" cannot represent non-string value: 123.',
           path: [],
           value: 123,
         },
@@ -160,7 +161,8 @@ describe('coerceInputValue', () => {
       const result2 = coerceValue({ field: 'value' }, TestEnum);
       expectErrors(result2).to.deep.equal([
         {
-          error: 'Expected type "TestEnum".',
+          error:
+            'Enum "TestEnum" cannot represent non-string value: { field: "value" }.',
           path: [],
           value: { field: 'value' },
         },
@@ -260,7 +262,7 @@ describe('coerceInputValue', () => {
   });
 
   describe('for GraphQLInputObject with default value', () => {
-    const TestInputObject = defaultValue =>
+    const TestInputObject = (defaultValue) =>
       new GraphQLInputObjectType({
         name: 'TestInputObject',
         fields: {
@@ -288,9 +290,7 @@ describe('coerceInputValue', () => {
 
     it('returns NaN as value', () => {
       const result = coerceValue({}, TestInputObject(NaN));
-      expectValue(result)
-        .to.have.property('foo')
-        .that.satisfy(Number.isNaN);
+      expectValue(result).to.have.property('foo').that.satisfy(Number.isNaN);
     });
   });
 
@@ -380,7 +380,7 @@ describe('coerceInputValue', () => {
       expect(() =>
         coerceInputValue([null], GraphQLList(GraphQLNonNull(GraphQLInt))),
       ).to.throw(
-        'Invalid value null at "value[0]": : Expected non-nullable type "Int!" not to be null.',
+        'Invalid value null at "value[0]": Expected non-nullable type "Int!" not to be null.',
       );
     });
   });

@@ -5,7 +5,9 @@
 const fs = require('fs');
 const path = require('path');
 const assert = require('assert');
+
 const babel = require('@babel/core');
+
 const {
   copyFile,
   writeFile,
@@ -50,8 +52,8 @@ function showStats() {
 
   for (const filepath of readdirRecursive('./dist')) {
     const name = filepath.split(path.sep).pop();
-    const [base, ...splitedExt] = name.split('.');
-    const ext = splitedExt.join('.');
+    const [base, ...splitExt] = name.split('.');
+    const ext = splitExt.join('.');
 
     const filetype = ext ? '*.' + ext : base;
     fileTypes[filetype] = fileTypes[filetype] || { filepaths: [], size: 0 };
@@ -75,8 +77,8 @@ function showStats() {
   stats.sort((a, b) => b[1] - a[1]);
   stats = stats.map(([type, size]) => [type, (size / 1024).toFixed(2) + ' KB']);
 
-  const typeMaxLength = Math.max(...stats.map(x => x[0].length));
-  const sizeMaxLength = Math.max(...stats.map(x => x[1].length));
+  const typeMaxLength = Math.max(...stats.map((x) => x[0].length));
+  const sizeMaxLength = Math.max(...stats.map((x) => x[1].length));
   for (const [type, size] of stats) {
     console.log(
       type.padStart(typeMaxLength) + ' | ' + size.padStart(sizeMaxLength),

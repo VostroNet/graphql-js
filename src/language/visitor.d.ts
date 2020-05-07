@@ -1,5 +1,5 @@
 import Maybe from '../tsutils/Maybe';
-import { TypeInfo } from '../utilities/TypeInfo';
+
 import { ASTNode, ASTKindToNode } from './ast';
 
 /**
@@ -52,7 +52,7 @@ export type VisitFn<TAnyNode, TVisitedNode = TAnyNode> = (
 export type VisitorKeyMap<T> = { [P in keyof T]: ReadonlyArray<keyof T[P]> };
 
 // TODO: Should be `[]`, but that requires TypeScript@3
-type EmptyTuple = never[];
+type EmptyTuple = Array<never>;
 
 export const QueryDocumentKeys: {
   Name: EmptyTuple;
@@ -101,7 +101,7 @@ export const QueryDocumentKeys: {
   ListType: ['type'];
   NonNullType: ['type'];
 
-  SchemaDefinition: ['directives', 'operationTypes'];
+  SchemaDefinition: ['description', 'directives', 'operationTypes'];
   OperationTypeDefinition: ['type'];
 
   ScalarTypeDefinition: ['description', 'name', 'directives'];
@@ -249,15 +249,6 @@ export function visit(
  */
 export function visitInParallel(
   visitors: ReadonlyArray<Visitor<ASTKindToNode>>,
-): Visitor<ASTKindToNode>;
-
-/**
- * Creates a new visitor instance which maintains a provided TypeInfo instance
- * along with visiting visitor.
- */
-export function visitWithTypeInfo(
-  typeInfo: TypeInfo,
-  visitor: Visitor<ASTKindToNode>,
 ): Visitor<ASTKindToNode>;
 
 /**

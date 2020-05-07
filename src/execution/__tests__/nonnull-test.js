@@ -42,12 +42,12 @@ const throwingData = {
     return throwingData;
   },
   promiseNest() {
-    return new Promise(resolve => {
+    return new Promise((resolve) => {
       resolve(throwingData);
     });
   },
   promiseNonNullNest() {
-    return new Promise(resolve => {
+    return new Promise((resolve) => {
       resolve(throwingData);
     });
   },
@@ -61,12 +61,12 @@ const nullingData = {
     return null;
   },
   promise() {
-    return new Promise(resolve => {
+    return new Promise((resolve) => {
       resolve(null);
     });
   },
   promiseNonNull() {
-    return new Promise(resolve => {
+    return new Promise((resolve) => {
       resolve(null);
     });
   },
@@ -77,12 +77,12 @@ const nullingData = {
     return nullingData;
   },
   promiseNest() {
-    return new Promise(resolve => {
+    return new Promise((resolve) => {
       resolve(nullingData);
     });
   },
   promiseNonNullNest() {
-    return new Promise(resolve => {
+    return new Promise((resolve) => {
       resolve(nullingData);
     });
   },
@@ -106,7 +106,7 @@ const schema = buildSchema(`
 `);
 
 function executeQuery(query, rootValue) {
-  return execute(schema, parse(query), rootValue);
+  return execute({ schema, document: parse(query), rootValue });
 }
 
 // avoids also doing any nests
@@ -565,11 +565,7 @@ describe('Execute: handles non-nullable types', () => {
                 type: GraphQLNonNull(GraphQLString),
               },
             },
-            resolve: (_, args) => {
-              if (typeof args.cannotBeNull === 'string') {
-                return 'Passed: ' + args.cannotBeNull;
-              }
-            },
+            resolve: (_, args) => 'Passed: ' + String(args.cannotBeNull),
           },
         },
       }),

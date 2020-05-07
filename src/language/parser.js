@@ -62,7 +62,7 @@ import {
 /**
  * Configuration options to control parser behavior
  */
-export type ParseOptions = {
+export type ParseOptions = {|
   /**
    * By default, the parser creates AST nodes that know the location
    * in the source that they correspond to. This configuration flag
@@ -107,9 +107,7 @@ export type ParseOptions = {
    * future.
    */
   experimentalFragmentVariables?: boolean,
-
-  ...
-};
+|};
 
 /**
  * Given a GraphQL source, parses it into a Document.
@@ -166,18 +164,18 @@ export function parseType(
 }
 
 class Parser {
-  _options: ParseOptions;
+  _options: ?ParseOptions;
   _lexer: Lexer;
 
   constructor(source: string | Source, options?: ParseOptions) {
     const sourceObj = typeof source === 'string' ? new Source(source) : source;
     devAssert(
       sourceObj instanceof Source,
-      `Must provide Source. Received: ${inspect(sourceObj)}`,
+      `Must provide Source. Received: ${inspect(sourceObj)}.`,
     );
 
     this._lexer = new Lexer(sourceObj);
-    this._options = options || {};
+    this._options = options;
   }
 
   /**
@@ -480,7 +478,7 @@ class Parser {
     // Experimental support for defining variables within fragments changes
     // the grammar of FragmentDefinition:
     //   - fragment FragmentName VariableDefinitions? on TypeCondition Directives? SelectionSet
-    if (this._options.experimentalFragmentVariables) {
+    if (this._options?.experimentalFragmentVariables === true) {
       return {
         kind: Kind.FRAGMENT_DEFINITION,
         name: this.parseFragmentName(),
@@ -556,26 +554,21 @@ class Parser {
       case TokenKind.BLOCK_STRING:
         return this.parseStringLiteral();
       case TokenKind.NAME:
-        if (token.value === 'true' || token.value === 'false') {
-          this._lexer.advance();
-          return {
-            kind: Kind.BOOLEAN,
-            value: token.value === 'true',
-            loc: this.loc(token),
-          };
-        } else if (token.value === 'null') {
-          this._lexer.advance();
-          return {
-            kind: Kind.NULL,
-            loc: this.loc(token),
-          };
-        }
         this._lexer.advance();
-        return {
-          kind: Kind.ENUM,
-          value: ((token.value: any): string),
-          loc: this.loc(token),
-        };
+        switch (token.value) {
+          case 'true':
+            return { kind: Kind.BOOLEAN, value: true, loc: this.loc(token) };
+          case 'false':
+            return { kind: Kind.BOOLEAN, value: false, loc: this.loc(token) };
+          case 'null':
+            return { kind: Kind.NULL, loc: this.loc(token) };
+          default:
+            return {
+              kind: Kind.ENUM,
+              value: ((token.value: any): string),
+              loc: this.loc(token),
+            };
+        }
       case TokenKind.DOLLAR:
         if (!isConst) {
           return this.parseVariable();
@@ -774,10 +767,11 @@ class Parser {
   }
 
   /**
-   * SchemaDefinition : schema Directives[Const]? { OperationTypeDefinition+ }
+   * SchemaDefinition : Description? schema Directives[Const]? { OperationTypeDefinition+ }
    */
   parseSchemaDefinition(): SchemaDefinitionNode {
     const start = this._lexer.token;
+    const description = this.parseDescription();
     this.expectKeyword('schema');
     const directives = this.parseDirectives(true);
     const operationTypes = this.many(
@@ -787,6 +781,7 @@ class Parser {
     );
     return {
       kind: Kind.SCHEMA_DEFINITION,
+      description,
       directives,
       operationTypes,
       loc: this.loc(start),
@@ -866,7 +861,7 @@ class Parser {
       } while (
         this.expectOptionalToken(TokenKind.AMP) ||
         // Legacy support for the SDL?
-        (this._options.allowLegacySDLImplementsInterfaces &&
+        (this._options?.allowLegacySDLImplementsInterfaces === true &&
           this.peek(TokenKind.NAME))
       );
     }
@@ -879,7 +874,7 @@ class Parser {
   parseFieldsDefinition(): Array<FieldDefinitionNode> {
     // Legacy support for the SDL?
     if (
-      this._options.allowLegacySDLEmptyFields &&
+      this._options?.allowLegacySDLEmptyFields === true &&
       this.peek(TokenKind.BRACE_L) &&
       this._lexer.lookahead().kind === TokenKind.BRACE_R
     ) {
@@ -1400,7 +1395,7 @@ class Parser {
    * the source that created a given parsed object.
    */
   loc(startToken: Token): Location | void {
-    if (!this._options.noLocation) {
+    if (this._options?.noLocation !== true) {
       return new Location(
         startToken,
         this._lexer.lastToken,
@@ -1482,7 +1477,7 @@ class Parser {
    * is encountered.
    */
   unexpected(atToken?: ?Token): GraphQLError {
-    const token = atToken || this._lexer.token;
+    const token = atToken ?? this._lexer.token;
     return syntaxError(
       this._lexer.source,
       token.start,

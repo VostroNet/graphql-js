@@ -8,7 +8,7 @@ import dedent from '../../jsutils/dedent';
 import { parse } from '../parser';
 import { print } from '../printer';
 
-import { kitchenSinkSDL } from '../../__fixtures__';
+import { kitchenSinkSDL } from '../../__fixtures__/index';
 
 describe('Printer: SDL document', () => {
   it('prints minimal ast', () => {
@@ -23,7 +23,7 @@ describe('Printer: SDL document', () => {
     const badAST = { random: 'Data' };
     // $DisableFlowOnNegativeTest
     expect(() => print(badAST)).to.throw(
-      'Invalid AST Node: { random: "Data" }',
+      'Invalid AST Node: { random: "Data" }.',
     );
   });
 
@@ -38,6 +38,7 @@ describe('Printer: SDL document', () => {
     const printed = print(parse(kitchenSinkSDL));
 
     expect(printed).to.equal(dedent`
+      """This is a description of the schema as a whole."""
       schema {
         query: QueryType
         mutation: MutationType
@@ -156,7 +157,10 @@ describe('Printer: SDL document', () => {
       extend input InputType @onInputObject
 
       """This is a description of the \`@skip\` directive"""
-      directive @skip(if: Boolean! @onArgumentDefinition) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
+      directive @skip(
+        """This is a description of the \`if\` argument"""
+        if: Boolean! @onArgumentDefinition
+      ) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
 
       directive @include(if: Boolean!) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
 

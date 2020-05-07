@@ -50,17 +50,22 @@ export function getVariableValues(
   inputs: { +[variable: string]: mixed, ... },
   options?: {| maxErrors?: number |},
 ): CoercedVariableValues {
-  const maxErrors = options && options.maxErrors;
   const errors = [];
+  const maxErrors = options?.maxErrors;
   try {
-    const coerced = coerceVariableValues(schema, varDefNodes, inputs, error => {
-      if (maxErrors != null && errors.length >= maxErrors) {
-        throw new GraphQLError(
-          'Too many errors processing variables, error limit reached. Execution aborted.',
-        );
-      }
-      errors.push(error);
-    });
+    const coerced = coerceVariableValues(
+      schema,
+      varDefNodes,
+      inputs,
+      (error) => {
+        if (maxErrors != null && errors.length >= maxErrors) {
+          throw new GraphQLError(
+            'Too many errors processing variables, error limit reached. Execution aborted.',
+          );
+        }
+        errors.push(error);
+      },
+    );
 
     if (errors.length === 0) {
       return { coerced };
@@ -76,7 +81,7 @@ function coerceVariableValues(
   schema: GraphQLSchema,
   varDefNodes: $ReadOnlyArray<VariableDefinitionNode>,
   inputs: { +[variable: string]: mixed, ... },
-  onError: GraphQLError => void,
+  onError: (GraphQLError) => void,
 ): { [variable: string]: mixed, ... } {
   const coercedValues = {};
   for (const varDefNode of varDefNodes) {
@@ -164,7 +169,10 @@ export function getArgumentValues(
   variableValues?: ?ObjMap<mixed>,
 ): { [argument: string]: mixed, ... } {
   const coercedValues = {};
-  const argNodeMap = keyMap(node.arguments || [], arg => arg.name.value);
+
+  /* istanbul ignore next (See https://github.com/graphql/graphql-js/issues/2203) */
+  const argumentNodes = node.arguments ?? [];
+  const argNodeMap = keyMap(argumentNodes, (arg) => arg.name.value);
 
   for (const argDef of def.args) {
     const name = argDef.name;
@@ -217,7 +225,7 @@ export function getArgumentValues(
 
     const coercedValue = valueFromAST(valueNode, argType, variableValues);
     if (coercedValue === undefined) {
-      // Note: ValuesOfCorrectType validation should catch this before
+      // Note: ValuesOfCorrectTypeRule validation should catch this before
       // execution. This is a runtime check to ensure execution does not
       // continue with an invalid argument value.
       throw new GraphQLError(
@@ -250,7 +258,7 @@ export function getDirectiveValues(
     node.directives &&
     find(
       node.directives,
-      directive => directive.name.value === directiveDef.name,
+      (directive) => directive.name.value === directiveDef.name,
     );
 
   if (directiveNode) {

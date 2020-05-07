@@ -1,9 +1,8 @@
-import { ASTVisitor } from '../../language/visitor';
-import { SDLValidationContext } from '../ValidationContext';
-
 /**
- * Unique operation types
- *
- * A GraphQL document is only valid if it has only one type per operation.
+ * @deprecated and will be removed in v16
+ * Please use either:
+ *   import { UniqueOperationTypesRule } from 'graphql'
+ * or
+ *   import { UniqueOperationTypesRule } from 'graphql/validation'
  */
-export function UniqueOperationTypes(context: SDLValidationContext): ASTVisitor;
+export { UniqueOperationTypesRule as UniqueOperationTypes } from './UniqueOperationTypesRule';

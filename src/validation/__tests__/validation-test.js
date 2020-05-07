@@ -3,14 +3,23 @@
 import { expect } from 'chai';
 import { describe, it } from 'mocha';
 
+import { GraphQLError } from '../../error/GraphQLError';
+
 import { parse } from '../../language/parser';
+
 import { TypeInfo } from '../../utilities/TypeInfo';
+import { buildSchema } from '../../utilities/buildASTSchema';
 
 import { validate } from '../validate';
 
 import { testSchema } from './harness';
 
 describe('Validate: Supports full validation', () => {
+  it('rejects invalid documents', () => {
+    // $DisableFlowOnNegativeTest
+    expect(() => validate(testSchema, null)).to.throw('Must provide document.');
+  });
+
   it('validates queries', () => {
     const doc = parse(`
       query {
@@ -19,7 +28,7 @@ describe('Validate: Supports full validation', () => {
             furColor
           }
           ... on Dog {
-            isHousetrained
+            isHouseTrained
           }
         }
       }
@@ -58,19 +67,56 @@ describe('Validate: Supports full validation', () => {
             furColor
           }
           ... on Dog {
-            isHousetrained
+            isHouseTrained
           }
         }
       }
     `);
 
     const errors = validate(testSchema, doc, undefined, typeInfo);
-    const errorMessages = errors.map(err => err.message);
+    const errorMessages = errors.map((err) => err.message);
 
     expect(errorMessages).to.deep.equal([
       'Cannot query field "catOrDog" on type "QueryRoot". Did you mean "catOrDog"?',
       'Cannot query field "furColor" on type "Cat". Did you mean "furColor"?',
-      'Cannot query field "isHousetrained" on type "Dog". Did you mean "isHousetrained"?',
+      'Cannot query field "isHouseTrained" on type "Dog". Did you mean "isHouseTrained"?',
+    ]);
+  });
+
+  it('validates using a custom rule', () => {
+    const schema = buildSchema(`
+      directive @custom(arg: String) on FIELD
+
+      type Query {
+        foo: String
+      }
+    `);
+
+    const doc = parse(`
+      query {
+        name @custom
+      }
+    `);
+
+    function customRule(context) {
+      return {
+        Directive(node) {
+          const directiveDef = context.getDirective();
+          const error = new GraphQLError(
+            'Reporting directive: ' + String(directiveDef),
+            node,
+          );
+          context.reportError(error);
+        },
+      };
+    }
+
+    const errors = validate(schema, doc, [customRule]);
+    expect(errors).to.deep.equal([
+      {
+        message: 'Reporting directive: @custom',
+        locations: [{ line: 3, column: 14 }],
+      },
     ]);
   });
 });
@@ -115,5 +161,18 @@ describe('Validate: Limit maximum number of validation errors', () => {
           'Too many validation errors, error limit reached. Validation aborted.',
       },
     ]);
+  });
+
+  it('passthrough exceptions from rules', () => {
+    function customRule() {
+      return {
+        Field() {
+          throw new Error('Error from custom rule!');
+        },
+      };
+    }
+    expect(() =>
+      validate(testSchema, doc, [customRule], undefined, { maxErrors: 1 }),
+    ).to.throw(/^Error from custom rule!$/);
   });
 });

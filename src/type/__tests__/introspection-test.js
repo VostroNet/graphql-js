@@ -5,8 +5,6 @@ import { describe, it } from 'mocha';
 
 import invariant from '../../jsutils/invariant';
 
-import { missingFieldArgMessage } from '../../validation/rules/ProvidedRequiredArguments';
-
 import { graphqlSync } from '../../graphql';
 import { getIntrospectionQuery } from '../../utilities/getIntrospectionQuery';
 
@@ -21,7 +19,8 @@ import {
 
 describe('Introspection', () => {
   it('executes an introspection query', () => {
-    const EmptySchema = new GraphQLSchema({
+    const schema = new GraphQLSchema({
+      description: 'Sample schema',
       query: new GraphQLObjectType({
         name: 'QueryRoot',
         fields: {
@@ -29,9 +28,12 @@ describe('Introspection', () => {
         },
       }),
     });
-    const query = getIntrospectionQuery({ descriptions: false });
-    const result = graphqlSync(EmptySchema, query);
+    const source = getIntrospectionQuery({
+      descriptions: false,
+      directiveIsRepeatable: true,
+    });
 
+    const result = graphqlSync({ schema, source });
     expect(result).to.deep.equal({
       data: {
         __schema: {
@@ -72,9 +74,29 @@ describe('Introspection', () => {
               possibleTypes: null,
             },
             {
+              kind: 'SCALAR',
+              name: 'Boolean',
+              fields: null,
+              inputFields: null,
+              interfaces: null,
+              enumValues: null,
+              possibleTypes: null,
+            },
+            {
               kind: 'OBJECT',
               name: '__Schema',
               fields: [
+                {
+                  name: 'description',
+                  args: [],
+                  type: {
+                    kind: 'SCALAR',
+                    name: 'String',
+                    ofType: null,
+                  },
+                  isDeprecated: false,
+                  deprecationReason: null,
+                },
                 {
                   name: 'types',
                   args: [],
@@ -388,15 +410,6 @@ describe('Introspection', () => {
               possibleTypes: null,
             },
             {
-              kind: 'SCALAR',
-              name: 'Boolean',
-              fields: null,
-              inputFields: null,
-              interfaces: null,
-              enumValues: null,
-              possibleTypes: null,
-            },
-            {
               kind: 'OBJECT',
               name: '__Field',
               fields: [
@@ -651,6 +664,21 @@ describe('Introspection', () => {
                   deprecationReason: null,
                 },
                 {
+                  name: 'isRepeatable',
+                  args: [],
+                  type: {
+                    kind: 'NON_NULL',
+                    name: null,
+                    ofType: {
+                      kind: 'SCALAR',
+                      name: 'Boolean',
+                      ofType: null,
+                    },
+                  },
+                  isDeprecated: false,
+                  deprecationReason: null,
+                },
+                {
                   name: 'locations',
                   args: [],
                   type: {
@@ -811,6 +839,7 @@ describe('Introspection', () => {
           directives: [
             {
               name: 'include',
+              isRepeatable: false,
               locations: ['FIELD', 'FRAGMENT_SPREAD', 'INLINE_FRAGMENT'],
               args: [
                 {
@@ -830,6 +859,7 @@ describe('Introspection', () => {
             },
             {
               name: 'skip',
+              isRepeatable: false,
               locations: ['FIELD', 'FRAGMENT_SPREAD', 'INLINE_FRAGMENT'],
               args: [
                 {
@@ -849,6 +879,7 @@ describe('Introspection', () => {
             },
             {
               name: 'deprecated',
+              isRepeatable: false,
               locations: ['FIELD_DEFINITION', 'ENUM_VALUE'],
               args: [
                 {
@@ -889,7 +920,7 @@ describe('Introspection', () => {
     });
 
     const schema = new GraphQLSchema({ query: TestType });
-    const request = `
+    const source = `
       {
         __type(name: "TestInputObject") {
           kind
@@ -920,7 +951,7 @@ describe('Introspection', () => {
       }
     `;
 
-    expect(graphqlSync(schema, request)).to.deep.equal({
+    expect(graphqlSync({ schema, source })).to.deep.equal({
       data: {
         __type: {
           kind: 'INPUT_OBJECT',
@@ -974,7 +1005,7 @@ describe('Introspection', () => {
     });
 
     const schema = new GraphQLSchema({ query: TestType });
-    const request = `
+    const source = `
       {
         __type(name: "TestType") {
           name
@@ -982,7 +1013,7 @@ describe('Introspection', () => {
       }
     `;
 
-    expect(graphqlSync(schema, request)).to.deep.equal({
+    expect(graphqlSync({ schema, source })).to.deep.equal({
       data: {
         __type: {
           name: 'TestType',
@@ -1002,11 +1033,15 @@ describe('Introspection', () => {
           type: GraphQLString,
           deprecationReason: 'Removed in 1.0',
         },
+        deprecatedWithEmptyReason: {
+          type: GraphQLString,
+          deprecationReason: '',
+        },
       },
     });
 
     const schema = new GraphQLSchema({ query: TestType });
-    const request = `
+    const source = `
       {
         __type(name: "TestType") {
           name
@@ -1019,7 +1054,7 @@ describe('Introspection', () => {
       }
     `;
 
-    expect(graphqlSync(schema, request)).to.deep.equal({
+    expect(graphqlSync({ schema, source })).to.deep.equal({
       data: {
         __type: {
           name: 'TestType',
@@ -1033,6 +1068,11 @@ describe('Introspection', () => {
               name: 'deprecated',
               isDeprecated: true,
               deprecationReason: 'Removed in 1.0',
+            },
+            {
+              name: 'deprecatedWithEmptyReason',
+              isDeprecated: true,
+              deprecationReason: '',
             },
           ],
         },
@@ -1055,7 +1095,7 @@ describe('Introspection', () => {
     });
 
     const schema = new GraphQLSchema({ query: TestType });
-    const request = `
+    const source = `
       {
         __type(name: "TestType") {
           name
@@ -1072,7 +1112,7 @@ describe('Introspection', () => {
       }
     `;
 
-    expect(graphqlSync(schema, request)).to.deep.equal({
+    expect(graphqlSync({ schema, source })).to.deep.equal({
       data: {
         __type: {
           name: 'TestType',
@@ -1103,9 +1143,9 @@ describe('Introspection', () => {
     const TestEnum = new GraphQLEnumType({
       name: 'TestEnum',
       values: {
-        NONDEPRECATED: { value: 0 },
+        NON_DEPRECATED: { value: 0 },
         DEPRECATED: { value: 1, deprecationReason: 'Removed in 1.0' },
-        ALSONONDEPRECATED: { value: 2 },
+        ALSO_NON_DEPRECATED: { value: 2 },
       },
     });
 
@@ -1119,7 +1159,7 @@ describe('Introspection', () => {
     });
 
     const schema = new GraphQLSchema({ query: TestType });
-    const request = `
+    const source = `
       {
         __type(name: "TestEnum") {
           name
@@ -1132,13 +1172,13 @@ describe('Introspection', () => {
       }
     `;
 
-    expect(graphqlSync(schema, request)).to.deep.equal({
+    expect(graphqlSync({ schema, source })).to.deep.equal({
       data: {
         __type: {
           name: 'TestEnum',
           enumValues: [
             {
-              name: 'NONDEPRECATED',
+              name: 'NON_DEPRECATED',
               isDeprecated: false,
               deprecationReason: null,
             },
@@ -1148,7 +1188,7 @@ describe('Introspection', () => {
               deprecationReason: 'Removed in 1.0',
             },
             {
-              name: 'ALSONONDEPRECATED',
+              name: 'ALSO_NON_DEPRECATED',
               isDeprecated: false,
               deprecationReason: null,
             },
@@ -1162,9 +1202,10 @@ describe('Introspection', () => {
     const TestEnum = new GraphQLEnumType({
       name: 'TestEnum',
       values: {
-        NONDEPRECATED: { value: 0 },
-        DEPRECATED: { value: 1, deprecationReason: 'Removed in 1.0' },
-        ALSONONDEPRECATED: { value: 2 },
+        NON_DEPRECATED: {},
+        DEPRECATED: { deprecationReason: 'Removed in 1.0' },
+        DEPRECATED_WITH_EMPTY_REASON: { deprecationReason: '' },
+        ALSO_NON_DEPRECATED: {},
       },
     });
 
@@ -1178,10 +1219,9 @@ describe('Introspection', () => {
     });
 
     const schema = new GraphQLSchema({ query: TestType });
-    const request = `
+    const source = `
       {
         __type(name: "TestEnum") {
-          name
           trueValues: enumValues(includeDeprecated: true) {
             name
           }
@@ -1195,36 +1235,22 @@ describe('Introspection', () => {
       }
     `;
 
-    expect(graphqlSync(schema, request)).to.deep.equal({
+    expect(graphqlSync({ schema, source })).to.deep.equal({
       data: {
         __type: {
-          name: 'TestEnum',
           trueValues: [
-            {
-              name: 'NONDEPRECATED',
-            },
-            {
-              name: 'DEPRECATED',
-            },
-            {
-              name: 'ALSONONDEPRECATED',
-            },
+            { name: 'NON_DEPRECATED' },
+            { name: 'DEPRECATED' },
+            { name: 'DEPRECATED_WITH_EMPTY_REASON' },
+            { name: 'ALSO_NON_DEPRECATED' },
           ],
           falseValues: [
-            {
-              name: 'NONDEPRECATED',
-            },
-            {
-              name: 'ALSONONDEPRECATED',
-            },
+            { name: 'NON_DEPRECATED' },
+            { name: 'ALSO_NON_DEPRECATED' },
           ],
           omittedValues: [
-            {
-              name: 'NONDEPRECATED',
-            },
-            {
-              name: 'ALSONONDEPRECATED',
-            },
+            { name: 'NON_DEPRECATED' },
+            { name: 'ALSO_NON_DEPRECATED' },
           ],
         },
       },
@@ -1242,7 +1268,7 @@ describe('Introspection', () => {
     });
 
     const schema = new GraphQLSchema({ query: TestType });
-    const request = `
+    const source = `
       {
         __type {
           name
@@ -1250,10 +1276,11 @@ describe('Introspection', () => {
       }
     `;
 
-    expect(graphqlSync(schema, request)).to.deep.equal({
+    expect(graphqlSync({ schema, source })).to.deep.equal({
       errors: [
         {
-          message: missingFieldArgMessage('__type', 'name', 'String!'),
+          message:
+            'Field "__type" argument "name" of type "String!" is required, but it was not provided.',
           locations: [{ line: 3, column: 9 }],
         },
       ],
@@ -1269,7 +1296,7 @@ describe('Introspection', () => {
     });
 
     const schema = new GraphQLSchema({ query: QueryRoot });
-    const request = `
+    const source = `
       {
         schemaType: __type(name: "__Schema") {
           name,
@@ -1282,13 +1309,17 @@ describe('Introspection', () => {
       }
     `;
 
-    expect(graphqlSync(schema, request)).to.deep.equal({
+    expect(graphqlSync({ schema, source })).to.deep.equal({
       data: {
         schemaType: {
           name: '__Schema',
           description:
             'A GraphQL Schema defines the capabilities of a GraphQL server. It exposes all available types and directives on the server, as well as the entry points for query, mutation, and subscription operations.',
           fields: [
+            {
+              name: 'description',
+              description: null,
+            },
             {
               name: 'types',
               description: 'A list of all types supported by this server.',
@@ -1326,7 +1357,7 @@ describe('Introspection', () => {
     });
 
     const schema = new GraphQLSchema({ query: QueryRoot });
-    const request = `
+    const source = `
       {
         typeKindType: __type(name: "__TypeKind") {
           name,
@@ -1339,7 +1370,7 @@ describe('Introspection', () => {
       }
     `;
 
-    expect(graphqlSync(schema, request)).to.deep.equal({
+    expect(graphqlSync({ schema, source })).to.deep.equal({
       data: {
         typeKindType: {
           name: '__TypeKind',
@@ -1400,12 +1431,13 @@ describe('Introspection', () => {
     });
 
     const schema = new GraphQLSchema({ query: QueryRoot });
-    const source = getIntrospectionQuery();
+    const source = getIntrospectionQuery({ directiveIsRepeatable: true });
 
+    /* istanbul ignore next */
     function fieldResolver(_1, _2, _3, info) {
       invariant(false, `Called on ${info.parentType.name}::${info.fieldName}`);
     }
 
-    graphqlSync({ schema, source, fieldResolver });
+    expect(() => graphqlSync({ schema, source, fieldResolver })).to.not.throw();
   });
 });

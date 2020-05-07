@@ -1,9 +1,8 @@
-import { ASTVisitor } from '../../language/visitor';
-import { SDLValidationContext } from '../ValidationContext';
-
 /**
- * Lone Schema definition
- *
- * A GraphQL document is only valid if it contains only one schema definition.
+ * @deprecated and will be removed in v16
+ * Please use either:
+ *   import { LoneSchemaDefinitionRule } from 'graphql'
+ * or
+ *   import { LoneSchemaDefinitionRule } from 'graphql/validation'
  */
-export function LoneSchemaDefinition(context: SDLValidationContext): ASTVisitor;
+export { LoneSchemaDefinitionRule as LoneSchemaDefinition } from './LoneSchemaDefinitionRule';

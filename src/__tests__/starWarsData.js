@@ -116,8 +116,8 @@ export type Droid = {|
  * Helper function to get a character by ID.
  */
 function getCharacter(id) {
-  // Returning a promise just to illustrate GraphQL.js's support.
-  return Promise.resolve(humanData[id] || droidData[id]);
+  // Returning a promise just to illustrate that GraphQL.js supports it.
+  return Promise.resolve(humanData[id] ?? droidData[id]);
 }
 
 /**
@@ -125,7 +125,7 @@ function getCharacter(id) {
  */
 export function getFriends(character: Character): Array<Promise<Character>> {
   // Notice that GraphQL accepts Arrays of Promises.
-  return character.friends.map(id => getCharacter(id));
+  return character.friends.map((id) => getCharacter(id));
 }
 
 /**

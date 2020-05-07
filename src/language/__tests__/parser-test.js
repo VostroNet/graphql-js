@@ -13,7 +13,8 @@ import { Source } from '../source';
 import { TokenKind } from '../tokenKind';
 import { parse, parseValue, parseType } from '../parser';
 
-import { kitchenSinkQuery } from '../../__fixtures__';
+import { kitchenSinkQuery } from '../../__fixtures__/index';
+
 import toJSONDeep from './toJSONDeep';
 
 function expectSyntaxError(text) {
@@ -23,12 +24,12 @@ function expectSyntaxError(text) {
 describe('Parser', () => {
   it('asserts that a source to parse was provided', () => {
     // $DisableFlowOnNegativeTest
-    expect(() => parse()).to.throw('Must provide Source. Received: undefined');
+    expect(() => parse()).to.throw('Must provide Source. Received: undefined.');
   });
 
   it('asserts that an invalid source to parse was provided', () => {
     // $DisableFlowOnNegativeTest
-    expect(() => parse({})).to.throw('Must provide Source. Received: {}');
+    expect(() => parse({})).to.throw('Must provide Source. Received: {}.');
   });
 
   it('parse provides useful errors', () => {
@@ -66,8 +67,8 @@ describe('Parser', () => {
       locations: [{ line: 1, column: 10 }],
     });
 
-    expectSyntaxError('notanoperation Foo { field }').to.deep.include({
-      message: 'Syntax Error: Unexpected Name "notanoperation".',
+    expectSyntaxError('notAnOperation Foo { field }').to.deep.include({
+      message: 'Syntax Error: Unexpected Name "notAnOperation".',
       locations: [{ line: 1, column: 1 }],
     });
 

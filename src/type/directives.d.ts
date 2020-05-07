@@ -1,7 +1,12 @@
+// FIXME
+/* eslint-disable import/no-cycle */
+
 import Maybe from '../tsutils/Maybe';
-import { GraphQLFieldConfigArgumentMap, GraphQLArgument } from './definition';
+
 import { DirectiveDefinitionNode } from '../language/ast';
 import { DirectiveLocationEnum } from '../language/directiveLocation';
+
+import { GraphQLFieldConfigArgumentMap, GraphQLArgument } from './definition';
 
 /**
  * Test if the given value is a GraphQL directive.
@@ -15,13 +20,13 @@ export function assertDirective(directive: any): GraphQLDirective;
 export class GraphQLDirective {
   name: string;
   description: Maybe<string>;
-  locations: DirectiveLocationEnum[];
+  locations: Array<DirectiveLocationEnum>;
   isRepeatable: boolean;
-  args: GraphQLArgument[];
+  args: Array<GraphQLArgument>;
   extensions: Maybe<Readonly<Record<string, any>>>;
   astNode: Maybe<DirectiveDefinitionNode>;
 
-  constructor(config: GraphQLDirectiveConfig);
+  constructor(config: Readonly<GraphQLDirectiveConfig>);
 
   toConfig(): GraphQLDirectiveConfig & {
     args: GraphQLFieldConfigArgumentMap;
@@ -37,7 +42,7 @@ export class GraphQLDirective {
 export interface GraphQLDirectiveConfig {
   name: string;
   description?: Maybe<string>;
-  locations: DirectiveLocationEnum[];
+  locations: Array<DirectiveLocationEnum>;
   args?: Maybe<GraphQLFieldConfigArgumentMap>;
   isRepeatable?: Maybe<boolean>;
   extensions?: Maybe<Readonly<Record<string, any>>>;

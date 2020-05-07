@@ -89,6 +89,11 @@ export class Token {
 }
 
 /**
+ * @internal
+ */
+export function isNode(maybeNode: any): maybeNode is ASTNode;
+
+/**
  * The list of all possible AST node types.
  */
 export type ASTNode =
@@ -400,6 +405,7 @@ export type TypeSystemDefinitionNode =
 export interface SchemaDefinitionNode {
   readonly kind: 'SchemaDefinition';
   readonly loc?: Location;
+  readonly description?: StringValueNode;
   readonly directives?: ReadonlyArray<DirectiveNode>;
   readonly operationTypes: ReadonlyArray<OperationTypeDefinitionNode>;
 }

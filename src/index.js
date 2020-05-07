@@ -125,7 +125,7 @@ export {
   // Validate GraphQL schema.
   validateSchema,
   assertValidSchema,
-} from './type';
+} from './type/index';
 
 export type {
   GraphQLType,
@@ -168,7 +168,7 @@ export type {
   GraphQLScalarSerializer,
   GraphQLScalarValueParser,
   GraphQLScalarLiteralParser,
-} from './type';
+} from './type/index';
 
 // Parse and operate on GraphQL language source files.
 export {
@@ -189,7 +189,6 @@ export {
   // Visit
   visit,
   visitInParallel,
-  visitWithTypeInfo,
   getVisitFn,
   BREAK,
   Kind,
@@ -204,7 +203,7 @@ export {
   isTypeDefinitionNode,
   isTypeSystemExtensionNode,
   isTypeExtensionNode,
-} from './language';
+} from './language/index';
 
 export type {
   ParseOptions,
@@ -276,7 +275,7 @@ export type {
   UnionTypeExtensionNode,
   EnumTypeExtensionNode,
   InputObjectTypeExtensionNode,
-} from './language';
+} from './language/index';
 
 // Execute GraphQL queries.
 export {
@@ -285,12 +284,12 @@ export {
   defaultTypeResolver,
   responsePathAsArray,
   getDirectiveValues,
-} from './execution';
+} from './execution/index';
 
-export type { ExecutionArgs, ExecutionResult } from './execution';
+export type { ExecutionArgs, ExecutionResult } from './execution/index';
 
-export { subscribe, createSourceEventStream } from './subscription';
-export type { SubscriptionArgs } from './subscription';
+export { subscribe, createSourceEventStream } from './subscription/index';
+export type { SubscriptionArgs } from './subscription/index';
 
 // Validate GraphQL documents.
 export {
@@ -299,6 +298,7 @@ export {
   // All validation rules in the GraphQL Specification.
   specifiedRules,
   // Individual validation rules.
+  ExecutableDefinitionsRule,
   FieldsOnCorrectTypeRule,
   FragmentsOnCompositeTypesRule,
   KnownArgumentNamesRule,
@@ -324,9 +324,17 @@ export {
   ValuesOfCorrectTypeRule,
   VariablesAreInputTypesRule,
   VariablesInAllowedPositionRule,
-} from './validation';
+  // SDL-specific validation rules
+  LoneSchemaDefinitionRule,
+  UniqueOperationTypesRule,
+  UniqueTypeNamesRule,
+  UniqueEnumValueNamesRule,
+  UniqueFieldDefinitionNamesRule,
+  UniqueDirectiveNamesRule,
+  PossibleTypeExtensionsRule,
+} from './validation/index';
 
-export type { ValidationRule } from './validation';
+export type { ValidationRule } from './validation/index';
 
 // Create, format, and print GraphQL errors.
 export {
@@ -335,9 +343,9 @@ export {
   locatedError,
   printError,
   formatError,
-} from './error';
+} from './error/index';
 
-export type { GraphQLFormattedError } from './error';
+export type { GraphQLFormattedError } from './error/index';
 
 // Utilities for operating on GraphQL type schema and parsed sources.
 export {
@@ -382,6 +390,7 @@ export {
   // A helper to use within recursive-descent visitors which need to be aware of
   // the GraphQL type system.
   TypeInfo,
+  visitWithTypeInfo,
   // Coerces a JavaScript value to a GraphQL type, or produces errors.
   coerceInputValue,
   // Concatenates multiple AST together.
@@ -406,7 +415,7 @@ export {
   findDangerousChanges,
   // Report all deprecated usage within a GraphQL document.
   findDeprecatedUsages,
-} from './utilities';
+} from './utilities/index';
 
 export type {
   IntrospectionOptions,
@@ -434,4 +443,4 @@ export type {
   BuildSchemaOptions,
   BreakingChange,
   DangerousChange,
-} from './utilities';
+} from './utilities/index';

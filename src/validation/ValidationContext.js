@@ -5,7 +5,7 @@ import { type ObjMap } from '../jsutils/ObjMap';
 import { type GraphQLError } from '../error/GraphQLError';
 
 import { Kind } from '../language/kinds';
-import { type ASTVisitor, visit, visitWithTypeInfo } from '../language/visitor';
+import { type ASTVisitor, visit } from '../language/visitor';
 import {
   type DocumentNode,
   type OperationDefinitionNode,
@@ -25,7 +25,7 @@ import {
   type GraphQLArgument,
 } from '../type/definition';
 
-import { TypeInfo } from '../utilities/TypeInfo';
+import { TypeInfo, visitWithTypeInfo } from '../utilities/TypeInfo';
 
 type NodeWithSelectionSet = OperationDefinitionNode | FragmentDefinitionNode;
 type VariableUsage = {|
@@ -131,7 +131,7 @@ export class ASTValidationContext {
   }
 }
 
-export type ASTValidationRule = ASTValidationContext => ASTVisitor;
+export type ASTValidationRule = (ASTValidationContext) => ASTVisitor;
 
 export class SDLValidationContext extends ASTValidationContext {
   _schema: ?GraphQLSchema;
@@ -150,7 +150,7 @@ export class SDLValidationContext extends ASTValidationContext {
   }
 }
 
-export type SDLValidationRule = SDLValidationContext => ASTVisitor;
+export type SDLValidationRule = (SDLValidationContext) => ASTVisitor;
 
 export class ValidationContext extends ASTValidationContext {
   _schema: GraphQLSchema;
@@ -245,4 +245,4 @@ export class ValidationContext extends ASTValidationContext {
   }
 }
 
-export type ValidationRule = ValidationContext => ASTVisitor;
+export type ValidationRule = (ValidationContext) => ASTVisitor;

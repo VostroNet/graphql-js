@@ -384,11 +384,11 @@ describe('Lexer', () => {
       value: 'contains " quote',
     });
 
-    expect(lexOne('"""contains \\""" triplequote"""')).to.contain({
+    expect(lexOne('"""contains \\""" triple quote"""')).to.contain({
       kind: TokenKind.BLOCK_STRING,
       start: 0,
-      end: 31,
-      value: 'contains """ triplequote',
+      end: 32,
+      value: 'contains """ triple quote',
     });
 
     expect(lexOne('"""multi\nline"""')).to.contain({
@@ -879,7 +879,7 @@ describe('Lexer', () => {
       endToken = lexer.advance();
       // Lexer advances over ignored comment tokens to make writing parsers
       // easier, but will include them in the linked list result.
-      expect(endToken.kind).not.to.equal(TokenKind.COMMENT);
+      expect(endToken.kind).to.not.equal(TokenKind.COMMENT);
     } while (endToken.kind !== TokenKind.EOF);
 
     expect(startToken.prev).to.equal(null);
@@ -894,7 +894,7 @@ describe('Lexer', () => {
       tokens.push(tok);
     }
 
-    expect(tokens.map(tok => tok.kind)).to.deep.equal([
+    expect(tokens.map((tok) => tok.kind)).to.deep.equal([
       TokenKind.SOF,
       TokenKind.BRACE_L,
       TokenKind.COMMENT,

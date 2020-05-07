@@ -5,14 +5,37 @@ import { type DirectiveLocationEnum } from '../language/directiveLocation';
 export type IntrospectionOptions = {|
   // Whether to include descriptions in the introspection result.
   // Default: true
-  descriptions: boolean,
+  descriptions?: boolean,
+
+  // Whether to include `isRepeatable` field on directives.
+  // Default: false
+  directiveIsRepeatable?: boolean,
+
+  // Whether to include `description` field on schema.
+  // Default: false
+  schemaDescription?: boolean,
 |};
 
 export function getIntrospectionQuery(options?: IntrospectionOptions): string {
-  const descriptions = !(options && options.descriptions === false);
+  const optionsWithDefault = {
+    descriptions: true,
+    directiveIsRepeatable: false,
+    schemaDescription: false,
+    ...options,
+  };
+
+  const descriptions = optionsWithDefault.descriptions ? 'description' : '';
+  const directiveIsRepeatable = optionsWithDefault.directiveIsRepeatable
+    ? 'isRepeatable'
+    : '';
+  const schemaDescription = optionsWithDefault.schemaDescription
+    ? descriptions
+    : '';
+
   return `
     query IntrospectionQuery {
       __schema {
+        ${schemaDescription}
         queryType { name }
         mutationType { name }
         subscriptionType { name }
@@ -21,7 +44,8 @@ export function getIntrospectionQuery(options?: IntrospectionOptions): string {
         }
         directives {
           name
-          ${descriptions ? 'description' : ''}
+          ${descriptions}
+          ${directiveIsRepeatable}
           locations
           args {
             ...InputValue
@@ -33,10 +57,10 @@ export function getIntrospectionQuery(options?: IntrospectionOptions): string {
     fragment FullType on __Type {
       kind
       name
-      ${descriptions ? 'description' : ''}
+      ${descriptions}
       fields(includeDeprecated: true) {
         name
-        ${descriptions ? 'description' : ''}
+        ${descriptions}
         args {
           ...InputValue
         }
@@ -54,7 +78,7 @@ export function getIntrospectionQuery(options?: IntrospectionOptions): string {
       }
       enumValues(includeDeprecated: true) {
         name
-        ${descriptions ? 'description' : ''}
+        ${descriptions}
         isDeprecated
         deprecationReason
       }
@@ -65,7 +89,7 @@ export function getIntrospectionQuery(options?: IntrospectionOptions): string {
 
     fragment InputValue on __InputValue {
       name
-      ${descriptions ? 'description' : ''}
+      ${descriptions}
       type { ...TypeRef }
       defaultValue
     }
@@ -110,6 +134,7 @@ export type IntrospectionQuery = {|
 |};
 
 export type IntrospectionSchema = {|
+  +description?: ?string,
   +queryType: IntrospectionNamedTypeRef<IntrospectionObjectType>,
   +mutationType: ?IntrospectionNamedTypeRef<IntrospectionObjectType>,
   +subscriptionType: ?IntrospectionNamedTypeRef<IntrospectionObjectType>,
@@ -204,11 +229,10 @@ export type IntrospectionNonNullTypeRef<
 |};
 
 export type IntrospectionTypeRef =
-  | IntrospectionNamedTypeRef<IntrospectionType>
-  | IntrospectionListTypeRef<IntrospectionTypeRef>
+  | IntrospectionNamedTypeRef<>
+  | IntrospectionListTypeRef<>
   | IntrospectionNonNullTypeRef<
-      | IntrospectionNamedTypeRef<IntrospectionType>
-      | IntrospectionListTypeRef<IntrospectionTypeRef>,
+      IntrospectionNamedTypeRef<> | IntrospectionListTypeRef<>,
     >;
 
 export type IntrospectionOutputTypeRef =
@@ -260,6 +284,7 @@ export type IntrospectionEnumValue = {|
 export type IntrospectionDirective = {|
   +name: string,
   +description?: ?string,
+  +isRepeatable?: boolean,
   +locations: $ReadOnlyArray<DirectiveLocationEnum>,
   +args: $ReadOnlyArray<IntrospectionInputValue>,
 |};

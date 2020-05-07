@@ -51,6 +51,7 @@ export const BreakingChangeType = Object.freeze({
   DIRECTIVE_REMOVED: 'DIRECTIVE_REMOVED',
   DIRECTIVE_ARG_REMOVED: 'DIRECTIVE_ARG_REMOVED',
   REQUIRED_DIRECTIVE_ARG_ADDED: 'REQUIRED_DIRECTIVE_ARG_ADDED',
+  DIRECTIVE_REPEATABLE_REMOVED: 'DIRECTIVE_REPEATABLE_REMOVED',
   DIRECTIVE_LOCATION_REMOVED: 'DIRECTIVE_LOCATION_REMOVED',
 });
 
@@ -82,7 +83,7 @@ export function findBreakingChanges(
   newSchema: GraphQLSchema,
 ): Array<BreakingChange> {
   const breakingChanges = findSchemaChanges(oldSchema, newSchema).filter(
-    change => change.type in BreakingChangeType,
+    (change) => change.type in BreakingChangeType,
   );
   return ((breakingChanges: any): Array<BreakingChange>);
 }
@@ -96,7 +97,7 @@ export function findDangerousChanges(
   newSchema: GraphQLSchema,
 ): Array<DangerousChange> {
   const dangerousChanges = findSchemaChanges(oldSchema, newSchema).filter(
-    change => change.type in DangerousChangeType,
+    (change) => change.type in DangerousChangeType,
   );
   return ((dangerousChanges: any): Array<DangerousChange>);
 }
@@ -145,6 +146,13 @@ function findDirectiveChanges(
       schemaChanges.push({
         type: BreakingChangeType.DIRECTIVE_ARG_REMOVED,
         description: `${oldArg.name} was removed from ${oldDirective.name}.`,
+      });
+    }
+
+    if (oldDirective.isRepeatable && !newDirective.isRepeatable) {
+      schemaChanges.push({
+        type: BreakingChangeType.DIRECTIVE_REPEATABLE_REMOVED,
+        description: `Repeatable flag was removed from ${oldDirective.name}.`,
       });
     }
 

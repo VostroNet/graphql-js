@@ -91,20 +91,18 @@ describe('Execute: Handles execution with a complex schema', () => {
       return {
         id,
         isPublished: true,
-        author: johnSmith,
+        author: {
+          id: 123,
+          name: 'John Smith',
+          pic: (width, height) => getPic(123, width, height),
+          recentArticle: () => article(1),
+        },
         title: 'My Article ' + id,
         body: 'This is a post',
         hidden: 'This data is not exposed in the schema',
         keywords: ['foo', 'bar', 1, true, null],
       };
     }
-
-    const johnSmith = {
-      id: 123,
-      name: 'John Smith',
-      pic: (width, height) => getPic(123, width, height),
-      recentArticle: article(1),
-    };
 
     function getPic(uid, width, height) {
       return {
@@ -114,7 +112,7 @@ describe('Execute: Handles execution with a complex schema', () => {
       };
     }
 
-    const request = `
+    const document = parse(`
       {
         feed {
           id,
@@ -144,13 +142,13 @@ describe('Execute: Handles execution with a complex schema', () => {
         title,
         body,
         hidden,
-        notdefined
+        notDefined
       }
-    `;
+    `);
 
     // Note: this is intentionally not validating to ensure appropriate
     // behavior occurs when executing an invalid query.
-    expect(execute(BlogSchema, parse(request))).to.deep.equal({
+    expect(execute({ schema: BlogSchema, document })).to.deep.equal({
       data: {
         feed: [
           { id: '1', title: 'My Article 1' },

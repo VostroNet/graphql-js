@@ -4,8 +4,10 @@
 
 const util = require('util');
 const https = require('https');
-const { exec } = require('./utils');
+
 const packageJSON = require('../package.json');
+
+const { exec } = require('./utils');
 
 const graphqlRequest = util.promisify(graphqlRequestImpl);
 const labelsConfig = {
@@ -51,14 +53,14 @@ const repoURLMatch = /https:\/\/github.com\/([^/]+)\/([^/]+).git/.exec(
   packageJSON.repository.url,
 );
 if (repoURLMatch == null) {
-  console.error('Cannot extract organisation and repo name from repo URL!');
+  console.error('Cannot extract organization and repo name from repo URL!');
   process.exit(1);
 }
 const [, githubOrg, githubRepo] = repoURLMatch;
 
 getChangeLog()
-  .then(changelog => process.stdout.write(changelog))
-  .catch(error => console.error(error));
+  .then((changelog) => process.stdout.write(changelog))
+  .catch((error) => console.error(error));
 
 function getChangeLog() {
   const { version } = packageJSON;
@@ -74,35 +76,35 @@ function getChangeLog() {
 
   const date = exec('git log -1 --format=%cd --date=short');
   return getCommitsInfo(commitsList.split('\n'))
-    .then(commitsInfo => getPRsInfo(commitsInfoToPRs(commitsInfo)))
-    .then(prsInfo => genChangeLog(tag, date, prsInfo));
+    .then((commitsInfo) => getPRsInfo(commitsInfoToPRs(commitsInfo)))
+    .then((prsInfo) => genChangeLog(tag, date, prsInfo));
 }
 
 function genChangeLog(tag, date, allPRs) {
   const byLabel = {};
-  const commitersByLogin = {};
+  const committersByLogin = {};
 
   for (const pr of allPRs) {
     const labels = pr.labels.nodes
-      .map(label => label.name)
-      .filter(label => label.startsWith('PR: '));
+      .map((label) => label.name)
+      .filter((label) => label.startsWith('PR: '));
 
     if (labels.length === 0) {
-      throw new Error(`PR #${pr.number} missing label`);
+      throw new Error(`PR is missing label. See ${pr.url}`);
     }
     if (labels.length > 1) {
       throw new Error(
-        `PR #${pr.number} has conflicting labels: ` + labels.join('\n'),
+        `PR has conflicting labels: ${labels.join('\n')}\nSee ${pr.url}`,
       );
     }
 
     const label = labels[0];
     if (!labelsConfig[label]) {
-      throw new Error('Unknown label: ' + label + pr.number);
+      throw new Error(`Unknown label: ${label}. See ${pr.url}`);
     }
     byLabel[label] = byLabel[label] || [];
     byLabel[label].push(pr);
-    commitersByLogin[pr.author.login] = pr.author;
+    committersByLogin[pr.author.login] = pr.author;
   }
 
   let changelog = `## ${tag || 'Unreleased'} (${date})\n`;
@@ -128,12 +130,12 @@ function genChangeLog(tag, date, allPRs) {
     }
   }
 
-  const commiters = Object.values(commitersByLogin).sort((a, b) =>
+  const committers = Object.values(committersByLogin).sort((a, b) =>
     (a.name || a.login).localeCompare(b.name || b.login),
   );
-  changelog += `\n#### Committers: ${commiters.length}\n`;
-  for (const commiter of commiters) {
-    changelog += `* ${commiter.name}([@${commiter.login}](${commiter.url}))\n`;
+  changelog += `\n#### Committers: ${committers.length}\n`;
+  for (const committer of committers) {
+    changelog += `* ${committer.name}([@${committer.login}](${committer.url}))\n`;
   }
 
   return changelog;
@@ -151,12 +153,12 @@ function graphqlRequestImpl(query, variables, cb) {
     },
   });
 
-  req.on('response', res => {
+  req.on('response', (res) => {
     let responseBody = '';
 
     res.setEncoding('utf8');
-    res.on('data', d => (responseBody += d));
-    res.on('error', error => resultCB(error));
+    res.on('data', (d) => (responseBody += d));
+    res.on('error', (error) => resultCB(error));
 
     res.on('end', () => {
       if (res.statusCode !== 200) {
@@ -185,7 +187,7 @@ function graphqlRequestImpl(query, variables, cb) {
     });
   });
 
-  req.on('error', error => cb(error));
+  req.on('error', (error) => resultCB(error));
   req.write(JSON.stringify({ query, variables }));
   req.end();
 }
@@ -269,7 +271,7 @@ function commitsInfoToPRs(commits) {
   const prs = {};
   for (const commit of commits) {
     const associatedPRs = commit.associatedPullRequests.nodes.filter(
-      pr => pr.repository.nameWithOwner === `${githubOrg}/${githubRepo}`,
+      (pr) => pr.repository.nameWithOwner === `${githubOrg}/${githubRepo}`,
     );
     if (associatedPRs.length === 0) {
       const match = / \(#([0-9]+)\)$/m.exec(commit.message);

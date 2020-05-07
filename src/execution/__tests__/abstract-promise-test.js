@@ -3,6 +3,8 @@
 import { expect } from 'chai';
 import { describe, it } from 'mocha';
 
+import invariant from '../../jsutils/invariant';
+
 import { GraphQLSchema } from '../../type/schema';
 import { GraphQLString, GraphQLBoolean } from '../../type/scalars';
 import {
@@ -54,7 +56,7 @@ describe('Execute: Handles execution of abstract types with promises', () => {
     const DogType = new GraphQLObjectType({
       name: 'Dog',
       interfaces: [PetType],
-      isTypeOf: obj => Promise.resolve(obj instanceof Dog),
+      isTypeOf: (obj) => Promise.resolve(obj instanceof Dog),
       fields: {
         name: { type: GraphQLString },
         woofs: { type: GraphQLBoolean },
@@ -64,7 +66,7 @@ describe('Execute: Handles execution of abstract types with promises', () => {
     const CatType = new GraphQLObjectType({
       name: 'Cat',
       interfaces: [PetType],
-      isTypeOf: obj => Promise.resolve(obj instanceof Cat),
+      isTypeOf: (obj) => Promise.resolve(obj instanceof Cat),
       fields: {
         name: { type: GraphQLString },
         meows: { type: GraphQLBoolean },
@@ -86,20 +88,21 @@ describe('Execute: Handles execution of abstract types with promises', () => {
       types: [CatType, DogType],
     });
 
-    const query = `{
-      pets {
-        name
-        ... on Dog {
-          woofs
-        }
-        ... on Cat {
-          meows
+    const source = `
+      {
+        pets {
+          name
+          ... on Dog {
+            woofs
+          }
+          ... on Cat {
+            meows
+          }
         }
       }
-    }`;
+    `;
 
-    const result = await graphql(schema, query);
-
+    const result = await graphql({ schema, source });
     expect(result).to.deep.equal({
       data: {
         pets: [
@@ -137,7 +140,7 @@ describe('Execute: Handles execution of abstract types with promises', () => {
     const CatType = new GraphQLObjectType({
       name: 'Cat',
       interfaces: [PetType],
-      isTypeOf: obj => Promise.resolve(obj instanceof Cat),
+      isTypeOf: (obj) => Promise.resolve(obj instanceof Cat),
       fields: {
         name: { type: GraphQLString },
         meows: { type: GraphQLBoolean },
@@ -159,20 +162,21 @@ describe('Execute: Handles execution of abstract types with promises', () => {
       types: [CatType, DogType],
     });
 
-    const query = `{
-      pets {
-        name
-        ... on Dog {
-          woofs
-        }
-        ... on Cat {
-          meows
+    const source = `
+      {
+        pets {
+          name
+          ... on Dog {
+            woofs
+          }
+          ... on Cat {
+            meows
+          }
         }
       }
-    }`;
+    `;
 
-    const result = await graphql(schema, query);
-
+    const result = await graphql({ schema, source });
     expect(result).to.deep.equal({
       data: {
         pets: [null, null],
@@ -180,12 +184,12 @@ describe('Execute: Handles execution of abstract types with promises', () => {
       errors: [
         {
           message: 'We are testing this error',
-          locations: [{ line: 2, column: 7 }],
+          locations: [{ line: 3, column: 9 }],
           path: ['pets', 0],
         },
         {
           message: 'We are testing this error',
-          locations: [{ line: 2, column: 7 }],
+          locations: [{ line: 3, column: 9 }],
           path: ['pets', 1],
         },
       ],
@@ -195,7 +199,7 @@ describe('Execute: Handles execution of abstract types with promises', () => {
   it('isTypeOf used to resolve runtime type for Union', async () => {
     const DogType = new GraphQLObjectType({
       name: 'Dog',
-      isTypeOf: obj => Promise.resolve(obj instanceof Dog),
+      isTypeOf: (obj) => Promise.resolve(obj instanceof Dog),
       fields: {
         name: { type: GraphQLString },
         woofs: { type: GraphQLBoolean },
@@ -204,7 +208,7 @@ describe('Execute: Handles execution of abstract types with promises', () => {
 
     const CatType = new GraphQLObjectType({
       name: 'Cat',
-      isTypeOf: obj => Promise.resolve(obj instanceof Cat),
+      isTypeOf: (obj) => Promise.resolve(obj instanceof Cat),
       fields: {
         name: { type: GraphQLString },
         meows: { type: GraphQLBoolean },
@@ -230,21 +234,22 @@ describe('Execute: Handles execution of abstract types with promises', () => {
       }),
     });
 
-    const query = `{
-      pets {
-        ... on Dog {
-          name
-          woofs
-        }
-        ... on Cat {
-          name
-          meows
+    const source = `
+      {
+        pets {
+          ... on Dog {
+            name
+            woofs
+          }
+          ... on Cat {
+            name
+            meows
+          }
         }
       }
-    }`;
+    `;
 
-    const result = await graphql(schema, query);
-
+    const result = await graphql({ schema, source });
     expect(result).to.deep.equal({
       data: {
         pets: [
@@ -265,15 +270,18 @@ describe('Execute: Handles execution of abstract types with promises', () => {
     const PetType = new GraphQLInterfaceType({
       name: 'Pet',
       resolveType(obj) {
-        return Promise.resolve(
-          obj instanceof Dog
-            ? DogType
-            : obj instanceof Cat
-            ? CatType
-            : obj instanceof Human
-            ? HumanType
-            : null,
-        );
+        if (obj instanceof Dog) {
+          return Promise.resolve(DogType);
+        }
+        if (obj instanceof Cat) {
+          return Promise.resolve(CatType);
+        }
+        if (obj instanceof Human) {
+          return Promise.resolve(HumanType);
+        }
+
+        // Not reachable. All possible types have been considered.
+        invariant(false);
       },
       fields: {
         name: { type: GraphQLString },
@@ -324,20 +332,21 @@ describe('Execute: Handles execution of abstract types with promises', () => {
       types: [CatType, DogType],
     });
 
-    const query = `{
-      pets {
-        name
-        ... on Dog {
-          woofs
-        }
-        ... on Cat {
-          meows
+    const source = `
+      {
+        pets {
+          name
+          ... on Dog {
+            woofs
+          }
+          ... on Cat {
+            meows
+          }
         }
       }
-    }`;
+    `;
 
-    const result = await graphql(schema, query);
-
+    const result = await graphql({ schema, source });
     expect(result).to.deep.equal({
       data: {
         pets: [
@@ -356,7 +365,7 @@ describe('Execute: Handles execution of abstract types with promises', () => {
         {
           message:
             'Runtime Object type "Human" is not a possible type for "Pet".',
-          locations: [{ line: 2, column: 7 }],
+          locations: [{ line: 3, column: 9 }],
           path: ['pets', 2],
         },
       ],
@@ -390,15 +399,18 @@ describe('Execute: Handles execution of abstract types with promises', () => {
     const PetType = new GraphQLUnionType({
       name: 'Pet',
       resolveType(obj) {
-        return Promise.resolve(
-          obj instanceof Dog
-            ? DogType
-            : obj instanceof Cat
-            ? CatType
-            : obj instanceof Human
-            ? HumanType
-            : null,
-        );
+        if (obj instanceof Dog) {
+          return Promise.resolve(DogType);
+        }
+        if (obj instanceof Cat) {
+          return Promise.resolve(CatType);
+        }
+        if (obj instanceof Human) {
+          return Promise.resolve(HumanType);
+        }
+
+        // Not reachable. All possible types have been considered.
+        invariant(false);
       },
       types: [DogType, CatType],
     });
@@ -421,21 +433,22 @@ describe('Execute: Handles execution of abstract types with promises', () => {
       }),
     });
 
-    const query = `{
-      pets {
-        ... on Dog {
-          name
-          woofs
-        }
-        ... on Cat {
-          name
-          meows
+    const source = `
+      {
+        pets {
+          ... on Dog {
+            name
+            woofs
+          }
+          ... on Cat {
+            name
+            meows
+          }
         }
       }
-    }`;
+    `;
 
-    const result = await graphql(schema, query);
-
+    const result = await graphql({ schema, source });
     expect(result).to.deep.equal({
       data: {
         pets: [
@@ -454,7 +467,7 @@ describe('Execute: Handles execution of abstract types with promises', () => {
         {
           message:
             'Runtime Object type "Human" is not a possible type for "Pet".',
-          locations: [{ line: 2, column: 7 }],
+          locations: [{ line: 3, column: 9 }],
           path: ['pets', 2],
         },
       ],
@@ -465,9 +478,15 @@ describe('Execute: Handles execution of abstract types with promises', () => {
     const PetType = new GraphQLInterfaceType({
       name: 'Pet',
       resolveType(obj) {
-        return Promise.resolve(
-          obj instanceof Dog ? 'Dog' : obj instanceof Cat ? 'Cat' : null,
-        );
+        if (obj instanceof Dog) {
+          return Promise.resolve('Dog');
+        }
+        if (obj instanceof Cat) {
+          return Promise.resolve('Cat');
+        }
+
+        // Not reachable. All possible types have been considered.
+        invariant(false);
       },
       fields: {
         name: { type: GraphQLString },
@@ -507,20 +526,21 @@ describe('Execute: Handles execution of abstract types with promises', () => {
       types: [CatType, DogType],
     });
 
-    const query = `{
-      pets {
-        name
-        ... on Dog {
-          woofs
-        }
-        ... on Cat {
-          meows
+    const source = `
+      {
+        pets {
+          name
+          ... on Dog {
+            woofs
+          }
+          ... on Cat {
+            meows
+          }
         }
       }
-    }`;
+    `;
 
-    const result = await graphql(schema, query);
-
+    const result = await graphql({ schema, source });
     expect(result).to.deep.equal({
       data: {
         pets: [
@@ -579,20 +599,21 @@ describe('Execute: Handles execution of abstract types with promises', () => {
       types: [CatType, DogType],
     });
 
-    const query = `{
-      pets {
-        name
-        ... on Dog {
-          woofs
-        }
-        ... on Cat {
-          meows
+    const source = `
+      {
+        pets {
+          name
+          ... on Dog {
+            woofs
+          }
+          ... on Cat {
+            meows
+          }
         }
       }
-    }`;
+    `;
 
-    const result = await graphql(schema, query);
-
+    const result = await graphql({ schema, source });
     expect(result).to.deep.equal({
       data: {
         pets: [null, null],
@@ -600,12 +621,12 @@ describe('Execute: Handles execution of abstract types with promises', () => {
       errors: [
         {
           message: 'We are testing this error',
-          locations: [{ line: 2, column: 7 }],
+          locations: [{ line: 3, column: 9 }],
           path: ['pets', 0],
         },
         {
           message: 'We are testing this error',
-          locations: [{ line: 2, column: 7 }],
+          locations: [{ line: 3, column: 9 }],
           path: ['pets', 1],
         },
       ],

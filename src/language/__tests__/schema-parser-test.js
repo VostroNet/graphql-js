@@ -5,10 +5,11 @@ import { describe, it } from 'mocha';
 
 import dedent from '../../jsutils/dedent';
 
+import { kitchenSinkSDL } from '../../__fixtures__/index';
+
 import { parse } from '../parser';
 
 import toJSONDeep from './toJSONDeep';
-import { kitchenSinkSDL } from '../../__fixtures__';
 
 function expectSyntaxError(text) {
   return expect(() => parse(text)).to.throw();
@@ -140,6 +141,32 @@ describe('Schema Parser', () => {
     );
   });
 
+  it('parses schema with description string', () => {
+    const doc = parse(dedent`
+      "Description"
+      schema {
+        query: Foo
+      }
+    `);
+
+    expect(toJSONDeep(doc)).to.nested.deep.property(
+      'definitions[0].description',
+      {
+        kind: 'StringValue',
+        value: 'Description',
+        block: false,
+        loc: { start: 0, end: 13 },
+      },
+    );
+  });
+
+  it('Description followed by something other than type system definition throws', () => {
+    expectSyntaxError('"Description" 1').to.deep.equal({
+      message: 'Syntax Error: Unexpected Int "1".',
+      locations: [{ line: 1, column: 15 }],
+    });
+  });
+
   it('Simple extension', () => {
     const doc = parse(dedent`
       extend type Hello {
@@ -238,9 +265,34 @@ describe('Schema Parser', () => {
   });
 
   it('Extension without anything throws', () => {
+    expectSyntaxError('extend scalar Hello').to.deep.equal({
+      message: 'Syntax Error: Unexpected <EOF>.',
+      locations: [{ line: 1, column: 20 }],
+    });
+
     expectSyntaxError('extend type Hello').to.deep.equal({
       message: 'Syntax Error: Unexpected <EOF>.',
       locations: [{ line: 1, column: 18 }],
+    });
+
+    expectSyntaxError('extend interface Hello').to.deep.equal({
+      message: 'Syntax Error: Unexpected <EOF>.',
+      locations: [{ line: 1, column: 23 }],
+    });
+
+    expectSyntaxError('extend union Hello').to.deep.equal({
+      message: 'Syntax Error: Unexpected <EOF>.',
+      locations: [{ line: 1, column: 19 }],
+    });
+
+    expectSyntaxError('extend enum Hello').to.deep.equal({
+      message: 'Syntax Error: Unexpected <EOF>.',
+      locations: [{ line: 1, column: 18 }],
+    });
+
+    expectSyntaxError('extend input Hello').to.deep.equal({
+      message: 'Syntax Error: Unexpected <EOF>.',
+      locations: [{ line: 1, column: 19 }],
     });
   });
 
@@ -271,20 +323,6 @@ describe('Schema Parser', () => {
         },
       ],
       loc: { start: 0, end: 110 },
-    });
-  });
-
-  it('Object extension without anything throws', () => {
-    expectSyntaxError('extend type Hello').to.deep.equal({
-      message: 'Syntax Error: Unexpected <EOF>.',
-      locations: [{ line: 1, column: 18 }],
-    });
-  });
-
-  it('Interface extension without anything throws', () => {
-    expectSyntaxError('extend interface Hello').to.deep.equal({
-      message: 'Syntax Error: Unexpected <EOF>.',
-      locations: [{ line: 1, column: 23 }],
     });
   });
 
@@ -385,6 +423,13 @@ describe('Schema Parser', () => {
     expectSyntaxError('extend schema').to.deep.equal({
       message: 'Syntax Error: Unexpected <EOF>.',
       locations: [{ line: 1, column: 14 }],
+    });
+  });
+
+  it('Schema extension with invalid operation type throws', () => {
+    expectSyntaxError('extend schema { unknown: SomeType }').to.deep.equal({
+      message: 'Syntax Error: Unexpected Name "unknown".',
+      locations: [{ line: 1, column: 17 }],
     });
   });
 
@@ -1077,12 +1122,11 @@ input Hello {
     });
 
     const doc = parse(body, { allowLegacySDLImplementsInterfaces: true });
-    expect(toJSONDeep(doc)).to.have.deep.nested.property(
-      'definitions[0].interfaces',
-      [
-        typeNode('Wo', { start: 22, end: 24 }),
-        typeNode('rld', { start: 25, end: 28 }),
-      ],
-    );
+    expect(
+      toJSONDeep(doc),
+    ).to.have.deep.nested.property('definitions[0].interfaces', [
+      typeNode('Wo', { start: 22, end: 24 }),
+      typeNode('rld', { start: 25, end: 28 }),
+    ]);
   });
 });

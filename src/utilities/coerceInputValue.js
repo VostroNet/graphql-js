@@ -1,13 +1,13 @@
 // @flow strict
 
-import { forEach, isCollection } from 'iterall';
-
+import arrayFrom from '../polyfills/arrayFrom';
 import objectValues from '../polyfills/objectValues';
 
 import inspect from '../jsutils/inspect';
 import invariant from '../jsutils/invariant';
 import didYouMean from '../jsutils/didYouMean';
 import isObjectLike from '../jsutils/isObjectLike';
+import isCollection from '../jsutils/isCollection';
 import suggestionList from '../jsutils/suggestionList';
 import printPathArray from '../jsutils/printPathArray';
 import { type Path, addPath, pathToArray } from '../jsutils/Path';
@@ -15,8 +15,7 @@ import { type Path, addPath, pathToArray } from '../jsutils/Path';
 import { GraphQLError } from '../error/GraphQLError';
 import {
   type GraphQLInputType,
-  isScalarType,
-  isEnumType,
+  isLeafType,
   isInputObjectType,
   isListType,
   isNonNullType,
@@ -46,7 +45,7 @@ function defaultOnError(
 ) {
   let errorPrefix = 'Invalid value ' + inspect(invalidValue);
   if (path.length > 0) {
-    errorPrefix += ` at "value${printPathArray(path)}": `;
+    errorPrefix += ` at "value${printPathArray(path)}"`;
   }
   error.message = errorPrefix + ': ' + error.message;
   throw error;
@@ -80,18 +79,10 @@ function coerceInputValueImpl(
   if (isListType(type)) {
     const itemType = type.ofType;
     if (isCollection(inputValue)) {
-      const coercedValue = [];
-      forEach((inputValue: any), (itemValue, index) => {
-        coercedValue.push(
-          coerceInputValueImpl(
-            itemValue,
-            itemType,
-            onError,
-            addPath(path, index),
-          ),
-        );
+      return arrayFrom(inputValue, (itemValue, index) => {
+        const itemPath = addPath(path, index);
+        return coerceInputValueImpl(itemValue, itemType, onError, itemPath);
       });
-      return coercedValue;
     }
     // Lists accept a non-list value as a list of one.
     return [coerceInputValueImpl(inputValue, itemType, onError, path)];
@@ -157,12 +148,12 @@ function coerceInputValueImpl(
     return coercedValue;
   }
 
-  if (isScalarType(type)) {
+  if (isLeafType(type)) {
     let parseResult;
 
-    // Scalars determine if a input value is valid via parseValue(), which can
-    // throw to indicate failure. If it throws, maintain a reference to
-    // the original error.
+    // Scalars and Enums determine if a input value is valid via parseValue(),
+    // which can throw to indicate failure. If it throws, maintain a reference
+    // to the original error.
     try {
       parseResult = type.parseValue(inputValue);
     } catch (error) {
@@ -192,28 +183,6 @@ function coerceInputValueImpl(
       );
     }
     return parseResult;
-  }
-
-  if (isEnumType(type)) {
-    if (typeof inputValue === 'string') {
-      const enumValue = type.getValue(inputValue);
-      if (enumValue) {
-        return enumValue.value;
-      }
-    }
-    const suggestions = suggestionList(
-      String(inputValue),
-      type.getValues().map(enumValue => enumValue.name),
-    );
-    onError(
-      pathToArray(path),
-      inputValue,
-      new GraphQLError(
-        `Expected type "${type.name}".` +
-          didYouMean('the enum value', suggestions),
-      ),
-    );
-    return;
   }
 
   // Not reachable. All possible input types have been considered.

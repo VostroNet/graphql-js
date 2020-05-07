@@ -36,12 +36,16 @@ describe('inspect', () => {
   });
 
   it('function', () => {
-    expect(inspect(() => invariant(false))).to.equal('[function]');
+    const unnamedFuncStr = inspect(
+      /* istanbul ignore next */ () => invariant(false),
+    );
+    expect(unnamedFuncStr).to.equal('[function]');
 
-    function testFunc() {
+    /* istanbul ignore next */
+    function namedFunc() {
       invariant(false);
     }
-    expect(inspect(testFunc)).to.equal('[function testFunc]');
+    expect(inspect(namedFunc)).to.equal('[function namedFunc]');
   });
 
   it('array', () => {
@@ -103,6 +107,7 @@ describe('inspect', () => {
 
   it('custom symbol inspect is take precedence', () => {
     const object = {
+      /* istanbul ignore next */
       inspect() {
         invariant(false);
       },
@@ -166,7 +171,7 @@ describe('inspect', () => {
     expect(inspect(customA)).to.equal('[Circular]');
   });
 
-  it('Use class names for the shortform of an object', () => {
+  it('Use class names for the short form of an object', () => {
     class Foo {
       foo: string;
 
@@ -180,7 +185,7 @@ describe('inspect', () => {
     (Foo.prototype: any)[Symbol.toStringTag] = 'Bar';
     expect(inspect([[new Foo()]])).to.equal('[[[Bar]]]');
 
-    const objectWithoutClassName = new (function() {
+    const objectWithoutClassName = new (function () {
       this.foo = 1;
     })();
     expect(inspect([[objectWithoutClassName]])).to.equal('[[[Object]]]');

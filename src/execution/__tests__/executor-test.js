@@ -14,6 +14,7 @@ import { GraphQLInt, GraphQLBoolean, GraphQLString } from '../../type/scalars';
 import {
   GraphQLList,
   GraphQLNonNull,
+  GraphQLScalarType,
   GraphQLInterfaceType,
   GraphQLObjectType,
 } from '../../type/definition';
@@ -32,7 +33,7 @@ describe('Execute: Handles basic execution tasks', () => {
     });
 
     // $DisableFlowOnNegativeTest
-    expect(() => execute({ schema })).to.throw('Must provide document');
+    expect(() => execute({ schema })).to.throw('Must provide document.');
   });
 
   it('throws if no schema is provided', () => {
@@ -41,6 +42,31 @@ describe('Execute: Handles basic execution tasks', () => {
     // $DisableFlowOnNegativeTest
     expect(() => execute({ document })).to.throw(
       'Expected undefined to be a GraphQL schema.',
+    );
+  });
+
+  it('throws on invalid variables', () => {
+    const schema = new GraphQLSchema({
+      query: new GraphQLObjectType({
+        name: 'Type',
+        fields: {
+          fieldA: {
+            type: GraphQLString,
+            args: { argA: { type: GraphQLInt } },
+          },
+        },
+      }),
+    });
+    const document = parse(`
+      query ($a: Int) {
+        fieldA(argA: $a)
+      }
+    `);
+    const variableValues = '{ "a": 1 }';
+
+    // $DisableFlowOnNegativeTest
+    expect(() => execute({ schema, document, variableValues })).to.throw(
+      'Variables must be provided as an Object where each property is a variable value. Perhaps look to see if an unparsed JSON string was provided.',
     );
   });
 
@@ -77,7 +103,7 @@ describe('Execute: Handles basic execution tasks', () => {
       e: () => 'Egg',
       f: 'Fish',
       // Called only by DataType::pic static resolver
-      pic: size => 'Pic of size: ' + (size || 50),
+      pic: (size) => 'Pic of size: ' + size,
       deep: () => deepData,
       promise: promiseData,
     };
@@ -90,7 +116,7 @@ describe('Execute: Handles basic execution tasks', () => {
     };
 
     function promiseData() {
-      return new Promise(resolve => {
+      return new Promise((resolve) => {
         process.nextTick(() => {
           resolve(data);
         });
@@ -266,7 +292,7 @@ describe('Execute: Handles basic execution tasks', () => {
     );
 
     const operation = document.definitions[0];
-    invariant(operation && operation.kind === Kind.OPERATION_DEFINITION);
+    invariant(operation.kind === Kind.OPERATION_DEFINITION);
 
     expect(resolvedInfo).to.include({
       fieldName: 'test',
@@ -402,7 +428,7 @@ describe('Execute: Handles basic execution tasks', () => {
         ];
       },
       async() {
-        return new Promise(resolve => resolve('async'));
+        return new Promise((resolve) => resolve('async'));
       },
       asyncReject() {
         return new Promise((_, reject) =>
@@ -432,10 +458,8 @@ describe('Execute: Handles basic execution tasks', () => {
         return Promise.resolve(new Error('Error getting asyncReturnError'));
       },
       asyncReturnErrorWithExtensions() {
-        const error: any = new Error(
-          'Error getting asyncReturnErrorWithExtensions',
-        );
-        error.extensions = { foo: 'bar' };
+        const error = new Error('Error getting asyncReturnErrorWithExtensions');
+        (error: any).extensions = { foo: 'bar' };
 
         return Promise.resolve(error);
       },
@@ -539,7 +563,7 @@ describe('Execute: Handles basic execution tasks', () => {
               }),
             ),
             resolve() {
-              return Promise.reject(new Error('Dangit'));
+              return Promise.reject(new Error('Oops'));
             },
           },
         },
@@ -561,7 +585,7 @@ describe('Execute: Handles basic execution tasks', () => {
       errors: [
         {
           locations: [{ column: 9, line: 3 }],
-          message: 'Dangit',
+          message: 'Oops',
           path: ['foods'],
         },
       ],
@@ -867,9 +891,9 @@ describe('Execute: Handles basic execution tasks', () => {
     const document = parse('{ a, b, c, d, e }');
     const rootValue = {
       a: () => 'a',
-      b: () => new Promise(resolve => resolve('b')),
+      b: () => new Promise((resolve) => resolve('b')),
       c: () => 'c',
-      d: () => new Promise(resolve => resolve('d')),
+      d: () => new Promise((resolve) => resolve('d')),
       e: () => 'e',
     };
 
@@ -908,6 +932,30 @@ describe('Execute: Handles basic execution tasks', () => {
     });
   });
 
+  it('ignores missing sub selections on fields', () => {
+    const someType = new GraphQLObjectType({
+      name: 'SomeType',
+      fields: {
+        b: { type: GraphQLString },
+      },
+    });
+    const schema = new GraphQLSchema({
+      query: new GraphQLObjectType({
+        name: 'Query',
+        fields: {
+          a: { type: someType },
+        },
+      }),
+    });
+    const document = parse('{ a }');
+    const rootValue = { a: { b: 'c' } };
+
+    const result = execute({ schema, document, rootValue });
+    expect(result).to.deep.equal({
+      data: { a: {} },
+    });
+  });
+
   it('does not include illegal fields in output', () => {
     const schema = new GraphQLSchema({
       query: new GraphQLObjectType({
@@ -932,7 +980,7 @@ describe('Execute: Handles basic execution tasks', () => {
         fields: {
           field: {
             type: GraphQLString,
-            resolve: (data, args) => inspect(args),
+            resolve: (_source, args) => inspect(args),
             args: {
               a: { type: GraphQLBoolean },
               b: { type: GraphQLBoolean },
@@ -954,7 +1002,7 @@ describe('Execute: Handles basic execution tasks', () => {
     });
   });
 
-  it('fails when an isTypeOf check is not met', () => {
+  it('fails when an isTypeOf check is not met', async () => {
     class Special {
       value: string;
 
@@ -973,7 +1021,10 @@ describe('Execute: Handles basic execution tasks', () => {
 
     const SpecialType = new GraphQLObjectType({
       name: 'SpecialType',
-      isTypeOf: obj => obj instanceof Special,
+      isTypeOf(obj, context) {
+        const result = obj instanceof Special;
+        return context?.async ? Promise.resolve(result) : result;
+      },
       fields: { value: { type: GraphQLString } },
     });
 
@@ -1002,6 +1053,48 @@ describe('Execute: Handles basic execution tasks', () => {
             'Expected value of type "SpecialType" but got: { value: "bar" }.',
           locations: [{ line: 1, column: 3 }],
           path: ['specials', 1],
+        },
+      ],
+    });
+
+    const contextValue = { async: true };
+    const asyncResult = await execute({
+      schema,
+      document,
+      rootValue,
+      contextValue,
+    });
+    expect(asyncResult).to.deep.equal(result);
+  });
+
+  it('fails when serialize of custom scalar does not return a value', () => {
+    const customScalar = new GraphQLScalarType({
+      name: 'CustomScalar',
+      serialize() {
+        /* returns nothing */
+      },
+    });
+    const schema = new GraphQLSchema({
+      query: new GraphQLObjectType({
+        name: 'Query',
+        fields: {
+          customScalar: {
+            type: customScalar,
+            resolve: () => 'CUSTOM_VALUE',
+          },
+        },
+      }),
+    });
+
+    const result = execute({ schema, document: parse('{ customScalar }') });
+    expect(result).to.deep.equal({
+      data: { customScalar: null },
+      errors: [
+        {
+          message:
+            'Expected a value of type "CustomScalar" but received: "CUSTOM_VALUE"',
+          locations: [{ line: 1, column: 3 }],
+          path: ['customScalar'],
         },
       ],
     });
@@ -1038,7 +1131,7 @@ describe('Execute: Handles basic execution tasks', () => {
     });
     const document = parse('{ foo }');
 
-    function fieldResolver(source, args, context, info) {
+    function fieldResolver(_source, _args, _context, info) {
       // For the purposes of test, just return the name of the field!
       return info.fieldName;
     }
@@ -1076,7 +1169,7 @@ describe('Execute: Handles basic execution tasks', () => {
     });
 
     let possibleTypes;
-    function typeResolver(source, context, info, abstractType) {
+    function typeResolver(_source, _context, info, abstractType) {
       // Resolver should be able to figure out all possible types on its own
       possibleTypes = info.schema.getPossibleTypes(abstractType);
 

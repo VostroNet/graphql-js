@@ -3,6 +3,8 @@
 import { expect } from 'chai';
 import { describe, it } from 'mocha';
 
+import invariant from '../../jsutils/invariant';
+
 import { parse } from '../../language/parser';
 
 import { GraphQLSchema } from '../../type/schema';
@@ -94,7 +96,7 @@ const DogType = new GraphQLObjectType({
     mother: { type: DogType },
     father: { type: DogType },
   }),
-  isTypeOf: value => value instanceof Dog,
+  isTypeOf: (value) => value instanceof Dog,
 });
 
 const CatType = new GraphQLObjectType({
@@ -107,7 +109,7 @@ const CatType = new GraphQLObjectType({
     mother: { type: CatType },
     father: { type: CatType },
   }),
-  isTypeOf: value => value instanceof Cat,
+  isTypeOf: (value) => value instanceof Cat,
 });
 
 const PetType = new GraphQLUnionType({
@@ -120,6 +122,9 @@ const PetType = new GraphQLUnionType({
     if (value instanceof Cat) {
       return CatType;
     }
+
+    // Not reachable. All possible types have been considered.
+    invariant(false);
   },
 });
 
@@ -134,7 +139,7 @@ const PersonType = new GraphQLObjectType({
     mother: { type: PersonType },
     father: { type: PersonType },
   }),
-  isTypeOf: value => value instanceof Person,
+  isTypeOf: (value) => value instanceof Person,
 });
 
 const schema = new GraphQLSchema({
@@ -155,7 +160,7 @@ const john = new Person('John', [garfield, odie], [liz, odie]);
 
 describe('Execute: Union and intersection types', () => {
   it('can introspect on union and intersection types', () => {
-    const ast = parse(`
+    const document = parse(`
       {
         Named: __type(name: "Named") {
           kind
@@ -187,14 +192,14 @@ describe('Execute: Union and intersection types', () => {
       }
     `);
 
-    expect(execute(schema, ast)).to.deep.equal({
+    expect(execute({ schema, document })).to.deep.equal({
       data: {
         Named: {
           kind: 'INTERFACE',
           name: 'Named',
           fields: [{ name: 'name' }],
           interfaces: [],
-          possibleTypes: [{ name: 'Person' }, { name: 'Dog' }, { name: 'Cat' }],
+          possibleTypes: [{ name: 'Dog' }, { name: 'Cat' }, { name: 'Person' }],
           enumValues: null,
           inputFields: null,
         },
@@ -203,7 +208,7 @@ describe('Execute: Union and intersection types', () => {
           name: 'Mammal',
           fields: [{ name: 'progeny' }, { name: 'mother' }, { name: 'father' }],
           interfaces: [{ name: 'Life' }],
-          possibleTypes: [{ name: 'Person' }, { name: 'Dog' }, { name: 'Cat' }],
+          possibleTypes: [{ name: 'Dog' }, { name: 'Cat' }, { name: 'Person' }],
           enumValues: null,
           inputFields: null,
         },
@@ -222,7 +227,7 @@ describe('Execute: Union and intersection types', () => {
 
   it('executes using union types', () => {
     // NOTE: This is an *invalid* query, but it should be an *executable* query.
-    const ast = parse(`
+    const document = parse(`
       {
         __typename
         name
@@ -235,7 +240,7 @@ describe('Execute: Union and intersection types', () => {
       }
     `);
 
-    expect(execute(schema, ast, john)).to.deep.equal({
+    expect(execute({ schema, document, rootValue: john })).to.deep.equal({
       data: {
         __typename: 'Person',
         name: 'John',
@@ -257,7 +262,7 @@ describe('Execute: Union and intersection types', () => {
 
   it('executes union types with inline fragments', () => {
     // This is the valid version of the query in the above test.
-    const ast = parse(`
+    const document = parse(`
       {
         __typename
         name
@@ -275,7 +280,7 @@ describe('Execute: Union and intersection types', () => {
       }
     `);
 
-    expect(execute(schema, ast, john)).to.deep.equal({
+    expect(execute({ schema, document, rootValue: john })).to.deep.equal({
       data: {
         __typename: 'Person',
         name: 'John',
@@ -297,7 +302,7 @@ describe('Execute: Union and intersection types', () => {
 
   it('executes using interface types', () => {
     // NOTE: This is an *invalid* query, but it should be an *executable* query.
-    const ast = parse(`
+    const document = parse(`
       {
         __typename
         name
@@ -310,7 +315,7 @@ describe('Execute: Union and intersection types', () => {
       }
     `);
 
-    expect(execute(schema, ast, john)).to.deep.equal({
+    expect(execute({ schema, document, rootValue: john })).to.deep.equal({
       data: {
         __typename: 'Person',
         name: 'John',
@@ -324,7 +329,7 @@ describe('Execute: Union and intersection types', () => {
 
   it('executes interface types with inline fragments', () => {
     // This is the valid version of the query in the above test.
-    const ast = parse(`
+    const document = parse(`
       {
         __typename
         name
@@ -355,7 +360,7 @@ describe('Execute: Union and intersection types', () => {
       }
     `);
 
-    expect(execute(schema, ast, john)).to.deep.equal({
+    expect(execute({ schema, document, rootValue: john })).to.deep.equal({
       data: {
         __typename: 'Person',
         name: 'John',
@@ -376,8 +381,49 @@ describe('Execute: Union and intersection types', () => {
     });
   });
 
+  it('executes interface types with named fragments', () => {
+    const document = parse(`
+      {
+        __typename
+        name
+        friends {
+          __typename
+          name
+          ...DogBarks
+          ...CatMeows
+        }
+      }
+
+      fragment  DogBarks on Dog {
+        barks
+      }
+
+      fragment  CatMeows on Cat {
+        meows
+      }
+    `);
+
+    expect(execute({ schema, document, rootValue: john })).to.deep.equal({
+      data: {
+        __typename: 'Person',
+        name: 'John',
+        friends: [
+          {
+            __typename: 'Person',
+            name: 'Liz',
+          },
+          {
+            __typename: 'Dog',
+            name: 'Odie',
+            barks: true,
+          },
+        ],
+      },
+    });
+  });
+
   it('allows fragment conditions to be abstract types', () => {
-    const ast = parse(`
+    const document = parse(`
       {
         __typename
         name
@@ -422,7 +468,7 @@ describe('Execute: Union and intersection types', () => {
       }
     `);
 
-    expect(execute(schema, ast, john)).to.deep.equal({
+    expect(execute({ schema, document, rootValue: john })).to.deep.equal({
       data: {
         __typename: 'Person',
         name: 'John',
@@ -465,10 +511,10 @@ describe('Execute: Union and intersection types', () => {
       fields: {
         name: { type: GraphQLString },
       },
-      resolveType(obj, context, { schema: _schema, rootValue }) {
+      resolveType(_source, context, info) {
         encounteredContext = context;
-        encounteredSchema = _schema;
-        encounteredRootValue = rootValue;
+        encounteredSchema = info.schema;
+        encounteredRootValue = info.rootValue;
         return PersonType2;
       },
     });
@@ -481,23 +527,26 @@ describe('Execute: Union and intersection types', () => {
         friends: { type: GraphQLList(NamedType2) },
       },
     });
+    const schema2 = new GraphQLSchema({ query: PersonType2 });
+    const document = parse('{ name, friends { name } }');
+    const rootValue = new Person('John', [], [liz]);
+    const contextValue = { authToken: '123abc' };
 
-    const schema2 = new GraphQLSchema({
-      query: PersonType2,
+    const result = execute({
+      schema: schema2,
+      document,
+      rootValue,
+      contextValue,
+    });
+    expect(result).to.deep.equal({
+      data: {
+        name: 'John',
+        friends: [{ name: 'Liz' }],
+      },
     });
 
-    const john2 = new Person('John', [], [liz]);
-
-    const context = { authToken: '123abc' };
-
-    const ast = parse('{ name, friends { name } }');
-
-    expect(execute(schema2, ast, john2, context)).to.deep.equal({
-      data: { name: 'John', friends: [{ name: 'Liz' }] },
-    });
-
-    expect(encounteredContext).to.equal(context);
     expect(encounteredSchema).to.equal(schema2);
-    expect(encounteredRootValue).to.equal(john2);
+    expect(encounteredRootValue).to.equal(rootValue);
+    expect(encounteredContext).to.equal(contextValue);
   });
 });
