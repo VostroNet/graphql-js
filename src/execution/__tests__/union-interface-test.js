@@ -1,5 +1,3 @@
-// @flow strict
-
 import { expect } from 'chai';
 import { describe, it } from 'mocha';
 
@@ -16,20 +14,18 @@ import {
   GraphQLUnionType,
 } from '../../type/definition';
 
-import { execute } from '../execute';
+import { executeSync } from '../execute';
 
 class Dog {
   name: string;
   barks: boolean;
-  mother: ?Dog;
-  father: ?Dog;
+  mother: Dog | void;
+  father: Dog | void;
   progeny: Array<Dog>;
 
-  constructor(name, barks) {
+  constructor(name: string, barks: boolean) {
     this.name = name;
     this.barks = barks;
-    this.mother = null;
-    this.father = null;
     this.progeny = [];
   }
 }
@@ -37,25 +33,27 @@ class Dog {
 class Cat {
   name: string;
   meows: boolean;
-  mother: ?Cat;
-  father: ?Cat;
+  mother: Cat | void;
+  father: Cat | void;
   progeny: Array<Cat>;
 
-  constructor(name, meows) {
+  constructor(name: string, meows: boolean) {
     this.name = name;
     this.meows = meows;
-    this.mother = null;
-    this.father = null;
     this.progeny = [];
   }
 }
 
 class Person {
   name: string;
-  pets: ?Array<Dog | Cat>;
-  friends: ?Array<Dog | Cat | Person>;
+  pets: Array<Dog | Cat> | void;
+  friends: Array<Dog | Cat | Person> | void;
 
-  constructor(name, pets, friends) {
+  constructor(
+    name: string,
+    pets?: Array<Dog | Cat>,
+    friends?: Array<Dog | Cat | Person> | void,
+  ) {
     this.name = name;
     this.pets = pets;
     this.friends = friends;
@@ -119,11 +117,12 @@ const PetType = new GraphQLUnionType({
     if (value instanceof Dog) {
       return DogType;
     }
+    // istanbul ignore else (See: 'https://github.com/graphql/graphql-js/issues/2618')
     if (value instanceof Cat) {
       return CatType;
     }
 
-    // Not reachable. All possible types have been considered.
+    // istanbul ignore next (Not reachable. All possible types have been considered)
     invariant(false);
   },
 });
@@ -192,7 +191,7 @@ describe('Execute: Union and intersection types', () => {
       }
     `);
 
-    expect(execute({ schema, document })).to.deep.equal({
+    expect(executeSync({ schema, document })).to.deep.equal({
       data: {
         Named: {
           kind: 'INTERFACE',
@@ -240,7 +239,7 @@ describe('Execute: Union and intersection types', () => {
       }
     `);
 
-    expect(execute({ schema, document, rootValue: john })).to.deep.equal({
+    expect(executeSync({ schema, document, rootValue: john })).to.deep.equal({
       data: {
         __typename: 'Person',
         name: 'John',
@@ -280,7 +279,7 @@ describe('Execute: Union and intersection types', () => {
       }
     `);
 
-    expect(execute({ schema, document, rootValue: john })).to.deep.equal({
+    expect(executeSync({ schema, document, rootValue: john })).to.deep.equal({
       data: {
         __typename: 'Person',
         name: 'John',
@@ -315,7 +314,7 @@ describe('Execute: Union and intersection types', () => {
       }
     `);
 
-    expect(execute({ schema, document, rootValue: john })).to.deep.equal({
+    expect(executeSync({ schema, document, rootValue: john })).to.deep.equal({
       data: {
         __typename: 'Person',
         name: 'John',
@@ -360,7 +359,7 @@ describe('Execute: Union and intersection types', () => {
       }
     `);
 
-    expect(execute({ schema, document, rootValue: john })).to.deep.equal({
+    expect(executeSync({ schema, document, rootValue: john })).to.deep.equal({
       data: {
         __typename: 'Person',
         name: 'John',
@@ -403,7 +402,7 @@ describe('Execute: Union and intersection types', () => {
       }
     `);
 
-    expect(execute({ schema, document, rootValue: john })).to.deep.equal({
+    expect(executeSync({ schema, document, rootValue: john })).to.deep.equal({
       data: {
         __typename: 'Person',
         name: 'John',
@@ -468,7 +467,7 @@ describe('Execute: Union and intersection types', () => {
       }
     `);
 
-    expect(execute({ schema, document, rootValue: john })).to.deep.equal({
+    expect(executeSync({ schema, document, rootValue: john })).to.deep.equal({
       data: {
         __typename: 'Person',
         name: 'John',
@@ -532,7 +531,7 @@ describe('Execute: Union and intersection types', () => {
     const rootValue = new Person('John', [], [liz]);
     const contextValue = { authToken: '123abc' };
 
-    const result = execute({
+    const result = executeSync({
       schema: schema2,
       document,
       rootValue,

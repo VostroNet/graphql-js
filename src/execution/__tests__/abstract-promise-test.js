@@ -1,5 +1,3 @@
-// @flow strict
-
 import { expect } from 'chai';
 import { describe, it } from 'mocha';
 
@@ -20,7 +18,7 @@ class Dog {
   name: string;
   woofs: boolean;
 
-  constructor(name, woofs) {
+  constructor(name: string, woofs: boolean) {
     this.name = name;
     this.woofs = woofs;
   }
@@ -30,7 +28,7 @@ class Cat {
   name: string;
   meows: boolean;
 
-  constructor(name, meows) {
+  constructor(name: string, meows: boolean) {
     this.name = name;
     this.meows = meows;
   }
@@ -39,7 +37,7 @@ class Cat {
 class Human {
   name: string;
 
-  constructor(name) {
+  constructor(name: string) {
     this.name = name;
   }
 }
@@ -276,11 +274,12 @@ describe('Execute: Handles execution of abstract types with promises', () => {
         if (obj instanceof Cat) {
           return Promise.resolve(CatType);
         }
+        // istanbul ignore else (See: 'https://github.com/graphql/graphql-js/issues/2618')
         if (obj instanceof Human) {
           return Promise.resolve(HumanType);
         }
 
-        // Not reachable. All possible types have been considered.
+        // istanbul ignore next (Not reachable. All possible types have been considered)
         invariant(false);
       },
       fields: {
@@ -405,11 +404,12 @@ describe('Execute: Handles execution of abstract types with promises', () => {
         if (obj instanceof Cat) {
           return Promise.resolve(CatType);
         }
+        // istanbul ignore else (See: 'https://github.com/graphql/graphql-js/issues/2618')
         if (obj instanceof Human) {
           return Promise.resolve(HumanType);
         }
 
-        // Not reachable. All possible types have been considered.
+        // istanbul ignore next (Not reachable. All possible types have been considered)
         invariant(false);
       },
       types: [DogType, CatType],
@@ -481,11 +481,12 @@ describe('Execute: Handles execution of abstract types with promises', () => {
         if (obj instanceof Dog) {
           return Promise.resolve('Dog');
         }
+        // istanbul ignore else (See: 'https://github.com/graphql/graphql-js/issues/2618')
         if (obj instanceof Cat) {
           return Promise.resolve('Cat');
         }
 
-        // Not reachable. All possible types have been considered.
+        // istanbul ignore next (Not reachable. All possible types have been considered)
         invariant(false);
       },
       fields: {

@@ -1,5 +1,3 @@
-// @flow strict
-
 import { expect } from 'chai';
 import { describe, it } from 'mocha';
 
@@ -1132,7 +1130,7 @@ describe('Visitor', () => {
                 return BREAK;
               }
             },
-            /* istanbul ignore next */
+            // istanbul ignore next (Never called and used as a placeholder)
             leave() {
               invariant(false);
             },

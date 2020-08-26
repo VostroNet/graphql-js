@@ -1,5 +1,3 @@
-// @flow strict
-
 import { expect } from 'chai';
 import { describe, it } from 'mocha';
 
@@ -155,7 +153,7 @@ describe('getOperationRootType', () => {
       operation: 'non_existent_operation',
     };
 
-    // $DisableFlowOnNegativeTest
+    // $FlowExpectedError[incompatible-call]
     expect(() => getOperationRootType(testSchema, operationNode)).to.throw(
       'Can only have query, mutation and subscription operations.',
     );

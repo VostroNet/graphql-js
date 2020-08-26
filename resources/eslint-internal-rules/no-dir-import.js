@@ -1,5 +1,3 @@
-// @noflow
-
 'use strict';
 
 const fs = require('fs');
@@ -7,11 +5,11 @@ const path = require('path');
 
 module.exports = function (context) {
   return {
-    ImportDeclaration: checkImporPath,
-    ExportNamedDeclaration: checkImporPath,
+    ImportDeclaration: checkImportPath,
+    ExportNamedDeclaration: checkImportPath,
   };
 
-  function checkImporPath(node) {
+  function checkImportPath(node) {
     const { source } = node;
 
     // bail if the declaration doesn't have a source, e.g. "export { foo };"

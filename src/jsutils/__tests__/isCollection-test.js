@@ -1,5 +1,3 @@
-// @flow strict
-
 import { expect } from 'chai';
 import { describe, it } from 'mocha';
 
@@ -30,7 +28,7 @@ describe('isCollection', () => {
     const iterator = { [Symbol.iterator]: identityFunc };
     expect(isCollection(iterator)).to.equal(true);
 
-    // istanbul ignore next
+    // istanbul ignore next (Never called and use just as a placeholder)
     function* generatorFunc() {
       /* do nothing */
     }

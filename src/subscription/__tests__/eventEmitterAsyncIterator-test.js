@@ -1,5 +1,3 @@
-// @flow strict
-
 import EventEmitter from 'events';
 
 import { expect } from 'chai';
@@ -43,7 +41,7 @@ describe('eventEmitterAsyncIterator', () => {
     const i5 = iterator.next().then((x) => x);
 
     // Terminate emitter
-    // $FlowFixMe
+    // $FlowFixMe[prop-missing]
     await iterator.return();
 
     // Publish is not caught after terminate

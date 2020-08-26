@@ -1,5 +1,3 @@
-// @flow strict
-
 import nodejsCustomInspectSymbol from './nodejsCustomInspectSymbol';
 
 const MAX_ARRAY_LENGTH = 10;
@@ -37,7 +35,7 @@ function formatObjectValue(value, previouslySeenValues) {
   const customInspectFn = getCustomFn(value);
 
   if (customInspectFn !== undefined) {
-    // $FlowFixMe(>=0.90.0)
+    // $FlowFixMe[incompatible-use]
     const customValue = customInspectFn.call(value);
 
     // check for infinite recursion

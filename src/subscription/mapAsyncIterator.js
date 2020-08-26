@@ -1,8 +1,6 @@
-// @flow strict
-
 import { SYMBOL_ASYNC_ITERATOR } from '../polyfills/symbols';
 
-import { type PromiseOrValue } from '../jsutils/PromiseOrValue';
+import type { PromiseOrValue } from '../jsutils/PromiseOrValue';
 
 /**
  * Given an AsyncIterable and a callback function, return an AsyncIterator
@@ -13,7 +11,7 @@ export default function mapAsyncIterator<T, U>(
   callback: (T) => PromiseOrValue<U>,
   rejectCallback?: (any) => PromiseOrValue<U>,
 ): AsyncGenerator<U, void, void> {
-  // $FlowFixMe
+  // $FlowFixMe[prop-missing]
   const iteratorMethod = iterable[SYMBOL_ASYNC_ITERATOR];
   const iterator: any = iteratorMethod.call(iterable);
   let $return: any;

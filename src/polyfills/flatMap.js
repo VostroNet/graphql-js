@@ -1,5 +1,3 @@
-// @flow strict
-
 declare function flatMap<T, U>(
   list: $ReadOnlyArray<T>,
   fn: (item: T, index: number) => $ReadOnlyArray<U> | U,
@@ -8,7 +6,7 @@ declare function flatMap<T, U>(
 const flatMapMethod = Array.prototype.flatMap;
 
 /* eslint-disable no-redeclare */
-// $FlowFixMe
+// $FlowFixMe[name-already-bound]
 const flatMap = flatMapMethod
   ? function (list, fn) {
       return flatMapMethod.call(list, fn);

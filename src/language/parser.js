@@ -1,63 +1,62 @@
-// @flow strict
-
 import inspect from '../jsutils/inspect';
 import devAssert from '../jsutils/devAssert';
 
+import type { GraphQLError } from '../error/GraphQLError';
 import { syntaxError } from '../error/syntaxError';
-import { type GraphQLError } from '../error/GraphQLError';
 
-import { Kind } from './kinds';
-import { Source } from './source';
-import { DirectiveLocation } from './directiveLocation';
-import { type TokenKindEnum, TokenKind } from './tokenKind';
-import { Lexer, isPunctuatorTokenKind } from './lexer';
-import {
-  Location,
-  type Token,
-  type NameNode,
-  type VariableNode,
-  type DocumentNode,
-  type DefinitionNode,
-  type OperationDefinitionNode,
-  type OperationTypeNode,
-  type VariableDefinitionNode,
-  type SelectionSetNode,
-  type SelectionNode,
-  type FieldNode,
-  type ArgumentNode,
-  type FragmentSpreadNode,
-  type InlineFragmentNode,
-  type FragmentDefinitionNode,
-  type ValueNode,
-  type StringValueNode,
-  type ListValueNode,
-  type ObjectValueNode,
-  type ObjectFieldNode,
-  type DirectiveNode,
-  type TypeNode,
-  type NamedTypeNode,
-  type TypeSystemDefinitionNode,
-  type SchemaDefinitionNode,
-  type OperationTypeDefinitionNode,
-  type ScalarTypeDefinitionNode,
-  type ObjectTypeDefinitionNode,
-  type FieldDefinitionNode,
-  type InputValueDefinitionNode,
-  type InterfaceTypeDefinitionNode,
-  type UnionTypeDefinitionNode,
-  type EnumTypeDefinitionNode,
-  type EnumValueDefinitionNode,
-  type InputObjectTypeDefinitionNode,
-  type DirectiveDefinitionNode,
-  type TypeSystemExtensionNode,
-  type SchemaExtensionNode,
-  type ScalarTypeExtensionNode,
-  type ObjectTypeExtensionNode,
-  type InterfaceTypeExtensionNode,
-  type UnionTypeExtensionNode,
-  type EnumTypeExtensionNode,
-  type InputObjectTypeExtensionNode,
+import type { TokenKindEnum } from './tokenKind';
+import type {
+  Token,
+  NameNode,
+  VariableNode,
+  DocumentNode,
+  DefinitionNode,
+  OperationDefinitionNode,
+  OperationTypeNode,
+  VariableDefinitionNode,
+  SelectionSetNode,
+  SelectionNode,
+  FieldNode,
+  ArgumentNode,
+  FragmentSpreadNode,
+  InlineFragmentNode,
+  FragmentDefinitionNode,
+  ValueNode,
+  StringValueNode,
+  ListValueNode,
+  ObjectValueNode,
+  ObjectFieldNode,
+  DirectiveNode,
+  TypeNode,
+  NamedTypeNode,
+  TypeSystemDefinitionNode,
+  SchemaDefinitionNode,
+  OperationTypeDefinitionNode,
+  ScalarTypeDefinitionNode,
+  ObjectTypeDefinitionNode,
+  FieldDefinitionNode,
+  InputValueDefinitionNode,
+  InterfaceTypeDefinitionNode,
+  UnionTypeDefinitionNode,
+  EnumTypeDefinitionNode,
+  EnumValueDefinitionNode,
+  InputObjectTypeDefinitionNode,
+  DirectiveDefinitionNode,
+  TypeSystemExtensionNode,
+  SchemaExtensionNode,
+  ScalarTypeExtensionNode,
+  ObjectTypeExtensionNode,
+  InterfaceTypeExtensionNode,
+  UnionTypeExtensionNode,
+  EnumTypeExtensionNode,
+  InputObjectTypeExtensionNode,
 } from './ast';
+import { Kind } from './kinds';
+import { Location } from './ast';
+import { Source } from './source';
+import { TokenKind } from './tokenKind';
+import { DirectiveLocation } from './directiveLocation';
+import { Lexer, isPunctuatorTokenKind } from './lexer';
 
 /**
  * Configuration options to control parser behavior
@@ -163,7 +162,18 @@ export function parseType(
   return type;
 }
 
-class Parser {
+/**
+ * This class is exported only to assist people in implementing their own parsers
+ * without duplicating too much code and should be used only as last resort for cases
+ * such as experimental syntax or if certain features could not be contributed upstream.
+ *
+ * It is still part of the internal API and is versioned, so any changes to it are never
+ * considered breaking changes. If you still need to support multiple versions of the
+ * library, please use the `versionInfo` variable for version detection.
+ *
+ * @internal
+ */
+export class Parser {
   _options: ?ParseOptions;
   _lexer: Lexer;
 

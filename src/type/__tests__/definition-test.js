@@ -1,5 +1,3 @@
-// @flow strict
-
 import { expect } from 'chai';
 import { describe, it } from 'mocha';
 
@@ -8,9 +6,8 @@ import identityFunc from '../../jsutils/identityFunc';
 
 import { parseValue } from '../../language/parser';
 
+import type { GraphQLType, GraphQLNullableType } from '../definition';
 import {
-  type GraphQLType,
-  type GraphQLNullableType,
   GraphQLScalarType,
   GraphQLObjectType,
   GraphQLInterfaceType,
@@ -39,7 +36,7 @@ const NonNullScalarType = GraphQLNonNull(ScalarType);
 const ListOfNonNullScalarsType = GraphQLList(NonNullScalarType);
 const NonNullListOfScalars = GraphQLNonNull(ListOfScalarsType);
 
-/* istanbul ignore next */
+// istanbul ignore next (Never called and used as a placeholder)
 const dummyFunc = () => {
   /* empty */
 };
@@ -47,6 +44,16 @@ const dummyFunc = () => {
 describe('Type System: Scalars', () => {
   it('accepts a Scalar type defining serialize', () => {
     expect(() => new GraphQLScalarType({ name: 'SomeScalar' })).to.not.throw();
+  });
+
+  it('accepts a Scalar type defining specifiedByUrl', () => {
+    expect(
+      () =>
+        new GraphQLScalarType({
+          name: 'SomeScalar',
+          specifiedByUrl: 'https://example.com/foo_spec',
+        }),
+    ).not.to.throw();
   });
 
   it('accepts a Scalar type defining parseValue and parseLiteral', () => {
@@ -82,10 +89,13 @@ describe('Type System: Scalars', () => {
     expect(scalar.parseLiteral(parseValue('{ foo: "bar" }'))).to.equal(
       'parseValue: { foo: "bar" }',
     );
+    expect(
+      scalar.parseLiteral(parseValue('{ foo: { bar: $var } }'), { var: 'baz' }),
+    ).to.equal('parseValue: { foo: { bar: "baz" } }');
   });
 
   it('rejects a Scalar type without name', () => {
-    // $DisableFlowOnNegativeTest
+    // $FlowExpectedError[prop-missing]
     expect(() => new GraphQLScalarType({})).to.throw('Must provide name.');
   });
 
@@ -94,7 +104,7 @@ describe('Type System: Scalars', () => {
       () =>
         new GraphQLScalarType({
           name: 'SomeScalar',
-          // $DisableFlowOnNegativeTest
+          // $FlowExpectedError[prop-missing]
           serialize: {},
         }),
     ).to.throw(
@@ -119,13 +129,26 @@ describe('Type System: Scalars', () => {
       () =>
         new GraphQLScalarType({
           name: 'SomeScalar',
-          // $DisableFlowOnNegativeTest
+          // $FlowExpectedError[prop-missing]
           parseValue: {},
-          // $DisableFlowOnNegativeTest
+          // $FlowExpectedError[prop-missing]
           parseLiteral: {},
         }),
     ).to.throw(
       'SomeScalar must provide both "parseValue" and "parseLiteral" functions.',
+    );
+  });
+
+  it('rejects a Scalar type defining specifiedByUrl with an incorrect type', () => {
+    expect(
+      () =>
+        new GraphQLScalarType({
+          name: 'SomeScalar',
+          // $FlowExpectedError[incompatible-call]
+          specifiedByUrl: {},
+        }),
+    ).to.throw(
+      'SomeScalar must provide "specifiedByUrl" as a string, but got: {}.',
     );
   });
 });
@@ -305,7 +328,7 @@ describe('Type System: Objects', () => {
   });
 
   it('rejects an Object type without name', () => {
-    // $DisableFlowOnNegativeTest
+    // $FlowExpectedError[prop-missing]
     expect(() => new GraphQLObjectType({})).to.throw('Must provide name.');
   });
 
@@ -313,7 +336,7 @@ describe('Type System: Objects', () => {
     const objType = new GraphQLObjectType({
       name: 'SomeObject',
       fields: {
-        // $DisableFlowOnNegativeTest
+        // $FlowExpectedError[incompatible-call]
         f: undefined,
       },
     });
@@ -325,7 +348,7 @@ describe('Type System: Objects', () => {
   it('rejects an Object type with incorrectly typed fields', () => {
     const objType = new GraphQLObjectType({
       name: 'SomeObject',
-      // $DisableFlowOnNegativeTest
+      // $FlowExpectedError[incompatible-call]
       fields: [{ field: ScalarType }],
     });
     expect(() => objType.getFields()).to.throw(
@@ -336,8 +359,8 @@ describe('Type System: Objects', () => {
   it('rejects an Object type with a field function that returns incorrect type', () => {
     const objType = new GraphQLObjectType({
       name: 'SomeObject',
-      // $DisableFlowOnNegativeTest
       fields() {
+        // $FlowExpectedError[incompatible-call]
         return [{ field: ScalarType }];
       },
     });
@@ -352,7 +375,7 @@ describe('Type System: Objects', () => {
       fields: {
         badField: {
           type: ScalarType,
-          // $DisableFlowOnNegativeTest
+          // $FlowExpectedError[incompatible-call]
           args: [{ badArg: ScalarType }],
         },
       },
@@ -365,7 +388,7 @@ describe('Type System: Objects', () => {
   it('rejects an Object type with an isDeprecated instead of deprecationReason on field', () => {
     const OldObject = new GraphQLObjectType({
       name: 'OldObject',
-      // $DisableFlowOnNegativeTest
+      // $FlowExpectedError[incompatible-call]
       fields: {
         field: { type: ScalarType, isDeprecated: true },
       },
@@ -380,7 +403,7 @@ describe('Type System: Objects', () => {
     const objType = new GraphQLObjectType({
       name: 'SomeObject',
       fields: {},
-      // $DisableFlowOnNegativeTest
+      // $FlowExpectedError[incompatible-call]
       interfaces: {},
     });
     expect(() => objType.getInterfaces()).to.throw(
@@ -392,8 +415,8 @@ describe('Type System: Objects', () => {
     const objType = new GraphQLObjectType({
       name: 'SomeObject',
       fields: {},
-      // $DisableFlowOnNegativeTest
       interfaces() {
+        // $FlowExpectedError[incompatible-call]
         return {};
       },
     });
@@ -405,7 +428,7 @@ describe('Type System: Objects', () => {
   it('rejects an empty Object field resolver', () => {
     const objType = new GraphQLObjectType({
       name: 'SomeObject',
-      // $DisableFlowOnNegativeTest
+      // $FlowExpectedError[incompatible-call]
       fields: {
         field: { type: ScalarType, resolve: {} },
       },
@@ -419,7 +442,7 @@ describe('Type System: Objects', () => {
   it('rejects a constant scalar value resolver', () => {
     const objType = new GraphQLObjectType({
       name: 'SomeObject',
-      // $DisableFlowOnNegativeTest
+      // $FlowExpectedError[incompatible-call]
       fields: {
         field: { type: ScalarType, resolve: 0 },
       },
@@ -436,7 +459,7 @@ describe('Type System: Objects', () => {
         new GraphQLObjectType({
           name: 'AnotherObject',
           fields: {},
-          // $DisableFlowOnNegativeTest
+          // $FlowExpectedError[prop-missing]
           isTypeOf: {},
         }),
     ).to.throw(
@@ -475,7 +498,7 @@ describe('Type System: Interfaces', () => {
   });
 
   it('rejects an Interface type without name', () => {
-    // $DisableFlowOnNegativeTest
+    // $FlowExpectedError[prop-missing]
     expect(() => new GraphQLInterfaceType({})).to.throw('Must provide name.');
   });
 
@@ -483,7 +506,7 @@ describe('Type System: Interfaces', () => {
     const objType = new GraphQLInterfaceType({
       name: 'AnotherInterface',
       fields: {},
-      // $DisableFlowOnNegativeTest
+      // $FlowExpectedError[incompatible-call]
       interfaces: {},
     });
     expect(() => objType.getInterfaces()).to.throw(
@@ -495,8 +518,8 @@ describe('Type System: Interfaces', () => {
     const objType = new GraphQLInterfaceType({
       name: 'AnotherInterface',
       fields: {},
-      // $DisableFlowOnNegativeTest
       interfaces() {
+        // $FlowExpectedError[incompatible-call]
         return {};
       },
     });
@@ -511,7 +534,7 @@ describe('Type System: Interfaces', () => {
         new GraphQLInterfaceType({
           name: 'AnotherInterface',
           fields: {},
-          // $DisableFlowOnNegativeTest
+          // $FlowExpectedError[prop-missing]
           resolveType: {},
         }),
     ).to.throw(
@@ -556,7 +579,7 @@ describe('Type System: Unions', () => {
   });
 
   it('rejects an Union type without name', () => {
-    // $DisableFlowOnNegativeTest
+    // $FlowExpectedError[prop-missing]
     expect(() => new GraphQLUnionType({})).to.throw('Must provide name.');
   });
 
@@ -566,7 +589,7 @@ describe('Type System: Unions', () => {
         new GraphQLUnionType({
           name: 'SomeUnion',
           types: [],
-          // $DisableFlowOnNegativeTest
+          // $FlowExpectedError[prop-missing]
           resolveType: {},
         }),
     ).to.throw(
@@ -577,7 +600,7 @@ describe('Type System: Unions', () => {
   it('rejects a Union type with incorrectly typed types', () => {
     const unionType = new GraphQLUnionType({
       name: 'SomeUnion',
-      // $DisableFlowOnNegativeTest
+      // $FlowExpectedError[incompatible-call]
       types: { ObjectType },
     });
 
@@ -676,7 +699,7 @@ describe('Type System: Enums', () => {
   });
 
   it('rejects an Enum type without name', () => {
-    // $DisableFlowOnNegativeTest
+    // $FlowExpectedError[prop-missing]
     expect(() => new GraphQLEnumType({ values: {} })).to.throw(
       'Must provide name.',
     );
@@ -687,7 +710,7 @@ describe('Type System: Enums', () => {
       () =>
         new GraphQLEnumType({
           name: 'SomeEnum',
-          // $DisableFlowOnNegativeTest
+          // $FlowExpectedError[incompatible-call]
           values: [{ FOO: 10 }],
         }),
     ).to.throw('SomeEnum values must be an object with value names as keys.');
@@ -698,7 +721,7 @@ describe('Type System: Enums', () => {
       () =>
         new GraphQLEnumType({
           name: 'SomeEnum',
-          // $DisableFlowOnNegativeTest
+          // $FlowExpectedError[incompatible-call]
           values: { FOO: null },
         }),
     ).to.throw(
@@ -711,7 +734,7 @@ describe('Type System: Enums', () => {
       () =>
         new GraphQLEnumType({
           name: 'SomeEnum',
-          // $DisableFlowOnNegativeTest
+          // $FlowExpectedError[incompatible-call]
           values: { FOO: 10 },
         }),
     ).to.throw(
@@ -724,7 +747,7 @@ describe('Type System: Enums', () => {
       () =>
         new GraphQLEnumType({
           name: 'SomeEnum',
-          // $DisableFlowOnNegativeTest
+          // $FlowExpectedError[prop-missing]
           values: {
             FOO: { isDeprecated: true },
           },
@@ -776,7 +799,7 @@ describe('Type System: Input Objects', () => {
     });
 
     it('rejects an Input Object type without name', () => {
-      // $DisableFlowOnNegativeTest
+      // $FlowExpectedError[prop-missing]
       expect(() => new GraphQLInputObjectType({})).to.throw(
         'Must provide name.',
       );
@@ -785,7 +808,7 @@ describe('Type System: Input Objects', () => {
     it('rejects an Input Object type with incorrect fields', () => {
       const inputObjType = new GraphQLInputObjectType({
         name: 'SomeInputObject',
-        // $DisableFlowOnNegativeTest
+        // $FlowExpectedError[incompatible-call]
         fields: [],
       });
       expect(() => inputObjType.getFields()).to.throw(
@@ -796,7 +819,7 @@ describe('Type System: Input Objects', () => {
     it('rejects an Input Object type with fields function that returns incorrect type', () => {
       const inputObjType = new GraphQLInputObjectType({
         name: 'SomeInputObject',
-        // $DisableFlowOnNegativeTest
+        // $FlowExpectedError[incompatible-call]
         fields: () => [],
       });
       expect(() => inputObjType.getFields()).to.throw(
@@ -809,7 +832,7 @@ describe('Type System: Input Objects', () => {
     it('rejects an Input Object type with resolvers', () => {
       const inputObjType = new GraphQLInputObjectType({
         name: 'SomeInputObject',
-        // $DisableFlowOnNegativeTest
+        // $FlowExpectedError[incompatible-call]
         fields: {
           f: { type: ScalarType, resolve: dummyFunc },
         },
@@ -822,7 +845,7 @@ describe('Type System: Input Objects', () => {
     it('rejects an Input Object type with resolver constant', () => {
       const inputObjType = new GraphQLInputObjectType({
         name: 'SomeInputObject',
-        // $DisableFlowOnNegativeTest
+        // $FlowExpectedError[incompatible-call]
         fields: {
           f: { type: ScalarType, resolve: {} },
         },
@@ -851,15 +874,15 @@ describe('Type System: List', () => {
   });
 
   it('rejects a non-type as item type of list', () => {
-    // $DisableFlowOnNegativeTest
+    // $FlowExpectedError[incompatible-call]
     expectList({}).to.throw('Expected {} to be a GraphQL type.');
-    // $DisableFlowOnNegativeTest
+    // $FlowExpectedError[incompatible-call]
     expectList(String).to.throw(
       'Expected [function String] to be a GraphQL type.',
     );
-    // $DisableFlowOnNegativeTest
+    // $FlowExpectedError[incompatible-call]
     expectList(null).to.throw('Expected null to be a GraphQL type.');
-    // $DisableFlowOnNegativeTest
+    // $FlowExpectedError[incompatible-call]
     expectList(undefined).to.throw('Expected undefined to be a GraphQL type.');
   });
 });
@@ -881,21 +904,21 @@ describe('Type System: Non-Null', () => {
   });
 
   it('rejects a non-type as nullable type of non-null', () => {
-    // $DisableFlowOnNegativeTest
+    // $FlowExpectedError[incompatible-call]
     expectNonNull(NonNullScalarType).to.throw(
       'Expected Scalar! to be a GraphQL nullable type.',
     );
-    // $DisableFlowOnNegativeTest
+    // $FlowExpectedError[incompatible-call]
     expectNonNull({}).to.throw('Expected {} to be a GraphQL nullable type.');
-    // $DisableFlowOnNegativeTest
+    // $FlowExpectedError[incompatible-call]
     expectNonNull(String).to.throw(
       'Expected [function String] to be a GraphQL nullable type.',
     );
-    // $DisableFlowOnNegativeTest
+    // $FlowExpectedError[incompatible-call]
     expectNonNull(null).to.throw(
       'Expected null to be a GraphQL nullable type.',
     );
-    // $DisableFlowOnNegativeTest
+    // $FlowExpectedError[incompatible-call]
     expectNonNull(undefined).to.throw(
       'Expected undefined to be a GraphQL nullable type.',
     );

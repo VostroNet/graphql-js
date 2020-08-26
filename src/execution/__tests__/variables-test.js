@@ -1,5 +1,3 @@
-// @flow strict
-
 import { expect } from 'chai';
 import { describe, it } from 'mocha';
 
@@ -20,7 +18,7 @@ import {
   GraphQLEnumType,
 } from '../../type/definition';
 
-import { execute } from '../execute';
+import { executeSync } from '../execute';
 import { getVariableValues } from '../values';
 
 const TestComplexScalar = new GraphQLScalarType({
@@ -118,7 +116,7 @@ const schema = new GraphQLSchema({ query: TestType });
 
 function executeQuery(query, variableValues) {
   const document = parse(query);
-  return execute({ schema, document, variableValues });
+  return executeSync({ schema, document, variableValues });
 }
 
 describe('Execute: Handles inputs', () => {

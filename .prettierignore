@@ -1,0 +1,12 @@
+# Copied from '.gitignore', please keep it in sync.
+/.eslintcache
+/node_modules
+/coverage
+/npmDist
+/denoDist
+/benchmarkDist
+/npm
+/deno
+
+# Don't touch GraphQL files.
+/src/**/*.graphql

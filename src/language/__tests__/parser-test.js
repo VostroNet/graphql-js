@@ -1,11 +1,10 @@
-// @flow strict
-
 import { inspect as nodeInspect } from 'util';
 
 import { expect } from 'chai';
 import { describe, it } from 'mocha';
 
-import dedent from '../../jsutils/dedent';
+import dedent from '../../__testUtils__/dedent';
+
 import inspect from '../../jsutils/inspect';
 
 import { Kind } from '../kinds';
@@ -23,12 +22,12 @@ function expectSyntaxError(text) {
 
 describe('Parser', () => {
   it('asserts that a source to parse was provided', () => {
-    // $DisableFlowOnNegativeTest
+    // $FlowExpectedError[incompatible-call]
     expect(() => parse()).to.throw('Must provide Source. Received: undefined.');
   });
 
   it('asserts that an invalid source to parse was provided', () => {
-    // $DisableFlowOnNegativeTest
+    // $FlowExpectedError[incompatible-call]
     expect(() => parse({})).to.throw('Must provide Source. Received: {}.');
   });
 

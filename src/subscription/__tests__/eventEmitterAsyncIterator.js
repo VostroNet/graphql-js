@@ -1,5 +1,3 @@
-// @flow strict
-
 import type EventEmitter from 'events';
 
 /**
@@ -59,7 +57,7 @@ export default function eventEmitterAsyncIterator(
       emptyQueue();
       return Promise.reject(error);
     },
-    // $FlowFixMe Blocked by https://github.com/facebook/flow/issues/3258
+    // $FlowFixMe[prop-missing] Blocked by https://github.com/facebook/flow/issues/3258
     [Symbol.asyncIterator]() {
       return this;
     },

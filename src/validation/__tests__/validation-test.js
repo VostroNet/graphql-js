@@ -1,5 +1,3 @@
-// @flow strict
-
 import { expect } from 'chai';
 import { describe, it } from 'mocha';
 
@@ -16,7 +14,7 @@ import { testSchema } from './harness';
 
 describe('Validate: Supports full validation', () => {
   it('rejects invalid documents', () => {
-    // $DisableFlowOnNegativeTest
+    // $FlowExpectedError[incompatible-call]
     expect(() => validate(testSchema, null)).to.throw('Must provide document.');
   });
 
@@ -38,19 +36,18 @@ describe('Validate: Supports full validation', () => {
     expect(errors).to.deep.equal([]);
   });
 
-  it('detects bad scalar parse', () => {
+  it('detects unknown fields', () => {
     const doc = parse(`
-      query {
-        invalidArg(arg: "bad value")
+      {
+        unknown
       }
     `);
 
     const errors = validate(testSchema, doc);
     expect(errors).to.deep.equal([
       {
-        locations: [{ line: 3, column: 25 }],
-        message:
-          'Expected value of type "Invalid", found "bad value"; Invalid scalar is always invalid: "bad value"',
+        locations: [{ line: 3, column: 9 }],
+        message: 'Cannot query field "unknown" on type "QueryRoot".',
       },
     ]);
   });

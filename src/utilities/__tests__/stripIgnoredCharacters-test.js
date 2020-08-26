@@ -1,9 +1,9 @@
-// @flow strict
-
 import { expect } from 'chai';
 import { describe, it } from 'mocha';
 
-import dedent from '../../jsutils/dedent';
+import dedent from '../../__testUtils__/dedent';
+import inspectStr from '../../__testUtils__/inspectStr';
+
 import invariant from '../../jsutils/invariant';
 
 import { parse } from '../../language/parser';
@@ -66,14 +66,6 @@ function lexValue(str) {
   return value;
 }
 
-// Called only to make error messages for failing tests
-/* istanbul ignore next */
-function inspectStr(str) {
-  return (JSON.stringify(str) ?? '')
-    .replace(/^"|"$/g, '`')
-    .replace(/\\"/g, '"');
-}
-
 function expectStripped(docString) {
   return {
     toEqual(expected) {
@@ -107,14 +99,14 @@ function expectStripped(docString) {
 
 describe('stripIgnoredCharacters', () => {
   it('asserts that a source was provided', () => {
-    // $DisableFlowOnNegativeTest
+    // $FlowExpectedError[incompatible-call]
     expect(() => stripIgnoredCharacters()).to.throw(
       'Must provide string or Source. Received: undefined.',
     );
   });
 
   it('asserts that a valid source was provided', () => {
-    // $DisableFlowOnNegativeTest
+    // $FlowExpectedError[incompatible-call]
     expect(() => stripIgnoredCharacters({})).to.throw(
       'Must provide string or Source. Received: {}.',
     );
@@ -441,46 +433,6 @@ describe('stripIgnoredCharacters', () => {
     expectStrippedString('"""\na\n b"""').toStayTheSame();
     expectStrippedString('"""\n a\n b"""').toEqual('"""a\nb"""');
     expectStrippedString('"""\na\n b\nc"""').toEqual('"""a\n b\nc"""');
-
-    // Testing with length >5 is taking exponentially more time. However it is
-    // highly recommended to test with increased limit if you make any change.
-    const maxCombinationLength = 5;
-    const possibleChars = ['\n', ' ', '"', 'a', '\\'];
-    const numPossibleChars = possibleChars.length;
-    let numCombinations = 1;
-    for (let length = 1; length < maxCombinationLength; ++length) {
-      numCombinations *= numPossibleChars;
-      for (let combination = 0; combination < numCombinations; ++combination) {
-        let testStr = '"""';
-
-        let leftOver = combination;
-        for (let i = 0; i < length; ++i) {
-          const reminder = leftOver % numPossibleChars;
-          testStr += possibleChars[reminder];
-          leftOver = (leftOver - reminder) / numPossibleChars;
-        }
-
-        testStr += '"""';
-
-        let testValue;
-        try {
-          testValue = lexValue(testStr);
-        } catch (e) {
-          continue; // skip invalid values
-        }
-
-        const strippedValue = lexValue(stripIgnoredCharacters(testStr));
-
-        invariant(
-          testValue === strippedValue,
-          dedent`
-            Expected lexValue(stripIgnoredCharacters(${inspectStr(testStr)}))
-              to equal ${inspectStr(testValue)}
-              but got  ${inspectStr(strippedValue)}
-          `,
-        );
-      }
-    }
   });
 
   it('strips kitchen sink query but maintains the exact same AST', () => {

@@ -1,5 +1,3 @@
-// @flow strict
-
 import { expect } from 'chai';
 import { describe, it } from 'mocha';
 
@@ -9,7 +7,7 @@ import { GraphQLInt } from '../../type/scalars';
 import { GraphQLSchema } from '../../type/schema';
 import { GraphQLObjectType } from '../../type/definition';
 
-import { execute } from '../execute';
+import { execute, executeSync } from '../execute';
 
 class NumberHolder {
   theNumber: number;
@@ -140,7 +138,7 @@ describe('Execute: Handles mutation execution ordering', () => {
   it('does not include illegal mutation fields in output', () => {
     const document = parse('mutation { thisIsIllegalDoNotIncludeMe }');
 
-    const result = execute({ schema, document });
+    const result = executeSync({ schema, document });
     expect(result).to.deep.equal({
       data: {},
     });
