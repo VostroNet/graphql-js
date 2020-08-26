@@ -8,14 +8,7 @@ const path = require('path');
 const assert = require('assert');
 
 const { red, green, yellow, cyan, grey } = require('./colors');
-const {
-  exec,
-  copyFile,
-  writeFile,
-  rmdirRecursive,
-  mkdirRecursive,
-  readdirRecursive,
-} = require('./utils');
+const { exec, rmdirRecursive, readdirRecursive } = require('./utils');
 const { sampleModule } = require('./benchmark-fork');
 
 const NS_PER_SEC = 1e9;
@@ -44,10 +37,10 @@ function prepareRevision(revision) {
 
   const dir = path.join(os.tmpdir(), 'graphql-js-benchmark', hash);
   rmdirRecursive(dir);
-  mkdirRecursive(dir);
+  fs.mkdirSync(dir, { recursive: true });
 
   exec(`git archive "${hash}" | tar -xC "${dir}"`);
-  exec('yarn install', { cwd: dir });
+  exec('npm ci', { cwd: dir });
 
   for (const file of findFiles(LOCAL_DIR('src'), '*/__tests__/*')) {
     const from = LOCAL_DIR('src', file);
@@ -64,19 +57,20 @@ function babelBuild(dir) {
   process.chdir(dir);
 
   rmdirRecursive('./benchmarkDist');
-  mkdirRecursive('./benchmarkDist');
+  fs.mkdirSync('./benchmarkDist');
 
   const babelPath = path.join(dir, 'node_modules', '@babel', 'core');
   const babel = require(babelPath);
   for (const filepath of readdirRecursive('./src')) {
     const srcPath = path.join('./src', filepath);
-    const distPath = path.join('./benchmarkDist', filepath);
+    const destPath = path.join('./benchmarkDist', filepath);
 
+    fs.mkdirSync(path.dirname(destPath), { recursive: true });
     if (filepath.endsWith('.js')) {
-      const cjs = babel.transformFileSync(srcPath, { envName: 'cjs' });
-      writeFile(distPath, cjs.code);
+      const cjs = babel.transformFileSync(srcPath, { envName: 'cjs' }).code;
+      fs.writeFileSync(destPath, cjs);
     } else {
-      copyFile(srcPath, distPath);
+      fs.copyFileSync(srcPath, destPath);
     }
   }
 
@@ -315,5 +309,8 @@ function bold(str) {
 // Get the revisions and make things happen!
 if (require.main === module) {
   const { benchmarkPatterns, revisions } = getArguments(process.argv.slice(2));
-  prepareAndRunBenchmarks(benchmarkPatterns, revisions);
+  prepareAndRunBenchmarks(benchmarkPatterns, revisions).catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
 }

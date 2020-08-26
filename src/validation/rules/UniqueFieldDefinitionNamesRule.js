@@ -1,14 +1,16 @@
 // @flow strict
 
 import { GraphQLError } from '../../error/GraphQLError';
-import { type ASTVisitor } from '../../language/visitor';
+
+import type { ASTVisitor } from '../../language/visitor';
+
 import {
   isObjectType,
   isInterfaceType,
   isInputObjectType,
 } from '../../type/definition';
 
-import { type SDLValidationContext } from '../ValidationContext';
+import type { SDLValidationContext } from '../ValidationContext';
 
 /**
  * Unique field definition names
@@ -38,7 +40,7 @@ export function UniqueFieldDefinitionNamesRule(
       knownFieldNames[typeName] = Object.create(null);
     }
 
-    /* istanbul ignore next (See https://github.com/graphql/graphql-js/issues/2203) */
+    // istanbul ignore next (See: 'https://github.com/graphql/graphql-js/issues/2203')
     const fieldNodes = node.fields ?? [];
     const fieldNames = knownFieldNames[typeName];
 

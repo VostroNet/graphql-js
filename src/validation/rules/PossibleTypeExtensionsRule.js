@@ -7,8 +7,8 @@ import suggestionList from '../../jsutils/suggestionList';
 
 import { GraphQLError } from '../../error/GraphQLError';
 
+import type { ASTVisitor } from '../../language/visitor';
 import { Kind } from '../../language/kinds';
-import { type ASTVisitor } from '../../language/visitor';
 import { isTypeDefinitionNode } from '../../language/predicates';
 
 import {
@@ -20,7 +20,7 @@ import {
   isInputObjectType,
 } from '../../type/definition';
 
-import { type SDLValidationContext } from '../ValidationContext';
+import type { SDLValidationContext } from '../ValidationContext';
 
 /**
  * Possible type extension
@@ -113,11 +113,12 @@ function typeToExtKind(type) {
   if (isEnumType(type)) {
     return Kind.ENUM_TYPE_EXTENSION;
   }
+  // istanbul ignore else (See: 'https://github.com/graphql/graphql-js/issues/2618')
   if (isInputObjectType(type)) {
     return Kind.INPUT_OBJECT_TYPE_EXTENSION;
   }
 
-  // Not reachable. All possible types have been considered.
+  // istanbul ignore next (Not reachable. All possible types have been considered)
   invariant(false, 'Unexpected type: ' + inspect((type: empty)));
 }
 
@@ -137,6 +138,6 @@ function extensionKindToTypeName(kind) {
       return 'input object';
   }
 
-  // Not reachable. All possible types have been considered.
+  // istanbul ignore next (Not reachable. All possible types have been considered)
   invariant(false, 'Unexpected kind: ' + inspect(kind));
 }

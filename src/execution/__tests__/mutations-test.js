@@ -9,7 +9,7 @@ import { GraphQLInt } from '../../type/scalars';
 import { GraphQLSchema } from '../../type/schema';
 import { GraphQLObjectType } from '../../type/definition';
 
-import { execute } from '../execute';
+import { execute, executeSync } from '../execute';
 
 class NumberHolder {
   theNumber: number;
@@ -159,31 +159,25 @@ describe('Execute: Handles mutation execution ordering', () => {
         fifth: immediatelyChangeTheNumber(newNumber: 5) {
           theNumber
         }
-      }
-      fourth: promiseToChangeTheNumber(newNumber: 4) {
-        theNumber
-      },
-      fifth: immediatelyChangeTheNumber(newNumber: 5) {
-        theNumber
-      }
-      subField {
-        first: immediatelyChangeTheNumber(newNumber: 6) {
-          theNumber
-        },
-        second: promiseToChangeTheNumber(newNumber: 7) {
-          theNumber
-        },
-        third: immediatelyChangeTheNumber(newNumber: 8) {
-          theNumber
-        }
-        fourth: promiseToChangeTheNumber(newNumber: 9) {
-          theNumber
-        },
-        fifth: immediatelyChangeTheNumber(newNumber: 10) {
-          theNumber
+        subField {
+          first: immediatelyChangeTheNumber(newNumber: 6) {
+            theNumber
+          },
+          second: promiseToChangeTheNumber(newNumber: 7) {
+            theNumber
+          },
+          third: immediatelyChangeTheNumber(newNumber: 8) {
+            theNumber
+          }
+          fourth: promiseToChangeTheNumber(newNumber: 9) {
+            theNumber
+          },
+          fifth: immediatelyChangeTheNumber(newNumber: 10) {
+            theNumber
+          }
         }
       }
-    }`;
+    `);
 
     const rootValue = new Root(6);
     const mutationResult = await execute({ schema, document, rootValue });
@@ -209,7 +203,7 @@ describe('Execute: Handles mutation execution ordering', () => {
   it('does not include illegal mutation fields in output', () => {
     const document = parse('mutation { thisIsIllegalDoNotIncludeMe }');
 
-    const result = execute({ schema, document });
+    const result = executeSync({ schema, document });
     expect(result).to.deep.equal({
       data: {},
     });
@@ -236,37 +230,28 @@ describe('Execute: Handles mutation execution ordering', () => {
         sixth: promiseAndFailToChangeTheNumber(newNumber: 6) {
           theNumber
         }
-      }
-      fourth: promiseToChangeTheNumber(newNumber: 4) {
-        theNumber
-      },
-      fifth: immediatelyChangeTheNumber(newNumber: 5) {
-        theNumber
-      }
-      sixth: promiseAndFailToChangeTheNumber(newNumber: 6) {
-        theNumber
-      }
-      subField {
-        first: immediatelyChangeTheNumber(newNumber: 7) {
-          theNumber
-        },
-        second: promiseToChangeTheNumber(newNumber: 8) {
-          theNumber
-        },
-        third: failToChangeTheNumber(newNumber: 9) {
-          theNumber
-        }
-        fourth: promiseToChangeTheNumber(newNumber: 10) {
-          theNumber
-        },
-        fifth: immediatelyChangeTheNumber(newNumber: 11) {
-          theNumber
-        }
-        sixth: promiseAndFailToChangeTheNumber(newNumber: 12) {
-          theNumber
+        subField {
+          first: immediatelyChangeTheNumber(newNumber: 7) {
+            theNumber
+          },
+          second: promiseToChangeTheNumber(newNumber: 8) {
+            theNumber
+          },
+          third: failToChangeTheNumber(newNumber: 9) {
+            theNumber
+          }
+          fourth: promiseToChangeTheNumber(newNumber: 10) {
+            theNumber
+          },
+          fifth: immediatelyChangeTheNumber(newNumber: 11) {
+            theNumber
+          }
+          sixth: promiseAndFailToChangeTheNumber(newNumber: 12) {
+            theNumber
+          }
         }
       }
-    }`;
+    `);
 
     const rootValue = new Root(6);
     const result = await execute({ schema, document, rootValue });
@@ -301,12 +286,12 @@ describe('Execute: Handles mutation execution ordering', () => {
         },
         {
           message: 'Cannot change the number',
-          locations: [{ line: 27, column: 9 }],
+          locations: [{ line: 28, column: 11 }],
           path: ['subField', 'third'],
         },
         {
           message: 'Cannot change the number',
-          locations: [{ line: 36, column: 9 }],
+          locations: [{ line: 37, column: 11 }],
           path: ['subField', 'sixth'],
         },
       ],

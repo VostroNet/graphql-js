@@ -37,7 +37,7 @@ const labelsConfig = {
     fold: true,
   },
 };
-const GH_TOKEN = process.env['GH_TOKEN'];
+const { GH_TOKEN } = process.env;
 
 if (!GH_TOKEN) {
   console.error('Must provide GH_TOKEN as environment variable!');
@@ -60,7 +60,10 @@ const [, githubOrg, githubRepo] = repoURLMatch;
 
 getChangeLog()
   .then((changelog) => process.stdout.write(changelog))
-  .catch((error) => console.error(error));
+  .catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
 
 function getChangeLog() {
   const { version } = packageJSON;

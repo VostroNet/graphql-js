@@ -5,14 +5,14 @@ import suggestionList from '../../jsutils/suggestionList';
 
 import { GraphQLError } from '../../error/GraphQLError';
 
+import type { ASTVisitor } from '../../language/visitor';
 import { Kind } from '../../language/kinds';
-import { type ASTVisitor } from '../../language/visitor';
 
 import { specifiedDirectives } from '../../type/directives';
 
-import {
-  type ValidationContext,
-  type SDLValidationContext,
+import type {
+  ValidationContext,
+  SDLValidationContext,
 } from '../ValidationContext';
 
 /**
@@ -64,7 +64,7 @@ export function KnownArgumentNamesOnDirectivesRule(
   const astDefinitions = context.getDocument().definitions;
   for (const def of astDefinitions) {
     if (def.kind === Kind.DIRECTIVE_DEFINITION) {
-      /* istanbul ignore next (See https://github.com/graphql/graphql-js/issues/2203) */
+      // istanbul ignore next (See: 'https://github.com/graphql/graphql-js/issues/2203')
       const argsNodes = def.arguments ?? [];
 
       directiveArgs[def.name.value] = argsNodes.map((arg) => arg.name.value);

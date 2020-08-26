@@ -1,8 +1,5 @@
 // @flow strict
 
-// FIXME
-/* eslint-disable import/no-cycle */
-
 import objectValues from '../polyfills/objectValues';
 
 import inspect from '../jsutils/inspect';
@@ -12,16 +9,18 @@ import { print } from '../language/printer';
 import { DirectiveLocation } from '../language/directiveLocation';
 import { astFromValue } from '../utilities/astFromValue';
 
-import { type GraphQLSchema } from './schema';
-import { type GraphQLDirective } from './directives';
+import type { GraphQLSchema } from './schema';
+import type { GraphQLDirective } from './directives';
+import type {
+  GraphQLType,
+  GraphQLNamedType,
+  GraphQLInputField,
+  GraphQLEnumValue,
+  GraphQLField,
+  GraphQLFieldConfigMap,
+} from './definition';
 import { GraphQLString, GraphQLBoolean } from './scalars';
 import {
-  type GraphQLType,
-  type GraphQLNamedType,
-  type GraphQLInputField,
-  type GraphQLEnumValue,
-  type GraphQLField,
-  type GraphQLFieldConfigMap,
   GraphQLObjectType,
   GraphQLEnumType,
   GraphQLList,
@@ -195,7 +194,7 @@ export const __DirectiveLocation = new GraphQLEnumType({
 export const __Type = new GraphQLObjectType({
   name: '__Type',
   description:
-    'The fundamental unit of any GraphQL Schema is the type. There are many kinds of types in GraphQL as represented by the `__TypeKind` enum.\n\nDepending on the kind of a type, certain fields describe information about that type. Scalar types provide no information beyond a name and description, while Enum types provide their values. Object and Interface types provide the fields they describe. Abstract types, Union and Interface, provide the Object types possible at runtime. List and NonNull types compose other types.',
+    'The fundamental unit of any GraphQL Schema is the type. There are many kinds of types in GraphQL as represented by the `__TypeKind` enum.\n\nDepending on the kind of a type, certain fields describe information about that type. Scalar types provide no information beyond a name, description and optional `specifiedByUrl`, while Enum types provide their values. Object and Interface types provide the fields they describe. Abstract types, Union and Interface, provide the Object types possible at runtime. List and NonNull types compose other types.',
   fields: () =>
     ({
       kind: {
@@ -222,11 +221,12 @@ export const __Type = new GraphQLObjectType({
           if (isListType(type)) {
             return TypeKind.LIST;
           }
+          // istanbul ignore else (See: 'https://github.com/graphql/graphql-js/issues/2618')
           if (isNonNullType(type)) {
             return TypeKind.NON_NULL;
           }
 
-          // Not reachable. All possible types have been considered.
+          // istanbul ignore next (Not reachable. All possible types have been considered)
           invariant(false, `Unexpected type: "${inspect((type: empty))}".`);
         },
       },
@@ -238,6 +238,11 @@ export const __Type = new GraphQLObjectType({
         type: GraphQLString,
         resolve: (type) =>
           type.description !== undefined ? type.description : undefined,
+      },
+      specifiedByUrl: {
+        type: GraphQLString,
+        resolve: (obj) =>
+          obj.specifiedByUrl !== undefined ? obj.specifiedByUrl : undefined,
       },
       fields: {
         type: GraphQLList(GraphQLNonNull(__Field)),

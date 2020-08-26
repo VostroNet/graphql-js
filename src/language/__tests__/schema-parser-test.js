@@ -3,7 +3,7 @@
 import { expect } from 'chai';
 import { describe, it } from 'mocha';
 
-import dedent from '../../jsutils/dedent';
+import dedent from '../../__testUtils__/dedent';
 
 import { kitchenSinkSDL } from '../../__fixtures__/index';
 
@@ -108,7 +108,7 @@ describe('Schema Parser', () => {
       }
     `);
 
-    expect(toJSONDeep(doc)).to.nested.deep.property(
+    expect(toJSONDeep(doc)).to.deep.nested.property(
       'definitions[0].description',
       {
         kind: 'StringValue',
@@ -130,7 +130,7 @@ describe('Schema Parser', () => {
       }
     `);
 
-    expect(toJSONDeep(doc)).to.nested.deep.property(
+    expect(toJSONDeep(doc)).to.deep.nested.property(
       'definitions[0].description',
       {
         kind: 'StringValue',
@@ -149,7 +149,7 @@ describe('Schema Parser', () => {
       }
     `);
 
-    expect(toJSONDeep(doc)).to.nested.deep.property(
+    expect(toJSONDeep(doc)).to.deep.nested.property(
       'definitions[0].description',
       {
         kind: 'StringValue',

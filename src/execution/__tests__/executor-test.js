@@ -17,9 +17,10 @@ import {
   GraphQLScalarType,
   GraphQLInterfaceType,
   GraphQLObjectType,
+  GraphQLUnionType,
 } from '../../type/definition';
 
-import { execute } from '../execute';
+import { execute, executeSync } from '../execute';
 
 describe('Execute: Handles basic execution tasks', () => {
   it('throws if no document is provided', () => {
@@ -32,15 +33,15 @@ describe('Execute: Handles basic execution tasks', () => {
       }),
     });
 
-    // $DisableFlowOnNegativeTest
-    expect(() => execute({ schema })).to.throw('Must provide document.');
+    // $FlowExpectedError
+    expect(() => executeSync({ schema })).to.throw('Must provide document.');
   });
 
   it('throws if no schema is provided', () => {
     const document = parse('{ field }');
 
-    // $DisableFlowOnNegativeTest
-    expect(() => execute({ document })).to.throw(
+    // $FlowExpectedError
+    expect(() => executeSync({ document })).to.throw(
       'Expected undefined to be a GraphQL schema.',
     );
   });
@@ -64,8 +65,8 @@ describe('Execute: Handles basic execution tasks', () => {
     `);
     const variableValues = '{ "a": 1 }';
 
-    // $DisableFlowOnNegativeTest
-    expect(() => execute({ schema, document, variableValues })).to.throw(
+    // $FlowExpectedError
+    expect(() => executeSync({ schema, document, variableValues })).to.throw(
       'Variables must be provided as an Object where each property is a variable value. Perhaps look to see if an unparsed JSON string was provided.',
     );
   });
@@ -103,7 +104,7 @@ describe('Execute: Handles basic execution tasks', () => {
       e: () => 'Egg',
       f: 'Fish',
       // Called only by DataType::pic static resolver
-      pic: (size) => 'Pic of size: ' + size,
+      pic: (size: number) => 'Pic of size: ' + size,
       deep: () => deepData,
       promise: promiseData,
     };
@@ -239,7 +240,7 @@ describe('Execute: Handles basic execution tasks', () => {
       }
     `);
 
-    const result = execute({ schema, document });
+    const result = executeSync({ schema, document });
     expect(result).to.deep.equal({
       data: {
         a: 'Apple',
@@ -276,7 +277,7 @@ describe('Execute: Handles basic execution tasks', () => {
     const rootValue = { root: 'val' };
     const variableValues = { var: 'abc' };
 
-    execute({ schema, document, rootValue, variableValues });
+    executeSync({ schema, document, rootValue, variableValues });
 
     expect(resolvedInfo).to.have.all.keys(
       'fieldName',
@@ -306,8 +307,67 @@ describe('Execute: Handles basic execution tasks', () => {
     const field = operation.selectionSet.selections[0];
     expect(resolvedInfo).to.deep.include({
       fieldNodes: [field],
-      path: { prev: undefined, key: 'result' },
+      path: { prev: undefined, key: 'result', typename: 'Test' },
       variableValues: { var: 'abc' },
+    });
+  });
+
+  it('populates path correctly with complex types', () => {
+    let path;
+    const someObject = new GraphQLObjectType({
+      name: 'SomeObject',
+      fields: {
+        test: {
+          type: GraphQLString,
+          resolve(_val, _args, _ctx, info) {
+            path = info.path;
+          },
+        },
+      },
+    });
+    const someUnion = new GraphQLUnionType({
+      name: 'SomeUnion',
+      types: [someObject],
+      resolveType() {
+        return 'SomeObject';
+      },
+    });
+    const testType = new GraphQLObjectType({
+      name: 'SomeQuery',
+      fields: {
+        test: {
+          type: new GraphQLNonNull(
+            new GraphQLList(new GraphQLNonNull(someUnion)),
+          ),
+        },
+      },
+    });
+    const schema = new GraphQLSchema({ query: testType });
+    const rootValue = { test: [{}] };
+    const document = parse(`
+      query {
+        l1: test {
+          ... on SomeObject {
+            l2: test
+          }
+        }
+      }
+    `);
+
+    executeSync({ schema, document, rootValue });
+
+    expect(path).to.deep.equal({
+      key: 'l2',
+      typename: 'SomeObject',
+      prev: {
+        key: 0,
+        typename: undefined,
+        prev: {
+          key: 'l1',
+          typename: 'SomeQuery',
+          prev: undefined,
+        },
+      },
     });
   });
 
@@ -330,7 +390,7 @@ describe('Execute: Handles basic execution tasks', () => {
     const document = parse('query Example { a }');
     const rootValue = { contextThing: 'thing' };
 
-    execute({ schema, document, rootValue });
+    executeSync({ schema, document, rootValue });
     expect(resolvedRootValue).to.equal(rootValue);
   });
 
@@ -360,7 +420,7 @@ describe('Execute: Handles basic execution tasks', () => {
       }
     `);
 
-    execute({ schema, document });
+    executeSync({ schema, document });
     expect(resolvedArgs).to.deep.equal({ numArg: 123, stringArg: 'foo' });
   });
 
@@ -638,7 +698,7 @@ describe('Execute: Handles basic execution tasks', () => {
       }
     `);
 
-    const result = execute({ schema, document });
+    const result = executeSync({ schema, document });
     expect(result).to.deep.equal({
       data: {
         nullableA: {
@@ -667,7 +727,7 @@ describe('Execute: Handles basic execution tasks', () => {
     const document = parse('{ a }');
     const rootValue = { a: 'b' };
 
-    const result = execute({ schema, document, rootValue });
+    const result = executeSync({ schema, document, rootValue });
     expect(result).to.deep.equal({ data: { a: 'b' } });
   });
 
@@ -683,7 +743,7 @@ describe('Execute: Handles basic execution tasks', () => {
     const document = parse('query Example { a }');
     const rootValue = { a: 'b' };
 
-    const result = execute({ schema, document, rootValue });
+    const result = executeSync({ schema, document, rootValue });
     expect(result).to.deep.equal({ data: { a: 'b' } });
   });
 
@@ -704,7 +764,7 @@ describe('Execute: Handles basic execution tasks', () => {
     const rootValue = { a: 'b' };
     const operationName = 'OtherExample';
 
-    const result = execute({ schema, document, rootValue, operationName });
+    const result = executeSync({ schema, document, rootValue, operationName });
     expect(result).to.deep.equal({ data: { second: 'b' } });
   });
 
@@ -720,7 +780,7 @@ describe('Execute: Handles basic execution tasks', () => {
     const document = parse('fragment Example on Type { a }');
     const rootValue = { a: 'b' };
 
-    const result = execute({ schema, document, rootValue });
+    const result = executeSync({ schema, document, rootValue });
     expect(result).to.deep.equal({
       errors: [{ message: 'Must provide an operation.' }],
     });
@@ -740,7 +800,7 @@ describe('Execute: Handles basic execution tasks', () => {
       query OtherExample { a }
     `);
 
-    const result = execute({ schema, document });
+    const result = executeSync({ schema, document });
     expect(result).to.deep.equal({
       errors: [
         {
@@ -766,7 +826,7 @@ describe('Execute: Handles basic execution tasks', () => {
     `);
     const operationName = 'UnknownExample';
 
-    const result = execute({ schema, document, operationName });
+    const result = executeSync({ schema, document, operationName });
     expect(result).to.deep.equal({
       errors: [{ message: 'Unknown operation named "UnknownExample".' }],
     });
@@ -784,7 +844,7 @@ describe('Execute: Handles basic execution tasks', () => {
     const document = parse('{ a }');
     const operationName = '';
 
-    const result = execute({ schema, document, operationName });
+    const result = executeSync({ schema, document, operationName });
     expect(result).to.deep.equal({
       errors: [{ message: 'Unknown operation named "".' }],
     });
@@ -819,7 +879,7 @@ describe('Execute: Handles basic execution tasks', () => {
     const rootValue = { a: 'b', c: 'd' };
     const operationName = 'Q';
 
-    const result = execute({ schema, document, rootValue, operationName });
+    const result = executeSync({ schema, document, rootValue, operationName });
     expect(result).to.deep.equal({ data: { a: 'b' } });
   });
 
@@ -845,7 +905,7 @@ describe('Execute: Handles basic execution tasks', () => {
     const rootValue = { a: 'b', c: 'd' };
     const operationName = 'M';
 
-    const result = execute({ schema, document, rootValue, operationName });
+    const result = executeSync({ schema, document, rootValue, operationName });
     expect(result).to.deep.equal({ data: { c: 'd' } });
   });
 
@@ -871,7 +931,7 @@ describe('Execute: Handles basic execution tasks', () => {
     const rootValue = { a: 'b', c: 'd' };
     const operationName = 'S';
 
-    const result = execute({ schema, document, rootValue, operationName });
+    const result = executeSync({ schema, document, rootValue, operationName });
     expect(result).to.deep.equal({ data: { a: 'b' } });
   });
 
@@ -926,7 +986,7 @@ describe('Execute: Handles basic execution tasks', () => {
     `);
     const rootValue = { a: 'b' };
 
-    const result = execute({ schema, document, rootValue });
+    const result = executeSync({ schema, document, rootValue });
     expect(result).to.deep.equal({
       data: { a: 'b' },
     });
@@ -950,7 +1010,7 @@ describe('Execute: Handles basic execution tasks', () => {
     const document = parse('{ a }');
     const rootValue = { a: { b: 'c' } };
 
-    const result = execute({ schema, document, rootValue });
+    const result = executeSync({ schema, document, rootValue });
     expect(result).to.deep.equal({
       data: { a: {} },
     });
@@ -967,7 +1027,7 @@ describe('Execute: Handles basic execution tasks', () => {
     });
     const document = parse('{ thisIsIllegalDoNotIncludeMe }');
 
-    const result = execute({ schema, document });
+    const result = executeSync({ schema, document });
     expect(result).to.deep.equal({
       data: {},
     });
@@ -994,7 +1054,7 @@ describe('Execute: Handles basic execution tasks', () => {
     });
     const document = parse('{ field(a: true, c: false, e: 0) }');
 
-    const result = execute({ schema, document });
+    const result = executeSync({ schema, document });
     expect(result).to.deep.equal({
       data: {
         field: '{ a: true, c: false, e: 0 }',
@@ -1006,7 +1066,7 @@ describe('Execute: Handles basic execution tasks', () => {
     class Special {
       value: string;
 
-      constructor(value) {
+      constructor(value: string) {
         this.value = value;
       }
     }
@@ -1014,7 +1074,7 @@ describe('Execute: Handles basic execution tasks', () => {
     class NotSpecial {
       value: string;
 
-      constructor(value) {
+      constructor(value: string) {
         this.value = value;
       }
     }
@@ -1042,7 +1102,7 @@ describe('Execute: Handles basic execution tasks', () => {
       specials: [new Special('foo'), new NotSpecial('bar')],
     };
 
-    const result = execute({ schema, document, rootValue });
+    const result = executeSync({ schema, document, rootValue });
     expect(result).to.deep.equal({
       data: {
         specials: [{ value: 'foo' }, null],
@@ -1086,7 +1146,7 @@ describe('Execute: Handles basic execution tasks', () => {
       }),
     });
 
-    const result = execute({ schema, document: parse('{ customScalar }') });
+    const result = executeSync({ schema, document: parse('{ customScalar }') });
     expect(result).to.deep.equal({
       data: { customScalar: null },
       errors: [
@@ -1116,7 +1176,7 @@ describe('Execute: Handles basic execution tasks', () => {
       type Query { bar: String }
     `);
 
-    const result = execute({ schema, document });
+    const result = executeSync({ schema, document });
     expect(result).to.deep.equal({ data: { foo: null } });
   });
 
@@ -1131,12 +1191,15 @@ describe('Execute: Handles basic execution tasks', () => {
     });
     const document = parse('{ foo }');
 
-    function fieldResolver(_source, _args, _context, info) {
-      // For the purposes of test, just return the name of the field!
-      return info.fieldName;
-    }
+    const result = executeSync({
+      schema,
+      document,
+      fieldResolver(_source, _args, _context, info) {
+        // For the purposes of test, just return the name of the field!
+        return info.fieldName;
+      },
+    });
 
-    const result = execute({ schema, document, fieldResolver });
     expect(result).to.deep.equal({ data: { foo: 'foo' } });
   });
 
@@ -1168,16 +1231,20 @@ describe('Execute: Handles basic execution tasks', () => {
       types: [fooObject],
     });
 
-    let possibleTypes;
-    function typeResolver(_source, _context, info, abstractType) {
-      // Resolver should be able to figure out all possible types on its own
-      possibleTypes = info.schema.getPossibleTypes(abstractType);
-
-      return 'FooObject';
-    }
-
     const rootValue = { foo: { bar: 'bar' } };
-    const result = execute({ schema, document, rootValue, typeResolver });
+
+    let possibleTypes;
+    const result = executeSync({
+      schema,
+      document,
+      rootValue,
+      typeResolver(_source, _context, info, abstractType) {
+        // Resolver should be able to figure out all possible types on its own
+        possibleTypes = info.schema.getPossibleTypes(abstractType);
+
+        return 'FooObject';
+      },
+    });
 
     expect(result).to.deep.equal({ data: { foo: { bar: 'bar' } } });
     expect(possibleTypes).to.deep.equal([fooObject]);

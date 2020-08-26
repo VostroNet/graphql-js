@@ -2,21 +2,21 @@
 
 import devAssert from '../jsutils/devAssert';
 
+import type { Source } from '../language/source';
+import type { DocumentNode } from '../language/ast';
+import type { ParseOptions } from '../language/parser';
 import { Kind } from '../language/kinds';
-import { type Source } from '../language/source';
-import { type DocumentNode } from '../language/ast';
-import { type ParseOptions, parse } from '../language/parser';
+import { parse } from '../language/parser';
 
 import { assertValidSDL } from '../validation/validate';
 
-import {
-  type GraphQLSchemaValidationOptions,
-  GraphQLSchema,
-} from '../type/schema';
+import type { GraphQLSchemaValidationOptions } from '../type/schema';
+import { GraphQLSchema } from '../type/schema';
 import {
   GraphQLSkipDirective,
   GraphQLIncludeDirective,
   GraphQLDeprecatedDirective,
+  GraphQLSpecifiedByDirective,
 } from '../type/directives';
 
 import { extendSchemaImpl } from './extendSchema';
@@ -71,6 +71,14 @@ export function buildASTSchema(
     assertValidSDL(documentAST);
   }
 
+  const emptySchemaConfig = {
+    description: undefined,
+    types: [],
+    directives: [],
+    extensions: undefined,
+    extensionASTNodes: [],
+    assumeValid: false,
+  };
   const config = extendSchemaImpl(emptySchemaConfig, documentAST, options);
 
   if (config.astNode == null) {
@@ -106,10 +114,12 @@ export function buildASTSchema(
     directives.push(GraphQLDeprecatedDirective);
   }
 
+  if (!directives.some((directive) => directive.name === 'specifiedBy')) {
+    directives.push(GraphQLSpecifiedByDirective);
+  }
+
   return new GraphQLSchema(config);
 }
-
-const emptySchemaConfig = new GraphQLSchema({ directives: [] }).toConfig();
 
 /**
  * A helper function to build a GraphQLSchema directly from a source

@@ -2,16 +2,16 @@
 
 import objectValues from '../polyfills/objectValues';
 
+import type { ObjMap } from '../jsutils/ObjMap';
 import inspect from '../jsutils/inspect';
 import invariant from '../jsutils/invariant';
 import keyValMap from '../jsutils/keyValMap';
-import { type ObjMap } from '../jsutils/ObjMap';
 
+import type { GraphQLNamedType } from '../type/definition';
 import { GraphQLSchema } from '../type/schema';
 import { GraphQLDirective } from '../type/directives';
 import { isIntrospectionType } from '../type/introspection';
 import {
-  type GraphQLNamedType,
   GraphQLObjectType,
   GraphQLInterfaceType,
   GraphQLUnionType,
@@ -137,6 +137,7 @@ export function lexicographicSortSchema(schema: GraphQLSchema): GraphQLSchema {
         values: sortObjMap(config.values),
       });
     }
+    // istanbul ignore else (See: 'https://github.com/graphql/graphql-js/issues/2618')
     if (isInputObjectType(type)) {
       const config = type.toConfig();
       return new GraphQLInputObjectType({
@@ -145,7 +146,7 @@ export function lexicographicSortSchema(schema: GraphQLSchema): GraphQLSchema {
       });
     }
 
-    // Not reachable. All possible types have been considered.
+    // istanbul ignore next (Not reachable. All possible types have been considered)
     invariant(false, 'Unexpected type: ' + inspect((type: empty)));
   }
 }

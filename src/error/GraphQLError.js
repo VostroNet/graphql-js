@@ -6,9 +6,10 @@
 import isObjectLike from '../jsutils/isObjectLike';
 import { SYMBOL_TO_STRING_TAG } from '../polyfills/symbols';
 
-import { type ASTNode } from '../language/ast';
-import { type Source } from '../language/source';
-import { type SourceLocation, getLocation } from '../language/location';
+import type { ASTNode } from '../language/ast';
+import type { Source } from '../language/source';
+import type { SourceLocation } from '../language/location';
+import { getLocation } from '../language/location';
 import { printLocation, printSourceLocation } from '../language/printLocation';
 
 /**
@@ -196,7 +197,7 @@ export class GraphQLError extends Error {
       return;
     }
 
-    /* istanbul ignore next (See: https://github.com/graphql/graphql-js/issues/2317) */
+    // istanbul ignore next (See: 'https://github.com/graphql/graphql-js/issues/2317')
     if (Error.captureStackTrace) {
       Error.captureStackTrace(this, GraphQLError);
     } else {

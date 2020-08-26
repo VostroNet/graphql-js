@@ -3,30 +3,24 @@
 import objectEntries from '../polyfills/objectEntries';
 import { SYMBOL_TO_STRING_TAG } from '../polyfills/symbols';
 
+import type { ReadOnlyObjMap, ReadOnlyObjMapLike } from '../jsutils/ObjMap';
 import inspect from '../jsutils/inspect';
 import toObjMap from '../jsutils/toObjMap';
 import devAssert from '../jsutils/devAssert';
 import instanceOf from '../jsutils/instanceOf';
-import defineToJSON from '../jsutils/defineToJSON';
 import isObjectLike from '../jsutils/isObjectLike';
-import {
-  type ReadOnlyObjMap,
-  type ReadOnlyObjMapLike,
-} from '../jsutils/ObjMap';
+import defineInspect from '../jsutils/defineInspect';
 
-import { type DirectiveDefinitionNode } from '../language/ast';
-import {
-  DirectiveLocation,
-  type DirectiveLocationEnum,
-} from '../language/directiveLocation';
+import type { DirectiveDefinitionNode } from '../language/ast';
+import type { DirectiveLocationEnum } from '../language/directiveLocation';
+import { DirectiveLocation } from '../language/directiveLocation';
 
-import { GraphQLString, GraphQLBoolean } from './scalars';
-import {
-  type GraphQLFieldConfigArgumentMap,
-  type GraphQLArgument,
-  argsToArgsConfig,
-  GraphQLNonNull,
+import type {
+  GraphQLArgument,
+  GraphQLFieldConfigArgumentMap,
 } from './definition';
+import { GraphQLString, GraphQLBoolean } from './scalars';
+import { argsToArgsConfig, GraphQLNonNull } from './definition';
 
 /**
  * Test if the given value is a GraphQL directive.
@@ -112,13 +106,18 @@ export class GraphQLDirective {
     return '@' + this.name;
   }
 
+  toJSON(): string {
+    return this.toString();
+  }
+
   // $FlowFixMe Flow doesn't support computed properties yet
   get [SYMBOL_TO_STRING_TAG]() {
     return 'GraphQLDirective';
   }
 }
 
-defineToJSON(GraphQLDirective);
+// Print a simplified form when appearing in `inspect` and `util.inspect`.
+defineInspect(GraphQLDirective);
 
 export type GraphQLDirectiveConfig = {|
   name: string,
@@ -193,12 +192,28 @@ export const GraphQLDeprecatedDirective = new GraphQLDirective({
 });
 
 /**
+ * Used to provide a URL for specifying the behaviour of custom scalar definitions.
+ */
+export const GraphQLSpecifiedByDirective = new GraphQLDirective({
+  name: 'specifiedBy',
+  description: 'Exposes a URL that specifies the behaviour of this scalar.',
+  locations: [DirectiveLocation.SCALAR],
+  args: {
+    url: {
+      type: GraphQLNonNull(GraphQLString),
+      description: 'The URL that specifies the behaviour of this scalar.',
+    },
+  },
+});
+
+/**
  * The full list of specified directives.
  */
 export const specifiedDirectives = Object.freeze([
   GraphQLIncludeDirective,
   GraphQLSkipDirective,
   GraphQLDeprecatedDirective,
+  GraphQLSpecifiedByDirective,
 ]);
 
 export function isSpecifiedDirective(

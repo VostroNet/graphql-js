@@ -7,14 +7,14 @@ import { GraphQLError } from '../../error/GraphQLError';
 
 import { Kind } from '../../language/kinds';
 import { print } from '../../language/printer';
-import { type ASTVisitor } from '../../language/visitor';
+import type { ASTVisitor } from '../../language/visitor';
 
 import { specifiedDirectives } from '../../type/directives';
 import { isType, isRequiredArgument } from '../../type/definition';
 
-import {
-  type ValidationContext,
-  type SDLValidationContext,
+import type {
+  ValidationContext,
+  SDLValidationContext,
 } from '../ValidationContext';
 
 /**
@@ -36,7 +36,7 @@ export function ProvidedRequiredArgumentsRule(
           return false;
         }
 
-        /* istanbul ignore next (See https://github.com/graphql/graphql-js/issues/2203) */
+        // istanbul ignore next (See: 'https://github.com/graphql/graphql-js/issues/2203')
         const argNodes = fieldNode.arguments ?? [];
         const argNodeMap = keyMap(argNodes, (arg) => arg.name.value);
         for (const argDef of fieldDef.args) {
@@ -78,7 +78,7 @@ export function ProvidedRequiredArgumentsOnDirectivesRule(
   const astDefinitions = context.getDocument().definitions;
   for (const def of astDefinitions) {
     if (def.kind === Kind.DIRECTIVE_DEFINITION) {
-      /* istanbul ignore next (See https://github.com/graphql/graphql-js/issues/2203) */
+      // istanbul ignore next (See: 'https://github.com/graphql/graphql-js/issues/2203')
       const argNodes = def.arguments ?? [];
 
       requiredArgsMap[def.name.value] = keyMap(
@@ -95,7 +95,7 @@ export function ProvidedRequiredArgumentsOnDirectivesRule(
         const directiveName = directiveNode.name.value;
         const requiredArgs = requiredArgsMap[directiveName];
         if (requiredArgs) {
-          /* istanbul ignore next (See https://github.com/graphql/graphql-js/issues/2203) */
+          // istanbul ignore next (See: 'https://github.com/graphql/graphql-js/issues/2203')
           const argNodes = directiveNode.arguments ?? [];
           const argNodeMap = keyMap(argNodes, (arg) => arg.name.value);
           for (const argName of Object.keys(requiredArgs)) {

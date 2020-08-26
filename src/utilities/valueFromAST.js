@@ -2,16 +2,16 @@
 
 import objectValues from '../polyfills/objectValues';
 
+import type { ObjMap } from '../jsutils/ObjMap';
 import keyMap from '../jsutils/keyMap';
 import inspect from '../jsutils/inspect';
 import invariant from '../jsutils/invariant';
-import { type ObjMap } from '../jsutils/ObjMap';
 
+import type { ValueNode } from '../language/ast';
 import { Kind } from '../language/kinds';
-import { type ValueNode } from '../language/ast';
 
+import type { GraphQLInputType } from '../type/definition';
 import {
-  type GraphQLInputType,
   isLeafType,
   isInputObjectType,
   isListType,
@@ -131,6 +131,7 @@ export function valueFromAST(
     return coercedObj;
   }
 
+  // istanbul ignore else (See: 'https://github.com/graphql/graphql-js/issues/2618')
   if (isLeafType(type)) {
     // Scalars and Enums fulfill parsing a literal value via parseLiteral().
     // Invalid values represent a failure to parse correctly, in which case
@@ -147,7 +148,7 @@ export function valueFromAST(
     return result;
   }
 
-  // Not reachable. All possible input types have been considered.
+  // istanbul ignore next (Not reachable. All possible input types have been considered)
   invariant(false, 'Unexpected input type: ' + inspect((type: empty)));
 }
 

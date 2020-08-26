@@ -3,7 +3,8 @@
 import { expect } from 'chai';
 import { describe, it } from 'mocha';
 
-import dedent from '../../jsutils/dedent';
+import dedent from '../../__testUtils__/dedent';
+
 import invariant from '../../jsutils/invariant';
 
 import { Kind } from '../../language/kinds';
@@ -11,12 +12,13 @@ import { parse } from '../../language/parser';
 import { print } from '../../language/printer';
 
 import { validateSchema } from '../../type/validate';
-import { __Schema } from '../../type/introspection';
+import { __Schema, __EnumValue } from '../../type/introspection';
 import {
   assertDirective,
   GraphQLSkipDirective,
   GraphQLIncludeDirective,
   GraphQLDeprecatedDirective,
+  GraphQLSpecifiedByDirective,
 } from '../../type/directives';
 import {
   GraphQLID,
@@ -215,14 +217,17 @@ describe('Schema Builder', () => {
     expect(cycleSDL(sdl, { commentDescriptions: true })).to.equal(sdl);
   });
 
-  it('Maintains @skip & @include', () => {
+  it('Maintains @include, @skip & @specifiedBy', () => {
     const schema = buildSchema('type Query');
 
-    expect(schema.getDirectives()).to.have.lengthOf(3);
+    expect(schema.getDirectives()).to.have.lengthOf(4);
     expect(schema.getDirective('skip')).to.equal(GraphQLSkipDirective);
     expect(schema.getDirective('include')).to.equal(GraphQLIncludeDirective);
     expect(schema.getDirective('deprecated')).to.equal(
       GraphQLDeprecatedDirective,
+    );
+    expect(schema.getDirective('specifiedBy')).to.equal(
+      GraphQLSpecifiedByDirective,
     );
   });
 
@@ -231,9 +236,10 @@ describe('Schema Builder', () => {
       directive @skip on FIELD
       directive @include on FIELD
       directive @deprecated on FIELD_DEFINITION
+      directive @specifiedBy on FIELD_DEFINITION
     `);
 
-    expect(schema.getDirectives()).to.have.lengthOf(3);
+    expect(schema.getDirectives()).to.have.lengthOf(4);
     expect(schema.getDirective('skip')).to.not.equal(GraphQLSkipDirective);
     expect(schema.getDirective('include')).to.not.equal(
       GraphQLIncludeDirective,
@@ -241,17 +247,21 @@ describe('Schema Builder', () => {
     expect(schema.getDirective('deprecated')).to.not.equal(
       GraphQLDeprecatedDirective,
     );
+    expect(schema.getDirective('specifiedBy')).to.not.equal(
+      GraphQLSpecifiedByDirective,
+    );
   });
 
-  it('Adding directives maintains @skip & @include', () => {
+  it('Adding directives maintains @include, @skip & @specifiedBy', () => {
     const schema = buildSchema(`
       directive @foo(arg: Int) on FIELD
     `);
 
-    expect(schema.getDirectives()).to.have.lengthOf(4);
+    expect(schema.getDirectives()).to.have.lengthOf(5);
     expect(schema.getDirective('skip')).to.not.equal(undefined);
     expect(schema.getDirective('include')).to.not.equal(undefined);
     expect(schema.getDirective('deprecated')).to.not.equal(undefined);
+    expect(schema.getDirective('specifiedBy')).to.not.equal(undefined);
   });
 
   it('Type modifiers', () => {
@@ -770,6 +780,23 @@ describe('Schema Builder', () => {
     });
   });
 
+  it('Supports @specifiedBy', () => {
+    const sdl = dedent`
+      scalar Foo @specifiedBy(url: "https://example.com/foo_spec")
+
+      type Query {
+        foo: Foo @deprecated
+      }
+    `;
+    expect(cycleSDL(sdl)).to.equal(sdl);
+
+    const schema = buildSchema(sdl);
+
+    expect(schema.getType('Foo')).to.include({
+      specifiedByUrl: 'https://example.com/foo_spec',
+    });
+  });
+
   it('Correctly extend scalar type', () => {
     const scalarSDL = dedent`
       scalar SomeScalar
@@ -1062,6 +1089,21 @@ describe('Schema Builder', () => {
     expect(schema.getType('__Schema')).to.equal(__Schema);
   });
 
+  it('Allows to reference introspection types', () => {
+    const schema = buildSchema(`
+      type Query {
+        introspectionField: __EnumValue
+      }
+    `);
+
+    const queryType = assertObjectType(schema.getType('Query'));
+    expect(queryType.getFields()).to.have.nested.property(
+      'introspectionField.type',
+      __EnumValue,
+    );
+    expect(schema.getType('__EnumValue')).to.equal(__EnumValue);
+  });
+
   it('Rejects invalid SDL', () => {
     const sdl = `
       type Query {
@@ -1093,12 +1135,12 @@ describe('Schema Builder', () => {
   });
 
   it('Rejects invalid AST', () => {
-    // $DisableFlowOnNegativeTest
+    // $FlowExpectedError
     expect(() => buildASTSchema(null)).to.throw(
       'Must provide valid Document AST',
     );
 
-    // $DisableFlowOnNegativeTest
+    // $FlowExpectedError
     expect(() => buildASTSchema({})).to.throw(
       'Must provide valid Document AST',
     );

@@ -3,7 +3,7 @@
 import { expect } from 'chai';
 import { describe, it } from 'mocha';
 
-import dedent from '../../jsutils/dedent';
+import dedent from '../../__testUtils__/dedent';
 
 import { printSchema } from '../../utilities/printSchema';
 
@@ -331,11 +331,11 @@ describe('Type System: Schema', () => {
       });
 
       it('checks the configuration for mistakes', () => {
-        // $DisableFlowOnNegativeTest
+        // $FlowExpectedError
         expect(() => new GraphQLSchema(JSON.parse)).to.throw();
-        // $DisableFlowOnNegativeTest
+        // $FlowExpectedError
         expect(() => new GraphQLSchema({ types: {} })).to.throw();
-        // $DisableFlowOnNegativeTest
+        // $FlowExpectedError
         expect(() => new GraphQLSchema({ directives: {} })).to.throw();
       });
     });
@@ -364,7 +364,7 @@ describe('Type System: Schema', () => {
         });
         const types = [{}, query, {}];
 
-        // $DisableFlowOnNegativeTest
+        // $FlowExpectedError
         expect(() => new GraphQLSchema({ query, types })).to.throw(
           'One of the provided types for building the Schema is missing a name.',
         );

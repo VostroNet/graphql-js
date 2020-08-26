@@ -1,8 +1,5 @@
 // @flow strict
 
-// FIXME temporary hack until https://github.com/eslint/eslint/pull/12484 is merged
-/* eslint-disable require-await */
-
 import EventEmitter from 'events';
 
 import { expect } from 'chai';
@@ -139,7 +136,7 @@ async function createSubscription(
 async function expectPromiseToThrow(promise, message) {
   try {
     await promise();
-    /* istanbul ignore next */
+    // istanbul ignore next (Shouldn't be reached)
     expect.fail('promise should have thrown but did not');
   } catch (error) {
     expect(error).to.be.an.instanceOf(Error);
@@ -283,7 +280,7 @@ describe('Subscription Initialization Phase', () => {
         },
         nonImportantEmail: {
           type: EmailEventType,
-          /* istanbul ignore next (shouldn't be called) */
+          // istanbul ignore next (Shouldn't be called)
           subscribe() {
             didResolveNonImportantEmail = true;
             return eventEmitterAsyncIterator(new EventEmitter(), 'event');
@@ -325,13 +322,13 @@ describe('Subscription Initialization Phase', () => {
     `);
 
     await expectPromiseToThrow(
-      // $DisableFlowOnNegativeTest
-      () => subscribe(null, document),
+      // $FlowExpectedError
+      () => subscribe({ schema: null, document }),
       'Expected null to be a GraphQL schema.',
     );
 
     await expectPromiseToThrow(
-      // $DisableFlowOnNegativeTest
+      // $FlowExpectedError
       () => subscribe({ document }),
       'Expected undefined to be a GraphQL schema.',
     );
@@ -339,13 +336,13 @@ describe('Subscription Initialization Phase', () => {
 
   it('throws an error if document is missing', async () => {
     await expectPromiseToThrow(
-      // $DisableFlowOnNegativeTest
-      () => subscribe(emailSchema, null),
+      // $FlowExpectedError
+      () => subscribe({ schema: emailSchema, document: null }),
       'Must provide document.',
     );
 
     await expectPromiseToThrow(
-      // $DisableFlowOnNegativeTest
+      // $FlowExpectedError
       () => subscribe({ schema: emailSchema }),
       'Must provide document.',
     );
@@ -375,7 +372,7 @@ describe('Subscription Initialization Phase', () => {
   it('should pass through unexpected errors thrown in subscribe', async () => {
     let expectedError;
     try {
-      // $DisableFlowOnNegativeTest
+      // $FlowExpectedError
       await subscribe({ schema: emailSchema, document: {} });
     } catch (error) {
       expectedError = error;

@@ -8,22 +8,24 @@ import invariant from '../jsutils/invariant';
 import { print } from '../language/printer';
 import { printBlockString } from '../language/blockString';
 
-import { type GraphQLSchema } from '../type/schema';
+import type { GraphQLSchema } from '../type/schema';
+import type { GraphQLDirective } from '../type/directives';
+import type {
+  GraphQLNamedType,
+  GraphQLScalarType,
+  GraphQLEnumType,
+  GraphQLObjectType,
+  GraphQLInterfaceType,
+  GraphQLUnionType,
+  GraphQLInputObjectType,
+} from '../type/definition';
 import { isIntrospectionType } from '../type/introspection';
 import { GraphQLString, isSpecifiedScalarType } from '../type/scalars';
 import {
-  GraphQLDirective,
   DEFAULT_DEPRECATION_REASON,
   isSpecifiedDirective,
 } from '../type/directives';
 import {
-  type GraphQLNamedType,
-  type GraphQLScalarType,
-  type GraphQLEnumType,
-  type GraphQLObjectType,
-  type GraphQLInterfaceType,
-  type GraphQLUnionType,
-  type GraphQLInputObjectType,
   isScalarType,
   isObjectType,
   isInterfaceType,
@@ -172,16 +174,21 @@ export function printType(type: GraphQLNamedType, options?: Options): string {
   if (isEnumType(type)) {
     return printEnum(type, options);
   }
+  // istanbul ignore else (See: 'https://github.com/graphql/graphql-js/issues/2618')
   if (isInputObjectType(type)) {
     return printInputObject(type, options);
   }
 
-  // Not reachable. All possible types have been considered.
+  // istanbul ignore next (Not reachable. All possible types have been considered)
   invariant(false, 'Unexpected type: ' + inspect((type: empty)));
 }
 
 function printScalar(type: GraphQLScalarType, options): string {
-  return printDescription(options, type) + `scalar ${type.name}`;
+  return (
+    printDescription(options, type) +
+    `scalar ${type.name}` +
+    printSpecifiedByUrl(type)
+  );
 }
 
 function printImplementedInterfaces(
@@ -319,6 +326,19 @@ function printDeprecated(fieldOrEnumVal) {
     return ' @deprecated(reason: ' + print(reasonAST) + ')';
   }
   return ' @deprecated';
+}
+
+function printSpecifiedByUrl(scalar: GraphQLScalarType) {
+  if (scalar.specifiedByUrl == null) {
+    return '';
+  }
+  const url = scalar.specifiedByUrl;
+  const urlAST = astFromValue(url, GraphQLString);
+  invariant(
+    urlAST,
+    'Unexpected null value returned from `astFromValue` for specifiedByUrl',
+  );
+  return ' @specifiedBy(url: ' + print(urlAST) + ')';
 }
 
 function printDescription(
