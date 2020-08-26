@@ -286,12 +286,12 @@ describe('Execute: Handles mutation execution ordering', () => {
         },
         {
           message: 'Cannot change the number',
-          locations: [{ line: 27, column: 9 }],
+          locations: [{ line: 28, column: 11 }],
           path: ['subField', 'third'],
         },
         {
           message: 'Cannot change the number',
-          locations: [{ line: 36, column: 9 }],
+          locations: [{ line: 37, column: 11 }],
           path: ['subField', 'sixth'],
         },
       ],
