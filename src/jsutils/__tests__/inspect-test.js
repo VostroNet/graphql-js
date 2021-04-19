@@ -1,5 +1,3 @@
-// @flow strict
-
 import { expect } from 'chai';
 import { describe, it } from 'mocha';
 
@@ -36,12 +34,17 @@ describe('inspect', () => {
   });
 
   it('function', () => {
-    expect(inspect(() => invariant(false))).to.equal('[function]');
+    const unnamedFuncStr = inspect(
+      // istanbul ignore next (Never called and used as a placeholder)
+      () => invariant(false),
+    );
+    expect(unnamedFuncStr).to.equal('[function]');
 
-    function testFunc() {
+    // istanbul ignore next (Never called and used as a placeholder)
+    function namedFunc() {
       invariant(false);
     }
-    expect(inspect(testFunc)).to.equal('[function testFunc]');
+    expect(inspect(namedFunc)).to.equal('[function namedFunc]');
   });
 
   it('array', () => {
@@ -76,8 +79,8 @@ describe('inspect', () => {
     expect(inspect({ a: { b: { c: 1 } } })).to.equal('{ a: { b: [Object] } }');
 
     const map = Object.create(null);
-    map['a'] = true;
-    map['b'] = null;
+    map.a = true;
+    map.b = null;
     expect(inspect(map)).to.equal('{ a: true, b: null }');
   });
 
@@ -103,6 +106,7 @@ describe('inspect', () => {
 
   it('custom symbol inspect is take precedence', () => {
     const object = {
+      // istanbul ignore next (Never called and use just as a placeholder)
       inspect() {
         invariant(false);
       },
@@ -166,7 +170,7 @@ describe('inspect', () => {
     expect(inspect(customA)).to.equal('[Circular]');
   });
 
-  it('Use class names for the shortform of an object', () => {
+  it('Use class names for the short form of an object', () => {
     class Foo {
       foo: string;
 
@@ -180,7 +184,8 @@ describe('inspect', () => {
     (Foo.prototype: any)[Symbol.toStringTag] = 'Bar';
     expect(inspect([[new Foo()]])).to.equal('[[[Bar]]]');
 
-    const objectWithoutClassName = new (function() {
+    const objectWithoutClassName = new (function () {
+      // eslint-disable-next-line no-invalid-this
       this.foo = 1;
     })();
     expect(inspect([[objectWithoutClassName]])).to.equal('[[[Object]]]');

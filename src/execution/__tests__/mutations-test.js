@@ -1,7 +1,7 @@
-// @flow strict
-
 import { expect } from 'chai';
 import { describe, it } from 'mocha';
+
+import resolveOnNextTick from '../../__testUtils__/resolveOnNextTick';
 
 import { parse } from '../../language/parser';
 
@@ -9,7 +9,7 @@ import { GraphQLInt } from '../../type/scalars';
 import { GraphQLSchema } from '../../type/schema';
 import { GraphQLObjectType } from '../../type/definition';
 
-import { execute } from '../execute';
+import { execute, executeSync } from '../execute';
 
 class NumberHolder {
   theNumber: number;
@@ -31,24 +31,18 @@ class Root {
     return this.numberHolder;
   }
 
-  promiseToChangeTheNumber(newNumber: number): Promise<NumberHolder> {
-    return new Promise(resolve => {
-      process.nextTick(() => {
-        resolve(this.immediatelyChangeTheNumber(newNumber));
-      });
-    });
+  async promiseToChangeTheNumber(newNumber: number): Promise<NumberHolder> {
+    await resolveOnNextTick();
+    return this.immediatelyChangeTheNumber(newNumber);
   }
 
   failToChangeTheNumber(): NumberHolder {
     throw new Error('Cannot change the number');
   }
 
-  promiseAndFailToChangeTheNumber(): Promise<NumberHolder> {
-    return new Promise((resolve, reject) => {
-      process.nextTick(() => {
-        reject(new Error('Cannot change the number'));
-      });
-    });
+  async promiseAndFailToChangeTheNumber(): Promise<NumberHolder> {
+    await resolveOnNextTick();
+    throw new Error('Cannot change the number');
   }
 }
 
@@ -142,42 +136,45 @@ const schema = new GraphQLSchema({
 
 describe('Execute: Handles mutation execution ordering', () => {
   it('evaluates mutations serially', async () => {
-    const doc = `mutation M {
-      first: immediatelyChangeTheNumber(newNumber: 1) {
-        theNumber
-      },
-      second: promiseToChangeTheNumber(newNumber: 2) {
-        theNumber
-      },
-      third: immediatelyChangeTheNumber(newNumber: 3) {
-        theNumber
-      }
-      fourth: promiseToChangeTheNumber(newNumber: 4) {
-        theNumber
-      },
-      fifth: immediatelyChangeTheNumber(newNumber: 5) {
-        theNumber
-      }
-      subField {
-        first: immediatelyChangeTheNumber(newNumber: 6) {
+    const document = parse(`
+      mutation M {
+        first: immediatelyChangeTheNumber(newNumber: 1) {
           theNumber
         },
-        second: promiseToChangeTheNumber(newNumber: 7) {
+        second: promiseToChangeTheNumber(newNumber: 2) {
           theNumber
         },
-        third: immediatelyChangeTheNumber(newNumber: 8) {
+        third: immediatelyChangeTheNumber(newNumber: 3) {
           theNumber
         }
-        fourth: promiseToChangeTheNumber(newNumber: 9) {
+        fourth: promiseToChangeTheNumber(newNumber: 4) {
           theNumber
         },
-        fifth: immediatelyChangeTheNumber(newNumber: 10) {
+        fifth: immediatelyChangeTheNumber(newNumber: 5) {
           theNumber
         }
+        subField {
+          first: immediatelyChangeTheNumber(newNumber: 6) {
+            theNumber
+          },
+          second: promiseToChangeTheNumber(newNumber: 7) {
+            theNumber
+          },
+          third: immediatelyChangeTheNumber(newNumber: 8) {
+            theNumber
+          }
+          fourth: promiseToChangeTheNumber(newNumber: 9) {
+            theNumber
+          },
+          fifth: immediatelyChangeTheNumber(newNumber: 10) {
+            theNumber
+          }
+        }
       }
-    }`;
+    `);
 
-    const mutationResult = await execute(schema, parse(doc), new Root(6));
+    const rootValue = new Root(6);
+    const mutationResult = await execute({ schema, document, rootValue });
 
     expect(mutationResult).to.deep.equal({
       data: {
@@ -197,49 +194,61 @@ describe('Execute: Handles mutation execution ordering', () => {
     });
   });
 
-  it('evaluates mutations correctly in the presence of a failed mutation', async () => {
-    const doc = `mutation M {
-      first: immediatelyChangeTheNumber(newNumber: 1) {
-        theNumber
-      },
-      second: promiseToChangeTheNumber(newNumber: 2) {
-        theNumber
-      },
-      third: failToChangeTheNumber(newNumber: 3) {
-        theNumber
-      }
-      fourth: promiseToChangeTheNumber(newNumber: 4) {
-        theNumber
-      },
-      fifth: immediatelyChangeTheNumber(newNumber: 5) {
-        theNumber
-      }
-      sixth: promiseAndFailToChangeTheNumber(newNumber: 6) {
-        theNumber
-      }
-      subField {
-        first: immediatelyChangeTheNumber(newNumber: 7) {
-          theNumber
-        },
-        second: promiseToChangeTheNumber(newNumber: 8) {
-          theNumber
-        },
-        third: failToChangeTheNumber(newNumber: 9) {
-          theNumber
-        }
-        fourth: promiseToChangeTheNumber(newNumber: 10) {
-          theNumber
-        },
-        fifth: immediatelyChangeTheNumber(newNumber: 11) {
-          theNumber
-        }
-        sixth: promiseAndFailToChangeTheNumber(newNumber: 12) {
-          theNumber
-        }
-      }
-    }`;
+  it('does not include illegal mutation fields in output', () => {
+    const document = parse('mutation { thisIsIllegalDoNotIncludeMe }');
 
-    const result = await execute(schema, parse(doc), new Root(6));
+    const result = executeSync({ schema, document });
+    expect(result).to.deep.equal({
+      data: {},
+    });
+  });
+
+  it('evaluates mutations correctly in the presence of a failed mutation', async () => {
+    const document = parse(`
+      mutation M {
+        first: immediatelyChangeTheNumber(newNumber: 1) {
+          theNumber
+        },
+        second: promiseToChangeTheNumber(newNumber: 2) {
+          theNumber
+        },
+        third: failToChangeTheNumber(newNumber: 3) {
+          theNumber
+        }
+        fourth: promiseToChangeTheNumber(newNumber: 4) {
+          theNumber
+        },
+        fifth: immediatelyChangeTheNumber(newNumber: 5) {
+          theNumber
+        }
+        sixth: promiseAndFailToChangeTheNumber(newNumber: 6) {
+          theNumber
+        }
+        subField {
+          first: immediatelyChangeTheNumber(newNumber: 7) {
+            theNumber
+          },
+          second: promiseToChangeTheNumber(newNumber: 8) {
+            theNumber
+          },
+          third: failToChangeTheNumber(newNumber: 9) {
+            theNumber
+          }
+          fourth: promiseToChangeTheNumber(newNumber: 10) {
+            theNumber
+          },
+          fifth: immediatelyChangeTheNumber(newNumber: 11) {
+            theNumber
+          }
+          sixth: promiseAndFailToChangeTheNumber(newNumber: 12) {
+            theNumber
+          }
+        }
+      }
+    `);
+
+    const rootValue = new Root(6);
+    const result = await execute({ schema, document, rootValue });
 
     expect(result).to.deep.equal({
       data: {
@@ -261,12 +270,12 @@ describe('Execute: Handles mutation execution ordering', () => {
       errors: [
         {
           message: 'Cannot change the number',
-          locations: [{ line: 8, column: 7 }],
+          locations: [{ line: 9, column: 9 }],
           path: ['third'],
         },
         {
           message: 'Cannot change the number',
-          locations: [{ line: 17, column: 7 }],
+          locations: [{ line: 18, column: 9 }],
           path: ['sixth'],
         },
         {

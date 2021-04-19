@@ -42,7 +42,7 @@ Complete your CLA here: <https://code.facebook.com/cla>
 2. Check out your fork
 
    ```sh
-   git clone git@github.com:yournamehere/graphql-js.git
+   git clone git@github.com:your_name_here/graphql-js.git
    ```
 
 3. Install or Update all dependencies
@@ -60,11 +60,6 @@ Complete your CLA here: <https://code.facebook.com/cla>
    ```sh
    npm test
    ```
-
-### Live Feedback
-
-While actively developing, we recommend running `npm run watch` in a terminal.
-This will watch the file system run any relevant lint, tests, and type checks automatically whenever you save a `.js` file.
 
 ## Coding Style
 
@@ -102,4 +97,4 @@ git push --follow-tags
 ## License
 
 By contributing to graphql-js, you agree that your contributions will be
-licensed under its MIT license.
+licensed under its [MIT license](../LICENSE).

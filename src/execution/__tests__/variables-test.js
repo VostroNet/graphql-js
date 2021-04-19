@@ -1,5 +1,3 @@
-// @flow strict
-
 import { expect } from 'chai';
 import { describe, it } from 'mocha';
 
@@ -9,6 +7,7 @@ import invariant from '../../jsutils/invariant';
 import { Kind } from '../../language/kinds';
 import { parse } from '../../language/parser';
 
+import type { GraphQLArgumentConfig } from '../../type/definition';
 import { GraphQLSchema } from '../../type/schema';
 import { GraphQLString } from '../../type/scalars';
 import {
@@ -20,28 +19,18 @@ import {
   GraphQLEnumType,
 } from '../../type/definition';
 
-import { execute } from '../execute';
+import { executeSync } from '../execute';
 import { getVariableValues } from '../values';
 
 const TestComplexScalar = new GraphQLScalarType({
   name: 'ComplexScalar',
-  serialize(value) {
-    if (value === 'DeserializedValue') {
-      return 'SerializedValue';
-    }
-    return null;
-  },
   parseValue(value) {
-    if (value === 'SerializedValue') {
-      return 'DeserializedValue';
-    }
-    return null;
+    invariant(value === 'SerializedValue');
+    return 'DeserializedValue';
   },
   parseLiteral(ast) {
-    if (ast.value === 'SerializedValue') {
-      return 'DeserializedValue';
-    }
-    return null;
+    invariant(ast.value === 'SerializedValue');
+    return 'DeserializedValue';
   },
 });
 
@@ -49,8 +38,8 @@ const TestInputObject = new GraphQLInputObjectType({
   name: 'TestInputObject',
   fields: {
     a: { type: GraphQLString },
-    b: { type: GraphQLList(GraphQLString) },
-    c: { type: GraphQLNonNull(GraphQLString) },
+    b: { type: new GraphQLList(GraphQLString) },
+    c: { type: new GraphQLNonNull(GraphQLString) },
     d: { type: TestComplexScalar },
   },
 });
@@ -58,8 +47,8 @@ const TestInputObject = new GraphQLInputObjectType({
 const TestNestedInputObject = new GraphQLInputObjectType({
   name: 'TestNestedInputObject',
   fields: {
-    na: { type: GraphQLNonNull(TestInputObject) },
-    nb: { type: GraphQLNonNull(GraphQLString) },
+    na: { type: new GraphQLNonNull(TestInputObject) },
+    nb: { type: new GraphQLNonNull(GraphQLString) },
   },
 });
 
@@ -75,7 +64,7 @@ const TestEnum = new GraphQLEnumType({
   },
 });
 
-function fieldWithInputArg(inputArg) {
+function fieldWithInputArg(inputArg: GraphQLArgumentConfig) {
   return {
     type: GraphQLString,
     args: { input: inputArg },
@@ -92,43 +81,48 @@ const TestType = new GraphQLObjectType({
   fields: {
     fieldWithEnumInput: fieldWithInputArg({ type: TestEnum }),
     fieldWithNonNullableEnumInput: fieldWithInputArg({
-      type: GraphQLNonNull(TestEnum),
+      type: new GraphQLNonNull(TestEnum),
     }),
     fieldWithObjectInput: fieldWithInputArg({ type: TestInputObject }),
     fieldWithNullableStringInput: fieldWithInputArg({ type: GraphQLString }),
     fieldWithNonNullableStringInput: fieldWithInputArg({
-      type: GraphQLNonNull(GraphQLString),
+      type: new GraphQLNonNull(GraphQLString),
     }),
     fieldWithDefaultArgumentValue: fieldWithInputArg({
       type: GraphQLString,
       defaultValue: 'Hello World',
     }),
     fieldWithNonNullableStringInputAndDefaultArgumentValue: fieldWithInputArg({
-      type: GraphQLNonNull(GraphQLString),
+      type: new GraphQLNonNull(GraphQLString),
       defaultValue: 'Hello World',
     }),
     fieldWithNestedInputObject: fieldWithInputArg({
       type: TestNestedInputObject,
       defaultValue: 'Hello World',
     }),
-    list: fieldWithInputArg({ type: GraphQLList(GraphQLString) }),
+    list: fieldWithInputArg({ type: new GraphQLList(GraphQLString) }),
     nnList: fieldWithInputArg({
-      type: GraphQLNonNull(GraphQLList(GraphQLString)),
+      type: new GraphQLNonNull(new GraphQLList(GraphQLString)),
     }),
     listNN: fieldWithInputArg({
-      type: GraphQLList(GraphQLNonNull(GraphQLString)),
+      type: new GraphQLList(new GraphQLNonNull(GraphQLString)),
     }),
     nnListNN: fieldWithInputArg({
-      type: GraphQLNonNull(GraphQLList(GraphQLNonNull(GraphQLString))),
+      type: new GraphQLNonNull(
+        new GraphQLList(new GraphQLNonNull(GraphQLString)),
+      ),
     }),
   },
 });
 
 const schema = new GraphQLSchema({ query: TestType });
 
-function executeQuery(query, variableValues) {
+function executeQuery(
+  query: string,
+  variableValues?: { [variable: string]: mixed, ... },
+) {
   const document = parse(query);
-  return execute({ schema, document, variableValues });
+  return executeSync({ schema, document, variableValues });
 }
 
 describe('Execute: Handles inputs', () => {
@@ -295,9 +289,11 @@ describe('Execute: Handles inputs', () => {
 
       it('does not use default value when provided', () => {
         const result = executeQuery(
-          `query q($input: String = "Default value") {
-            fieldWithNullableStringInput(input: $input)
-          }`,
+          `
+            query q($input: String = "Default value") {
+              fieldWithNullableStringInput(input: $input)
+            }
+          `,
           { input: 'Variable value' },
         );
 
@@ -372,7 +368,7 @@ describe('Execute: Handles inputs', () => {
           errors: [
             {
               message:
-                'Variable "$input" got invalid value null at "input.c"; Expected non-nullable type String! not to be null.',
+                'Variable "$input" got invalid value null at "input.c"; Expected non-nullable type "String!" not to be null.',
               locations: [{ line: 2, column: 16 }],
             },
           ],
@@ -386,7 +382,7 @@ describe('Execute: Handles inputs', () => {
           errors: [
             {
               message:
-                'Variable "$input" got invalid value "foo bar"; Expected type TestInputObject to be an object.',
+                'Variable "$input" got invalid value "foo bar"; Expected type "TestInputObject" to be an object.',
               locations: [{ line: 2, column: 16 }],
             },
           ],
@@ -400,7 +396,7 @@ describe('Execute: Handles inputs', () => {
           errors: [
             {
               message:
-                'Variable "$input" got invalid value { a: "foo", b: "bar" }; Field c of required type String! was not provided.',
+                'Variable "$input" got invalid value { a: "foo", b: "bar" }; Field "c" of required type "String!" was not provided.',
               locations: [{ line: 2, column: 16 }],
             },
           ],
@@ -419,12 +415,12 @@ describe('Execute: Handles inputs', () => {
           errors: [
             {
               message:
-                'Variable "$input" got invalid value { a: "foo" } at "input.na"; Field c of required type String! was not provided.',
+                'Variable "$input" got invalid value { a: "foo" } at "input.na"; Field "c" of required type "String!" was not provided.',
               locations: [{ line: 2, column: 18 }],
             },
             {
               message:
-                'Variable "$input" got invalid value { na: { a: "foo" } }; Field nb of required type String! was not provided.',
+                'Variable "$input" got invalid value { na: { a: "foo" } }; Field "nb" of required type "String!" was not provided.',
               locations: [{ line: 2, column: 18 }],
             },
           ],
@@ -441,7 +437,7 @@ describe('Execute: Handles inputs', () => {
           errors: [
             {
               message:
-                'Variable "$input" got invalid value { a: "foo", b: "bar", c: "baz", extra: "dog" }; Field "extra" is not defined by type TestInputObject.',
+                'Variable "$input" got invalid value { a: "foo", b: "bar", c: "baz", extra: "dog" }; Field "extra" is not defined by type "TestInputObject".',
               locations: [{ line: 2, column: 16 }],
             },
           ],
@@ -577,6 +573,20 @@ describe('Execute: Handles inputs', () => {
   });
 
   describe('Handles non-nullable scalars', () => {
+    it('allows non-nullable variable to be omitted given a default', () => {
+      const result = executeQuery(`
+        query ($value: String! = "default") {
+          fieldWithNullableStringInput(input: $value)
+        }
+      `);
+
+      expect(result).to.deep.equal({
+        data: {
+          fieldWithNullableStringInput: '"default"',
+        },
+      });
+    });
+
     it('allows non-nullable inputs to be omitted given a default', () => {
       const result = executeQuery(`
         query ($value: String = "default") {
@@ -687,7 +697,7 @@ describe('Execute: Handles inputs', () => {
         errors: [
           {
             message:
-              'Variable "$value" got invalid value [1, 2, 3]; Expected type String. String cannot represent a non string value: [1, 2, 3]',
+              'Variable "$value" got invalid value [1, 2, 3]; String cannot represent a non string value: [1, 2, 3]',
             locations: [{ line: 2, column: 16 }],
           },
         ],
@@ -833,7 +843,7 @@ describe('Execute: Handles inputs', () => {
         errors: [
           {
             message:
-              'Variable "$input" got invalid value null at "input[1]"; Expected non-nullable type String! not to be null.',
+              'Variable "$input" got invalid value null at "input[1]"; Expected non-nullable type "String!" not to be null.',
             locations: [{ line: 2, column: 16 }],
           },
         ],
@@ -882,7 +892,7 @@ describe('Execute: Handles inputs', () => {
         errors: [
           {
             message:
-              'Variable "$input" got invalid value null at "input[1]"; Expected non-nullable type String! not to be null.',
+              'Variable "$input" got invalid value null at "input[1]"; Expected non-nullable type "String!" not to be null.',
             locations: [{ line: 2, column: 16 }],
           },
         ],
@@ -914,7 +924,7 @@ describe('Execute: Handles inputs', () => {
           fieldWithObjectInput(input: $input)
         }
       `;
-      const result = executeQuery(doc, { input: 'whoknows' });
+      const result = executeQuery(doc, { input: 'WhoKnows' });
 
       expect(result).to.deep.equal({
         errors: [
@@ -1004,12 +1014,24 @@ describe('Execute: Handles inputs', () => {
 
     const inputValue = { input: [0, 1, 2] };
 
-    function invalidValueError(value, index) {
+    function invalidValueError(value: number, index: number) {
       return {
-        message: `Variable "$input" got invalid value ${value} at "input[${index}]"; Expected type String. String cannot represent a non string value: ${value}`,
+        message: `Variable "$input" got invalid value ${value} at "input[${index}]"; String cannot represent a non string value: ${value}`,
         locations: [{ line: 2, column: 14 }],
       };
     }
+
+    it('return all errors by default', () => {
+      const result = getVariableValues(schema, variableDefinitions, inputValue);
+
+      expect(result).to.deep.equal({
+        errors: [
+          invalidValueError(0, 0),
+          invalidValueError(1, 1),
+          invalidValueError(2, 2),
+        ],
+      });
+    });
 
     it('when maxErrors is equal to number of errors', () => {
       const result = getVariableValues(

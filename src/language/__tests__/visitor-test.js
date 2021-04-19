@@ -1,20 +1,16 @@
-// @flow strict
-
 import { expect } from 'chai';
 import { describe, it } from 'mocha';
 
-import { getNamedType, isCompositeType } from '../../type/definition';
-import { TypeInfo } from '../../utilities/TypeInfo';
+import kitchenSinkQuery from '../../__testUtils__/kitchenSinkQuery';
 
+import invariant from '../../jsutils/invariant';
+
+import type { ASTNode } from '../ast';
 import { Kind } from '../kinds';
 import { parse } from '../parser';
-import { print } from '../printer';
-import { visit, visitInParallel, visitWithTypeInfo, BREAK } from '../visitor';
+import { visit, visitInParallel, BREAK, QueryDocumentKeys } from '../visitor';
 
-import { kitchenSinkQuery } from '../../__fixtures__';
-import { testSchema } from '../../validation/__tests__/harness';
-
-function checkVisitorFnArgs(ast, args, isEdited) {
+function checkVisitorFnArgs(ast: any, args: any, isEdited: boolean = false) {
   const [node, key, parent, path, ancestors] = args;
 
   expect(node).to.be.an.instanceof(Object);
@@ -55,7 +51,7 @@ function checkVisitorFnArgs(ast, args, isEdited) {
   }
 }
 
-function getValue(node) {
+function getValue(node: ASTNode) {
   return node.value != null ? node.value : undefined;
 }
 
@@ -66,11 +62,11 @@ describe('Visitor', () => {
     const ast = parse('{ a }', { noLocation: true });
 
     visit(ast, {
-      enter(node, key, parent, path) {
+      enter(_node, _key, _parent, path) {
         checkVisitorFnArgs(ast, arguments);
         visited.push(['enter', path.slice()]);
       },
-      leave(node, key, parent, path) {
+      leave(_node, _key, _parent, path) {
         checkVisitorFnArgs(ast, arguments);
         visited.push(['leave', path.slice()]);
       },
@@ -95,7 +91,7 @@ describe('Visitor', () => {
     const visitedNodes = [];
 
     visit(ast, {
-      enter(node, key, parent, path, ancestors) {
+      enter(node, key, parent, _path, ancestors) {
         const inArray = typeof key === 'number';
         if (inArray) {
           visitedNodes.push(parent);
@@ -105,7 +101,7 @@ describe('Visitor', () => {
         const expectedAncestors = visitedNodes.slice(0, -2);
         expect(ancestors).to.deep.equal(expectedAncestors);
       },
-      leave(node, key, parent, path, ancestors) {
+      leave(_node, key, _parent, _path, ancestors) {
         const expectedAncestors = visitedNodes.slice(0, -2);
         expect(ancestors).to.deep.equal(expectedAncestors);
 
@@ -116,6 +112,29 @@ describe('Visitor', () => {
         visitedNodes.pop();
       },
     });
+  });
+
+  it('allows visiting only specified nodes', () => {
+    const ast = parse('{ a }', { noLocation: true });
+    const visited = [];
+
+    visit(ast, {
+      enter: {
+        Field(node) {
+          visited.push(['enter', node.kind]);
+        },
+      },
+      leave: {
+        Field(node) {
+          visited.push(['leave', node.kind]);
+        },
+      },
+    });
+
+    expect(visited).to.deep.equal([
+      ['enter', 'Field'],
+      ['leave', 'Field'],
+    ]);
   });
 
   it('allows editing a node both on enter and on leave', () => {
@@ -233,6 +252,19 @@ describe('Visitor', () => {
     );
   });
 
+  it('ignores false returned on leave', () => {
+    const ast = parse('{ a, b, c { a, b, c } }', { noLocation: true });
+    const returnedAST = visit(ast, {
+      leave() {
+        return false;
+      },
+    });
+
+    expect(returnedAST).to.deep.equal(
+      parse('{ a, b, c { a, b, c } }', { noLocation: true }),
+    );
+  });
+
   it('visits edited node', () => {
     const addedField = {
       kind: 'Field',
@@ -313,7 +345,6 @@ describe('Visitor', () => {
           return BREAK;
         }
       },
-
       leave(node) {
         checkVisitorFnArgs(ast, arguments);
         visited.push(['leave', node.kind, getValue(node)]);
@@ -468,7 +499,7 @@ describe('Visitor', () => {
           'enter',
           node.kind,
           key,
-          parent && parent.kind != null ? parent.kind : undefined,
+          parent?.kind != null ? parent.kind : undefined,
         ]);
 
         checkVisitorFnArgs(ast, arguments);
@@ -480,7 +511,7 @@ describe('Visitor', () => {
           'leave',
           node.kind,
           key,
-          parent && parent.kind != null ? parent.kind : undefined,
+          parent?.kind != null ? parent.kind : undefined,
         ]);
 
         expect(argsStack.pop()).to.deep.equal([...arguments]);
@@ -834,6 +865,95 @@ describe('Visitor', () => {
     ]);
   });
 
+  describe('Support for custom AST nodes', () => {
+    const customAST = parse('{ a }');
+    (customAST: any).definitions[0].selectionSet.selections.push({
+      kind: 'CustomField',
+      name: {
+        kind: 'Name',
+        value: 'b',
+      },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'CustomField',
+            name: {
+              kind: 'Name',
+              value: 'c',
+            },
+          },
+        ],
+      },
+    });
+
+    it('does not traverse unknown node kinds', () => {
+      const visited = [];
+      visit(customAST, {
+        enter(node) {
+          visited.push(['enter', node.kind, getValue(node)]);
+        },
+        leave(node) {
+          visited.push(['leave', node.kind, getValue(node)]);
+        },
+      });
+
+      expect(visited).to.deep.equal([
+        ['enter', 'Document', undefined],
+        ['enter', 'OperationDefinition', undefined],
+        ['enter', 'SelectionSet', undefined],
+        ['enter', 'Field', undefined],
+        ['enter', 'Name', 'a'],
+        ['leave', 'Name', 'a'],
+        ['leave', 'Field', undefined],
+        ['enter', 'CustomField', undefined],
+        ['leave', 'CustomField', undefined],
+        ['leave', 'SelectionSet', undefined],
+        ['leave', 'OperationDefinition', undefined],
+        ['leave', 'Document', undefined],
+      ]);
+    });
+
+    it('does traverse unknown node kinds with visitor keys', () => {
+      const customQueryDocumentKeys = { ...QueryDocumentKeys };
+      (customQueryDocumentKeys: any).CustomField = ['name', 'selectionSet'];
+
+      const visited = [];
+      const visitor = {
+        enter(node) {
+          visited.push(['enter', node.kind, getValue(node)]);
+        },
+        leave(node) {
+          visited.push(['leave', node.kind, getValue(node)]);
+        },
+      };
+      visit(customAST, visitor, customQueryDocumentKeys);
+
+      expect(visited).to.deep.equal([
+        ['enter', 'Document', undefined],
+        ['enter', 'OperationDefinition', undefined],
+        ['enter', 'SelectionSet', undefined],
+        ['enter', 'Field', undefined],
+        ['enter', 'Name', 'a'],
+        ['leave', 'Name', 'a'],
+        ['leave', 'Field', undefined],
+        ['enter', 'CustomField', undefined],
+        ['enter', 'Name', 'b'],
+        ['leave', 'Name', 'b'],
+        ['enter', 'SelectionSet', undefined],
+        ['enter', 'CustomField', undefined],
+        ['enter', 'Name', 'c'],
+        ['leave', 'Name', 'c'],
+        ['leave', 'CustomField', undefined],
+        ['leave', 'SelectionSet', undefined],
+        ['leave', 'CustomField', undefined],
+        ['leave', 'SelectionSet', undefined],
+        ['leave', 'OperationDefinition', undefined],
+        ['leave', 'Document', undefined],
+      ]);
+    });
+  });
+
   describe('visitInParallel', () => {
     // Note: nearly identical to the above test of the same test but
     // using visitInParallel.
@@ -1011,9 +1131,9 @@ describe('Visitor', () => {
                 return BREAK;
               }
             },
-            leave(node) {
-              checkVisitorFnArgs(ast, arguments);
-              visited.push(['break-a', 'leave', node.kind, getValue(node)]);
+            // istanbul ignore next (Never called and used as a placeholder)
+            leave() {
+              invariant(false);
             },
           },
           {
@@ -1306,215 +1426,6 @@ describe('Visitor', () => {
         ['leave', 'SelectionSet', undefined],
         ['leave', 'OperationDefinition', undefined],
         ['leave', 'Document', undefined],
-      ]);
-    });
-  });
-
-  describe('visitWithTypeInfo', () => {
-    it('maintains type info during visit', () => {
-      const visited = [];
-
-      const typeInfo = new TypeInfo(testSchema);
-
-      const ast = parse(
-        '{ human(id: 4) { name, pets { ... { name } }, unknown } }',
-      );
-      visit(
-        ast,
-        visitWithTypeInfo(typeInfo, {
-          enter(node) {
-            checkVisitorFnArgs(ast, arguments);
-            const parentType = typeInfo.getParentType();
-            const type = typeInfo.getType();
-            const inputType = typeInfo.getInputType();
-            visited.push([
-              'enter',
-              node.kind,
-              node.kind === 'Name' ? node.value : null,
-              parentType ? String(parentType) : null,
-              type ? String(type) : null,
-              inputType ? String(inputType) : null,
-            ]);
-          },
-          leave(node) {
-            checkVisitorFnArgs(ast, arguments);
-            const parentType = typeInfo.getParentType();
-            const type = typeInfo.getType();
-            const inputType = typeInfo.getInputType();
-            visited.push([
-              'leave',
-              node.kind,
-              node.kind === 'Name' ? node.value : null,
-              parentType ? String(parentType) : null,
-              type ? String(type) : null,
-              inputType ? String(inputType) : null,
-            ]);
-          },
-        }),
-      );
-
-      expect(visited).to.deep.equal([
-        ['enter', 'Document', null, null, null, null],
-        ['enter', 'OperationDefinition', null, null, 'QueryRoot', null],
-        ['enter', 'SelectionSet', null, 'QueryRoot', 'QueryRoot', null],
-        ['enter', 'Field', null, 'QueryRoot', 'Human', null],
-        ['enter', 'Name', 'human', 'QueryRoot', 'Human', null],
-        ['leave', 'Name', 'human', 'QueryRoot', 'Human', null],
-        ['enter', 'Argument', null, 'QueryRoot', 'Human', 'ID'],
-        ['enter', 'Name', 'id', 'QueryRoot', 'Human', 'ID'],
-        ['leave', 'Name', 'id', 'QueryRoot', 'Human', 'ID'],
-        ['enter', 'IntValue', null, 'QueryRoot', 'Human', 'ID'],
-        ['leave', 'IntValue', null, 'QueryRoot', 'Human', 'ID'],
-        ['leave', 'Argument', null, 'QueryRoot', 'Human', 'ID'],
-        ['enter', 'SelectionSet', null, 'Human', 'Human', null],
-        ['enter', 'Field', null, 'Human', 'String', null],
-        ['enter', 'Name', 'name', 'Human', 'String', null],
-        ['leave', 'Name', 'name', 'Human', 'String', null],
-        ['leave', 'Field', null, 'Human', 'String', null],
-        ['enter', 'Field', null, 'Human', '[Pet]', null],
-        ['enter', 'Name', 'pets', 'Human', '[Pet]', null],
-        ['leave', 'Name', 'pets', 'Human', '[Pet]', null],
-        ['enter', 'SelectionSet', null, 'Pet', '[Pet]', null],
-        ['enter', 'InlineFragment', null, 'Pet', 'Pet', null],
-        ['enter', 'SelectionSet', null, 'Pet', 'Pet', null],
-        ['enter', 'Field', null, 'Pet', 'String', null],
-        ['enter', 'Name', 'name', 'Pet', 'String', null],
-        ['leave', 'Name', 'name', 'Pet', 'String', null],
-        ['leave', 'Field', null, 'Pet', 'String', null],
-        ['leave', 'SelectionSet', null, 'Pet', 'Pet', null],
-        ['leave', 'InlineFragment', null, 'Pet', 'Pet', null],
-        ['leave', 'SelectionSet', null, 'Pet', '[Pet]', null],
-        ['leave', 'Field', null, 'Human', '[Pet]', null],
-        ['enter', 'Field', null, 'Human', null, null],
-        ['enter', 'Name', 'unknown', 'Human', null, null],
-        ['leave', 'Name', 'unknown', 'Human', null, null],
-        ['leave', 'Field', null, 'Human', null, null],
-        ['leave', 'SelectionSet', null, 'Human', 'Human', null],
-        ['leave', 'Field', null, 'QueryRoot', 'Human', null],
-        ['leave', 'SelectionSet', null, 'QueryRoot', 'QueryRoot', null],
-        ['leave', 'OperationDefinition', null, null, 'QueryRoot', null],
-        ['leave', 'Document', null, null, null, null],
-      ]);
-    });
-
-    it('maintains type info during edit', () => {
-      const visited = [];
-      const typeInfo = new TypeInfo(testSchema);
-
-      const ast = parse('{ human(id: 4) { name, pets }, alien }');
-      const editedAST = visit(
-        ast,
-        visitWithTypeInfo(typeInfo, {
-          enter(node) {
-            checkVisitorFnArgs(ast, arguments, /* isEdited */ true);
-            const parentType = typeInfo.getParentType();
-            const type = typeInfo.getType();
-            const inputType = typeInfo.getInputType();
-            visited.push([
-              'enter',
-              node.kind,
-              node.kind === 'Name' ? node.value : null,
-              parentType ? String(parentType) : null,
-              type ? String(type) : null,
-              inputType ? String(inputType) : null,
-            ]);
-
-            // Make a query valid by adding missing selection sets.
-            if (
-              node.kind === 'Field' &&
-              !node.selectionSet &&
-              isCompositeType(getNamedType(type))
-            ) {
-              return {
-                kind: 'Field',
-                alias: node.alias,
-                name: node.name,
-                arguments: node.arguments,
-                directives: node.directives,
-                selectionSet: {
-                  kind: 'SelectionSet',
-                  selections: [
-                    {
-                      kind: 'Field',
-                      name: { kind: 'Name', value: '__typename' },
-                    },
-                  ],
-                },
-              };
-            }
-          },
-          leave(node) {
-            checkVisitorFnArgs(ast, arguments, /* isEdited */ true);
-            const parentType = typeInfo.getParentType();
-            const type = typeInfo.getType();
-            const inputType = typeInfo.getInputType();
-            visited.push([
-              'leave',
-              node.kind,
-              node.kind === 'Name' ? node.value : null,
-              parentType ? String(parentType) : null,
-              type ? String(type) : null,
-              inputType ? String(inputType) : null,
-            ]);
-          },
-        }),
-      );
-
-      expect(print(ast)).to.deep.equal(
-        print(parse('{ human(id: 4) { name, pets }, alien }')),
-      );
-
-      expect(print(editedAST)).to.deep.equal(
-        print(
-          parse(
-            '{ human(id: 4) { name, pets { __typename } }, alien { __typename } }',
-          ),
-        ),
-      );
-
-      expect(visited).to.deep.equal([
-        ['enter', 'Document', null, null, null, null],
-        ['enter', 'OperationDefinition', null, null, 'QueryRoot', null],
-        ['enter', 'SelectionSet', null, 'QueryRoot', 'QueryRoot', null],
-        ['enter', 'Field', null, 'QueryRoot', 'Human', null],
-        ['enter', 'Name', 'human', 'QueryRoot', 'Human', null],
-        ['leave', 'Name', 'human', 'QueryRoot', 'Human', null],
-        ['enter', 'Argument', null, 'QueryRoot', 'Human', 'ID'],
-        ['enter', 'Name', 'id', 'QueryRoot', 'Human', 'ID'],
-        ['leave', 'Name', 'id', 'QueryRoot', 'Human', 'ID'],
-        ['enter', 'IntValue', null, 'QueryRoot', 'Human', 'ID'],
-        ['leave', 'IntValue', null, 'QueryRoot', 'Human', 'ID'],
-        ['leave', 'Argument', null, 'QueryRoot', 'Human', 'ID'],
-        ['enter', 'SelectionSet', null, 'Human', 'Human', null],
-        ['enter', 'Field', null, 'Human', 'String', null],
-        ['enter', 'Name', 'name', 'Human', 'String', null],
-        ['leave', 'Name', 'name', 'Human', 'String', null],
-        ['leave', 'Field', null, 'Human', 'String', null],
-        ['enter', 'Field', null, 'Human', '[Pet]', null],
-        ['enter', 'Name', 'pets', 'Human', '[Pet]', null],
-        ['leave', 'Name', 'pets', 'Human', '[Pet]', null],
-        ['enter', 'SelectionSet', null, 'Pet', '[Pet]', null],
-        ['enter', 'Field', null, 'Pet', 'String!', null],
-        ['enter', 'Name', '__typename', 'Pet', 'String!', null],
-        ['leave', 'Name', '__typename', 'Pet', 'String!', null],
-        ['leave', 'Field', null, 'Pet', 'String!', null],
-        ['leave', 'SelectionSet', null, 'Pet', '[Pet]', null],
-        ['leave', 'Field', null, 'Human', '[Pet]', null],
-        ['leave', 'SelectionSet', null, 'Human', 'Human', null],
-        ['leave', 'Field', null, 'QueryRoot', 'Human', null],
-        ['enter', 'Field', null, 'QueryRoot', 'Alien', null],
-        ['enter', 'Name', 'alien', 'QueryRoot', 'Alien', null],
-        ['leave', 'Name', 'alien', 'QueryRoot', 'Alien', null],
-        ['enter', 'SelectionSet', null, 'Alien', 'Alien', null],
-        ['enter', 'Field', null, 'Alien', 'String!', null],
-        ['enter', 'Name', '__typename', 'Alien', 'String!', null],
-        ['leave', 'Name', '__typename', 'Alien', 'String!', null],
-        ['leave', 'Field', null, 'Alien', 'String!', null],
-        ['leave', 'SelectionSet', null, 'Alien', 'Alien', null],
-        ['leave', 'Field', null, 'QueryRoot', 'Alien', null],
-        ['leave', 'SelectionSet', null, 'QueryRoot', 'QueryRoot', null],
-        ['leave', 'OperationDefinition', null, null, 'QueryRoot', null],
-        ['leave', 'Document', null, null, null, null],
       ]);
     });
   });

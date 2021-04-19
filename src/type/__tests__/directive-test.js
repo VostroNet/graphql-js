@@ -1,5 +1,3 @@
-// @flow strict
-
 import { expect } from 'chai';
 import { describe, it } from 'mocha';
 
@@ -36,17 +34,19 @@ describe('Type System: Directive', () => {
       args: [
         {
           name: 'foo',
-          description: null,
+          description: undefined,
           type: GraphQLString,
           defaultValue: undefined,
+          deprecationReason: undefined,
           extensions: undefined,
           astNode: undefined,
         },
         {
           name: 'bar',
-          description: null,
+          description: undefined,
           type: GraphQLInt,
           defaultValue: undefined,
+          deprecationReason: undefined,
           extensions: undefined,
           astNode: undefined,
         },
@@ -85,8 +85,8 @@ describe('Type System: Directive', () => {
   });
 
   it('rejects an unnamed directive', () => {
-    // $DisableFlowOnNegativeTest
-    expect(() => new GraphQLDirective({ locations: ['Query'] })).to.throw(
+    // $FlowExpectedError[prop-missing]
+    expect(() => new GraphQLDirective({ locations: ['QUERY'] })).to.throw(
       'Directive must be named.',
     );
   });
@@ -97,21 +97,21 @@ describe('Type System: Directive', () => {
         new GraphQLDirective({
           name: 'Foo',
           locations: ['QUERY'],
-          // $DisableFlowOnNegativeTest
+          // $FlowExpectedError[incompatible-call]
           args: [],
         }),
     ).to.throw('@Foo args must be an object with argument names as keys.');
   });
 
   it('rejects a directive with undefined locations', () => {
-    // $DisableFlowOnNegativeTest
+    // $FlowExpectedError[prop-missing]
     expect(() => new GraphQLDirective({ name: 'Foo' })).to.throw(
       '@Foo locations must be an Array.',
     );
   });
 
   it('rejects a directive with incorrectly typed locations', () => {
-    // $DisableFlowOnNegativeTest
+    // $FlowExpectedError[incompatible-call]
     expect(() => new GraphQLDirective({ name: 'Foo', locations: {} })).to.throw(
       '@Foo locations must be an Array.',
     );

@@ -1,22 +1,18 @@
-// @flow strict
-
 import { expect } from 'chai';
 import { describe, it } from 'mocha';
 
-import dedent from '../../jsutils/dedent';
+import dedent from '../../__testUtils__/dedent';
+import kitchenSinkSDL from '../../__testUtils__/kitchenSinkSDL';
 
 import { parse } from '../parser';
 
 import toJSONDeep from './toJSONDeep';
-import { kitchenSinkSDL } from '../../__fixtures__';
 
-function expectSyntaxError(text, message, location) {
-  expect(() => parse(text))
-    .to.throw(message)
-    .with.deep.property('locations', [location]);
+function expectSyntaxError(text: string) {
+  return expect(() => parse(text)).to.throw();
 }
 
-function typeNode(name, loc) {
+function typeNode(name: mixed, loc: mixed) {
   return {
     kind: 'NamedType',
     name: nameNode(name, loc),
@@ -24,7 +20,7 @@ function typeNode(name, loc) {
   };
 }
 
-function nameNode(name, loc) {
+function nameNode(name: mixed, loc: mixed) {
   return {
     kind: 'Name',
     value: name,
@@ -32,11 +28,11 @@ function nameNode(name, loc) {
   };
 }
 
-function fieldNode(name, type, loc) {
+function fieldNode(name: mixed, type: mixed, loc: mixed) {
   return fieldNodeWithArgs(name, type, [], loc);
 }
 
-function fieldNodeWithArgs(name, type, args, loc) {
+function fieldNodeWithArgs(name: mixed, type: mixed, args: mixed, loc: mixed) {
   return {
     kind: 'FieldDefinition',
     description: undefined,
@@ -48,7 +44,7 @@ function fieldNodeWithArgs(name, type, args, loc) {
   };
 }
 
-function enumValueNode(name, loc) {
+function enumValueNode(name: mixed, loc: mixed) {
   return {
     kind: 'EnumValueDefinition',
     name: nameNode(name, loc),
@@ -58,7 +54,12 @@ function enumValueNode(name, loc) {
   };
 }
 
-function inputValueNode(name, type, defaultValue, loc) {
+function inputValueNode(
+  name: mixed,
+  type: mixed,
+  defaultValue: mixed,
+  loc: mixed,
+) {
   return {
     kind: 'InputValueDefinition',
     name,
@@ -109,7 +110,7 @@ describe('Schema Parser', () => {
       }
     `);
 
-    expect(toJSONDeep(doc)).to.nested.deep.property(
+    expect(toJSONDeep(doc)).to.deep.nested.property(
       'definitions[0].description',
       {
         kind: 'StringValue',
@@ -131,7 +132,7 @@ describe('Schema Parser', () => {
       }
     `);
 
-    expect(toJSONDeep(doc)).to.nested.deep.property(
+    expect(toJSONDeep(doc)).to.deep.nested.property(
       'definitions[0].description',
       {
         kind: 'StringValue',
@@ -140,6 +141,32 @@ describe('Schema Parser', () => {
         loc: { start: 0, end: 19 },
       },
     );
+  });
+
+  it('parses schema with description string', () => {
+    const doc = parse(dedent`
+      "Description"
+      schema {
+        query: Foo
+      }
+    `);
+
+    expect(toJSONDeep(doc)).to.deep.nested.property(
+      'definitions[0].description',
+      {
+        kind: 'StringValue',
+        value: 'Description',
+        block: false,
+        loc: { start: 0, end: 13 },
+      },
+    );
+  });
+
+  it('Description followed by something other than type system definition throws', () => {
+    expectSyntaxError('"Description" 1').to.deep.equal({
+      message: 'Syntax Error: Unexpected Int "1".',
+      locations: [{ line: 1, column: 15 }],
+    });
   });
 
   it('Simple extension', () => {
@@ -171,7 +198,7 @@ describe('Schema Parser', () => {
     });
   });
 
-  it('Extension without fields', () => {
+  it('Object extension without fields', () => {
     const doc = parse('extend type Hello implements Greeting');
 
     expect(toJSONDeep(doc)).to.deep.equal({
@@ -190,7 +217,25 @@ describe('Schema Parser', () => {
     });
   });
 
-  it('Extension without fields followed by extension', () => {
+  it('Interface extension without fields', () => {
+    const doc = parse('extend interface Hello implements Greeting');
+    expect(toJSONDeep(doc)).to.deep.equal({
+      kind: 'Document',
+      definitions: [
+        {
+          kind: 'InterfaceTypeExtension',
+          name: nameNode('Hello', { start: 17, end: 22 }),
+          interfaces: [typeNode('Greeting', { start: 34, end: 42 })],
+          directives: [],
+          fields: [],
+          loc: { start: 0, end: 42 },
+        },
+      ],
+      loc: { start: 0, end: 42 },
+    });
+  });
+
+  it('Object extension without fields followed by extension', () => {
     const doc = parse(`
       extend type Hello implements Greeting
 
@@ -222,31 +267,107 @@ describe('Schema Parser', () => {
   });
 
   it('Extension without anything throws', () => {
-    expectSyntaxError('extend type Hello', 'Unexpected <EOF>', {
-      line: 1,
-      column: 18,
+    expectSyntaxError('extend scalar Hello').to.deep.equal({
+      message: 'Syntax Error: Unexpected <EOF>.',
+      locations: [{ line: 1, column: 20 }],
+    });
+
+    expectSyntaxError('extend type Hello').to.deep.equal({
+      message: 'Syntax Error: Unexpected <EOF>.',
+      locations: [{ line: 1, column: 18 }],
+    });
+
+    expectSyntaxError('extend interface Hello').to.deep.equal({
+      message: 'Syntax Error: Unexpected <EOF>.',
+      locations: [{ line: 1, column: 23 }],
+    });
+
+    expectSyntaxError('extend union Hello').to.deep.equal({
+      message: 'Syntax Error: Unexpected <EOF>.',
+      locations: [{ line: 1, column: 19 }],
+    });
+
+    expectSyntaxError('extend enum Hello').to.deep.equal({
+      message: 'Syntax Error: Unexpected <EOF>.',
+      locations: [{ line: 1, column: 18 }],
+    });
+
+    expectSyntaxError('extend input Hello').to.deep.equal({
+      message: 'Syntax Error: Unexpected <EOF>.',
+      locations: [{ line: 1, column: 19 }],
     });
   });
 
-  it('Extension do not include descriptions', () => {
-    expectSyntaxError(
-      `
+  it('Interface extension without fields followed by extension', () => {
+    const doc = parse(`
+      extend interface Hello implements Greeting
+
+      extend interface Hello implements SecondGreeting
+    `);
+    expect(toJSONDeep(doc)).to.deep.equal({
+      kind: 'Document',
+      definitions: [
+        {
+          kind: 'InterfaceTypeExtension',
+          name: nameNode('Hello', { start: 24, end: 29 }),
+          interfaces: [typeNode('Greeting', { start: 41, end: 49 })],
+          directives: [],
+          fields: [],
+          loc: { start: 7, end: 49 },
+        },
+        {
+          kind: 'InterfaceTypeExtension',
+          name: nameNode('Hello', { start: 74, end: 79 }),
+          interfaces: [typeNode('SecondGreeting', { start: 91, end: 105 })],
+          directives: [],
+          fields: [],
+          loc: { start: 57, end: 105 },
+        },
+      ],
+      loc: { start: 0, end: 110 },
+    });
+  });
+
+  it('Object extension do not include descriptions', () => {
+    expectSyntaxError(`
       "Description"
       extend type Hello {
         world: String
-      }`,
-      'Unexpected Name "extend"',
-      { line: 3, column: 7 },
-    );
+      }
+    `).to.deep.equal({
+      message: 'Syntax Error: Unexpected Name "extend".',
+      locations: [{ line: 3, column: 7 }],
+    });
 
-    expectSyntaxError(
-      `
+    expectSyntaxError(`
       extend "Description" type Hello {
         world: String
-      }`,
-      'Unexpected String "Description"',
-      { line: 2, column: 14 },
-    );
+      }
+    `).to.deep.equal({
+      message: 'Syntax Error: Unexpected String "Description".',
+      locations: [{ line: 2, column: 14 }],
+    });
+  });
+
+  it('Interface extension do not include descriptions', () => {
+    expectSyntaxError(`
+      "Description"
+      extend interface Hello {
+        world: String
+      }
+    `).to.deep.equal({
+      message: 'Syntax Error: Unexpected Name "extend".',
+      locations: [{ line: 3, column: 7 }],
+    });
+
+    expectSyntaxError(`
+      extend "Description" interface Hello {
+        world: String
+      }
+    `).to.deep.equal({
+      message: 'Syntax Error: Unexpected String "Description".',
+      locations: [{ line: 2, column: 14 }],
+    });
   });
 
   it('Schema extension', () => {
@@ -301,9 +422,16 @@ describe('Schema Parser', () => {
   });
 
   it('Schema extension without anything throws', () => {
-    expectSyntaxError('extend schema', 'Unexpected <EOF>', {
-      line: 1,
-      column: 14,
+    expectSyntaxError('extend schema').to.deep.equal({
+      message: 'Syntax Error: Unexpected <EOF>.',
+      locations: [{ line: 1, column: 14 }],
+    });
+  });
+
+  it('Schema extension with invalid operation type throws', () => {
+    expectSyntaxError('extend schema { unknown: SomeType }').to.deep.equal({
+      message: 'Syntax Error: Unexpected Name "unknown".',
+      locations: [{ line: 1, column: 17 }],
     });
   });
 
@@ -338,6 +466,31 @@ describe('Schema Parser', () => {
         },
       ],
       loc: { start: 0, end: 32 },
+    });
+  });
+
+  it('Simple interface inheriting interface', () => {
+    const doc = parse('interface Hello implements World { field: String }');
+    expect(toJSONDeep(doc)).to.deep.equal({
+      kind: 'Document',
+      definitions: [
+        {
+          kind: 'InterfaceTypeDefinition',
+          name: nameNode('Hello', { start: 10, end: 15 }),
+          description: undefined,
+          interfaces: [typeNode('World', { start: 27, end: 32 })],
+          directives: [],
+          fields: [
+            fieldNode(
+              nameNode('field', { start: 35, end: 40 }),
+              typeNode('String', { start: 42, end: 48 }),
+              { start: 35, end: 48 },
+            ),
+          ],
+          loc: { start: 0, end: 50 },
+        },
+      ],
+      loc: { start: 0, end: 50 },
     });
   });
 
@@ -396,6 +549,34 @@ describe('Schema Parser', () => {
     });
   });
 
+  it('Simple interface inheriting multiple interfaces', () => {
+    const doc = parse('interface Hello implements Wo & rld { field: String }');
+    expect(toJSONDeep(doc)).to.deep.equal({
+      kind: 'Document',
+      definitions: [
+        {
+          kind: 'InterfaceTypeDefinition',
+          name: nameNode('Hello', { start: 10, end: 15 }),
+          description: undefined,
+          interfaces: [
+            typeNode('Wo', { start: 27, end: 29 }),
+            typeNode('rld', { start: 32, end: 35 }),
+          ],
+          directives: [],
+          fields: [
+            fieldNode(
+              nameNode('field', { start: 38, end: 43 }),
+              typeNode('String', { start: 45, end: 51 }),
+              { start: 38, end: 51 },
+            ),
+          ],
+          loc: { start: 0, end: 53 },
+        },
+      ],
+      loc: { start: 0, end: 53 },
+    });
+  });
+
   it('Simple type inheriting multiple interfaces with leading ampersand', () => {
     const doc = parse('type Hello implements & Wo & rld { field: String }');
 
@@ -422,6 +603,36 @@ describe('Schema Parser', () => {
         },
       ],
       loc: { start: 0, end: 50 },
+    });
+  });
+
+  it('Simple interface inheriting multiple interfaces with leading ampersand', () => {
+    const doc = parse(
+      'interface Hello implements & Wo & rld { field: String }',
+    );
+    expect(toJSONDeep(doc)).to.deep.equal({
+      kind: 'Document',
+      definitions: [
+        {
+          kind: 'InterfaceTypeDefinition',
+          name: nameNode('Hello', { start: 10, end: 15 }),
+          description: undefined,
+          interfaces: [
+            typeNode('Wo', { start: 29, end: 31 }),
+            typeNode('rld', { start: 34, end: 37 }),
+          ],
+          directives: [],
+          fields: [
+            fieldNode(
+              nameNode('field', { start: 40, end: 45 }),
+              typeNode('String', { start: 47, end: 53 }),
+              { start: 40, end: 53 },
+            ),
+          ],
+          loc: { start: 0, end: 55 },
+        },
+      ],
+      loc: { start: 0, end: 55 },
     });
   });
 
@@ -480,6 +691,7 @@ describe('Schema Parser', () => {
           kind: 'InterfaceTypeDefinition',
           name: nameNode('Hello', { start: 10, end: 15 }),
           description: undefined,
+          interfaces: [],
           directives: [],
           fields: [
             fieldNode(
@@ -725,32 +937,31 @@ describe('Schema Parser', () => {
   });
 
   it('Union fails with no types', () => {
-    expectSyntaxError('union Hello = |', 'Expected Name, found <EOF>', {
-      line: 1,
-      column: 16,
+    expectSyntaxError('union Hello = |').to.deep.equal({
+      message: 'Syntax Error: Expected Name, found <EOF>.',
+      locations: [{ line: 1, column: 16 }],
     });
   });
 
   it('Union fails with leading double pipe', () => {
-    expectSyntaxError('union Hello = || Wo | Rld', 'Expected Name, found |', {
-      line: 1,
-      column: 16,
+    expectSyntaxError('union Hello = || Wo | Rld').to.deep.equal({
+      message: 'Syntax Error: Expected Name, found "|".',
+      locations: [{ line: 1, column: 16 }],
     });
   });
 
   it('Union fails with double pipe', () => {
-    expectSyntaxError('union Hello = Wo || Rld', 'Expected Name, found |', {
-      line: 1,
-      column: 19,
+    expectSyntaxError('union Hello = Wo || Rld').to.deep.equal({
+      message: 'Syntax Error: Expected Name, found "|".',
+      locations: [{ line: 1, column: 19 }],
     });
   });
 
   it('Union fails with trailing pipe', () => {
-    expectSyntaxError(
-      'union Hello = | Wo | Rld |',
-      'Expected Name, found <EOF>',
-      { line: 1, column: 27 },
-    );
+    expectSyntaxError('union Hello = | Wo | Rld |').to.deep.equal({
+      message: 'Syntax Error: Expected Name, found <EOF>.',
+      locations: [{ line: 1, column: 27 }],
+    });
   });
 
   it('Scalar', () => {
@@ -801,14 +1012,14 @@ input Hello {
   });
 
   it('Simple input object with args should fail', () => {
-    expectSyntaxError(
-      `
+    expectSyntaxError(`
       input Hello {
         world(foo: Int): String
-      }`,
-      'Expected :, found (',
-      { line: 3, column: 14 },
-    );
+      }
+    `).to.deep.equal({
+      message: 'Syntax Error: Expected ":", found "(".',
+      locations: [{ line: 3, column: 14 }],
+    });
   });
 
   it('Directive definition', () => {
@@ -885,11 +1096,11 @@ input Hello {
 
   it('Directive with incorrect locations', () => {
     expectSyntaxError(
-      `
-      directive @foo on FIELD | INCORRECT_LOCATION`,
-      'Unexpected Name "INCORRECT_LOCATION"',
-      { line: 2, column: 33 },
-    );
+      'directive @foo on FIELD | INCORRECT_LOCATION',
+    ).to.deep.equal({
+      message: 'Syntax Error: Unexpected Name "INCORRECT_LOCATION".',
+      locations: [{ line: 1, column: 27 }],
+    });
   });
 
   it('parses kitchen sink schema', () => {
@@ -898,21 +1109,26 @@ input Hello {
 
   it('Option: allowLegacySDLEmptyFields supports type with empty fields', () => {
     const body = 'type Hello { }';
-    expect(() => parse(body)).to.throw('Syntax Error: Expected Name, found }');
+    expectSyntaxError(body).to.include({
+      message: 'Syntax Error: Expected Name, found "}".',
+    });
+
     const doc = parse(body, { allowLegacySDLEmptyFields: true });
     expect(doc).to.have.deep.nested.property('definitions[0].fields', []);
   });
 
   it('Option: allowLegacySDLImplementsInterfaces', () => {
     const body = 'type Hello implements Wo rld { field: String }';
-    expect(() => parse(body)).to.throw('Syntax Error: Unexpected Name "rld"');
+    expectSyntaxError(body).to.include({
+      message: 'Syntax Error: Unexpected Name "rld".',
+    });
+
     const doc = parse(body, { allowLegacySDLImplementsInterfaces: true });
-    expect(toJSONDeep(doc)).to.have.deep.nested.property(
-      'definitions[0].interfaces',
-      [
-        typeNode('Wo', { start: 22, end: 24 }),
-        typeNode('rld', { start: 25, end: 28 }),
-      ],
-    );
+    expect(
+      toJSONDeep(doc),
+    ).to.have.deep.nested.property('definitions[0].interfaces', [
+      typeNode('Wo', { start: 22, end: 24 }),
+      typeNode('rld', { start: 25, end: 28 }),
+    ]);
   });
 });

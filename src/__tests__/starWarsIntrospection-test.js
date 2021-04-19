@@ -1,5 +1,3 @@
-// @flow strict
-
 import { expect } from 'chai';
 import { describe, it } from 'mocha';
 
@@ -7,7 +5,7 @@ import { graphqlSync } from '../graphql';
 
 import { StarWarsSchema } from './starWarsSchema';
 
-function queryStarWars(source) {
+function queryStarWars(source: string) {
   const result = graphqlSync({ schema: StarWarsSchema, source });
   expect(Object.keys(result)).to.deep.equal(['data']);
   return result.data;
@@ -32,16 +30,16 @@ describe('Star Wars Introspection Tests', () => {
       expect(data).to.deep.equal({
         __schema: {
           types: [
-            { name: 'Query' },
-            { name: 'Episode' },
+            { name: 'Human' },
             { name: 'Character' },
             { name: 'String' },
-            { name: 'Human' },
+            { name: 'Episode' },
             { name: 'Droid' },
+            { name: 'Query' },
+            { name: 'Boolean' },
             { name: '__Schema' },
             { name: '__Type' },
             { name: '__TypeKind' },
-            { name: 'Boolean' },
             { name: '__Field' },
             { name: '__InputValue' },
             { name: '__EnumValue' },

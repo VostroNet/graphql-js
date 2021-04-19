@@ -10,7 +10,7 @@ If you have an API endpoint that alters data, like inserting data into a databas
 
 Let's say we have a “message of the day” server, where anyone can update the message of the day, and anyone can read the current one. The GraphQL schema for this is simply:
 
-```javascript
+```graphql
 type Mutation {
   setMessage(message: String): String
 }
@@ -24,14 +24,14 @@ It's often convenient to have a mutation that maps to a database create or updat
 
 Both mutations and queries can be handled by root resolvers, so the root that implements this schema can simply be:
 
-```javascript
+```js
 var fakeDatabase = {};
 var root = {
-  setMessage: function({ message }) {
+  setMessage: function ({ message }) {
     fakeDatabase.message = message;
     return message;
   },
-  getMessage: function() {
+  getMessage: function () {
     return fakeDatabase.message;
   },
 };
@@ -41,7 +41,7 @@ You don't need anything more than this to implement mutations. But in many cases
 
 For example, instead of a single message of the day, let's say we have many messages, indexed in a database by the `id` field, and each message has both a `content` string and an `author` string. We want a mutation API both for creating a new message and for updating an old message. We could use the schema:
 
-```javascript
+```graphql
 input MessageInput {
   content: String
   author: String
@@ -71,9 +71,9 @@ Naming input types with `Input` on the end is a useful convention, because you w
 
 Here's some runnable code that implements this schema, keeping the data in memory:
 
-```javascript
+```js
 var express = require('express');
-var graphqlHTTP = require('express-graphql');
+var { graphqlHTTP } = require('express-graphql');
 var { buildSchema } = require('graphql');
 
 // Construct a schema, using GraphQL schema language
@@ -112,22 +112,20 @@ class Message {
 var fakeDatabase = {};
 
 var root = {
-  getMessage: function({ id }) {
+  getMessage: function ({ id }) {
     if (!fakeDatabase[id]) {
       throw new Error('no message exists with id ' + id);
     }
     return new Message(id, fakeDatabase[id]);
   },
-  createMessage: function({ input }) {
+  createMessage: function ({ input }) {
     // Create a random id for our "database".
-    var id = require('crypto')
-      .randomBytes(10)
-      .toString('hex');
+    var id = require('crypto').randomBytes(10).toString('hex');
 
     fakeDatabase[id] = input;
     return new Message(id, input);
   },
-  updateMessage: function({ id, input }) {
+  updateMessage: function ({ id, input }) {
     if (!fakeDatabase[id]) {
       throw new Error('no message exists with id ' + id);
     }
@@ -153,12 +151,9 @@ app.listen(4000, () => {
 
 To call a mutation, you must use the keyword `mutation` before your GraphQL query. To pass an input type, provide the data written as if it's a JSON object. For example, with the server defined above, you can create a new message and return the `id` of the new message with this operation:
 
-```javascript
+```graphql
 mutation {
-  createMessage(input: {
-    author: "andy",
-    content: "hope is a good thing",
-  }) {
+  createMessage(input: { author: "andy", content: "hope is a good thing" }) {
     id
   }
 }
@@ -166,7 +161,7 @@ mutation {
 
 You can use variables to simplify mutation client logic just like you can with queries. For example, some JavaScript code that calls the server to execute this mutation is:
 
-```javascript
+```js
 var author = 'andy';
 var content = 'hope is a good thing';
 var query = `mutation CreateMessage($input: MessageInput) {
@@ -191,8 +186,8 @@ fetch('/graphql', {
     },
   }),
 })
-  .then(r => r.json())
-  .then(data => console.log('data returned:', data));
+  .then((r) => r.json())
+  .then((data) => console.log('data returned:', data));
 ```
 
 One particular type of mutation is operations that change users, like signing up a new user. While you can implement this using GraphQL mutations, you can reuse many existing libraries if you learn about [GraphQL with authentication and Express middleware](/graphql-js/authentication-and-express-middleware/).

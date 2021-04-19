@@ -6,17 +6,17 @@ permalink: /graphql-js/passing-arguments/
 next: /graphql-js/object-types/
 ---
 
-Just like a REST API, it's common to pass arguments to an endpoint in a GraphQL API. By defining the arguments in the schema language, typechecking happens automatically. Each argument must be named and have a type. For example, in the [Basic Types documentation](/graphql-js/basic-types/) we had an endpoint called `rollThreeDice`:
+Just like a REST API, it's common to pass arguments to an endpoint in a GraphQL API. By defining the arguments in the schema language, type checking happens automatically. Each argument must be named and have a type. For example, in the [Basic Types documentation](/graphql-js/basic-types/) we had an endpoint called `rollThreeDice`:
 
-```javascript
+```graphql
 type Query {
   rollThreeDice: [Int]
 }
 ```
 
-Instead of hardcoding “three”, we might want a more general function that rolls `numDice` dice, each of which have `numSides` sides. We can add arguments to the GraphQL schema language like this:
+Instead of hard-coding “three”, we might want a more general function that rolls `numDice` dice, each of which have `numSides` sides. We can add arguments to the GraphQL schema language like this:
 
-```javascript
+```graphql
 type Query {
   rollDice(numDice: Int!, numSides: Int): [Int]
 }
@@ -26,9 +26,9 @@ The exclamation point in `Int!` indicates that `numDice` can't be null, which me
 
 So far, our resolver functions took no arguments. When a resolver takes arguments, they are passed as one “args” object, as the first argument to the function. So rollDice could be implemented as:
 
-```javascript
+```js
 var root = {
-  rollDice: function(args) {
+  rollDice: function (args) {
     var output = [];
     for (var i = 0; i < args.numDice; i++) {
       output.push(1 + Math.floor(Math.random() * (args.numSides || 6)));
@@ -40,9 +40,9 @@ var root = {
 
 It's convenient to use [ES6 destructuring assignment](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Destructuring_assignment) for these parameters, since you know what format they will be. So we can also write `rollDice` as
 
-```javascript
+```js
 var root = {
-  rollDice: function({ numDice, numSides }) {
+  rollDice: function ({ numDice, numSides }) {
     var output = [];
     for (var i = 0; i < numDice; i++) {
       output.push(1 + Math.floor(Math.random() * (numSides || 6)));
@@ -56,9 +56,9 @@ If you're familiar with destructuring, this is a bit nicer because the line of c
 
 The entire code for a server that hosts this `rollDice` API is:
 
-```javascript
+```js
 var express = require('express');
-var graphqlHTTP = require('express-graphql');
+var { graphqlHTTP } = require('express-graphql');
 var { buildSchema } = require('graphql');
 
 // Construct a schema, using GraphQL schema language
@@ -70,7 +70,7 @@ var schema = buildSchema(`
 
 // The root provides a resolver function for each API endpoint
 var root = {
-  rollDice: function({ numDice, numSides }) {
+  rollDice: function ({ numDice, numSides }) {
     var output = [];
     for (var i = 0; i < numDice; i++) {
       output.push(1 + Math.floor(Math.random() * (numSides || 6)));
@@ -88,13 +88,14 @@ app.use(
     graphiql: true,
   }),
 );
-app.listen(4000);
-console.log('Running a GraphQL API server at localhost:4000/graphql');
+app.listen(4000, () => {
+  console.log('Running a GraphQL API server at localhost:4000/graphql');
+});
 ```
 
 When you call this API, you have to pass each argument by name. So for the server above, you could issue this GraphQL query to roll three six-sided dice:
 
-```javascript
+```graphql
 {
   rollDice(numDice: 3, numSides: 6)
 }
@@ -106,7 +107,7 @@ When you're passing arguments in code, it's generally better to avoid constructi
 
 For example, some JavaScript code that calls our server above is:
 
-```javascript
+```js
 var dice = 3;
 var sides = 6;
 var query = `query RollDice($dice: Int!, $sides: Int) {
@@ -124,8 +125,8 @@ fetch('/graphql', {
     variables: { dice, sides },
   }),
 })
-  .then(r => r.json())
-  .then(data => console.log('data returned:', data));
+  .then((r) => r.json())
+  .then((data) => console.log('data returned:', data));
 ```
 
 Using `$dice` and `$sides` as variables in GraphQL means we don't have to worry about escaping on the client side.

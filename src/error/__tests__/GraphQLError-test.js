@@ -1,16 +1,14 @@
-// @flow strict
-
 import { expect } from 'chai';
 import { describe, it } from 'mocha';
 
-import dedent from '../../jsutils/dedent';
+import dedent from '../../__testUtils__/dedent';
+
 import invariant from '../../jsutils/invariant';
 
 import { Kind } from '../../language/kinds';
 import { parse } from '../../language/parser';
 import { Source } from '../../language/source';
 
-import { formatError } from '../formatError';
 import { GraphQLError, printError } from '../GraphQLError';
 
 const source = new Source(dedent`
@@ -20,7 +18,7 @@ const source = new Source(dedent`
 `);
 const ast = parse(source);
 const operationNode = ast.definitions[0];
-invariant(operationNode && operationNode.kind === Kind.OPERATION_DEFINITION);
+invariant(operationNode.kind === Kind.OPERATION_DEFINITION);
 const fieldNode = operationNode.selectionSet.selections[0];
 invariant(fieldNode);
 
@@ -132,34 +130,6 @@ describe('GraphQLError', () => {
       '{"message":"msg","path":["path",3,"to","field"]}',
     );
   });
-
-  it('default error formatter includes path', () => {
-    const e = new GraphQLError('msg', null, null, null, [
-      'path',
-      3,
-      'to',
-      'field',
-    ]);
-
-    expect(formatError(e)).to.deep.equal({
-      message: 'msg',
-      locations: undefined,
-      path: ['path', 3, 'to', 'field'],
-    });
-  });
-
-  it('default error formatter includes extension fields', () => {
-    const e = new GraphQLError('msg', null, null, null, null, null, {
-      foo: 'bar',
-    });
-
-    expect(formatError(e)).to.deep.equal({
-      message: 'msg',
-      locations: undefined,
-      path: undefined,
-      extensions: { foo: 'bar' },
-    });
-  });
 });
 
 describe('printError', () => {
@@ -190,7 +160,7 @@ describe('printError', () => {
       ),
     );
     const opA = docA.definitions[0];
-    invariant(opA && opA.kind === Kind.OBJECT_TYPE_DEFINITION && opA.fields);
+    invariant(opA.kind === Kind.OBJECT_TYPE_DEFINITION && opA.fields);
     const fieldA = opA.fields[0];
 
     const docB = parse(
@@ -204,7 +174,7 @@ describe('printError', () => {
       ),
     );
     const opB = docB.definitions[0];
-    invariant(opB && opB.kind === Kind.OBJECT_TYPE_DEFINITION && opB.fields);
+    invariant(opB.kind === Kind.OBJECT_TYPE_DEFINITION && opB.fields);
     const fieldB = opB.fields[0];
 
     const error = new GraphQLError('Example error with two nodes', [

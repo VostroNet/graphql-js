@@ -1,5 +1,3 @@
-// @flow strict
-
 import { expect } from 'chai';
 import { describe, it } from 'mocha';
 
@@ -16,7 +14,7 @@ import {
 describe('Type System: Specified scalar types', () => {
   describe('GraphQLInt', () => {
     it('parseValue', () => {
-      function parseValue(value) {
+      function parseValue(value: mixed) {
         return GraphQLInt.parseValue(value);
       }
 
@@ -67,7 +65,7 @@ describe('Type System: Specified scalar types', () => {
     });
 
     it('parseLiteral', () => {
-      function parseLiteral(str) {
+      function parseLiteral(str: string) {
         return GraphQLInt.parseLiteral(parseValueToAST(str));
       }
 
@@ -75,24 +73,117 @@ describe('Type System: Specified scalar types', () => {
       expect(parseLiteral('0')).to.equal(0);
       expect(parseLiteral('-1')).to.equal(-1);
 
-      expect(parseLiteral('9876504321')).to.equal(undefined);
-      expect(parseLiteral('-9876504321')).to.equal(undefined);
+      expect(() => parseLiteral('9876504321')).to.throw(
+        'Int cannot represent non 32-bit signed integer value: 9876504321',
+      );
+      expect(() => parseLiteral('-9876504321')).to.throw(
+        'Int cannot represent non 32-bit signed integer value: -9876504321',
+      );
 
-      expect(parseLiteral('1.0')).to.equal(undefined);
-      expect(parseLiteral('null')).to.equal(undefined);
-      expect(parseLiteral('""')).to.equal(undefined);
-      expect(parseLiteral('"123"')).to.equal(undefined);
-      expect(parseLiteral('false')).to.equal(undefined);
-      expect(parseLiteral('[1]')).to.equal(undefined);
-      expect(parseLiteral('{ value: 1 }')).to.equal(undefined);
-      expect(parseLiteral('ENUM_VALUE')).to.equal(undefined);
-      expect(parseLiteral('$var')).to.equal(undefined);
+      expect(() => parseLiteral('1.0')).to.throw(
+        'Int cannot represent non-integer value: 1.0',
+      );
+      expect(() => parseLiteral('null')).to.throw(
+        'Int cannot represent non-integer value: null',
+      );
+      expect(() => parseLiteral('""')).to.throw(
+        'Int cannot represent non-integer value: ""',
+      );
+      expect(() => parseLiteral('"123"')).to.throw(
+        'Int cannot represent non-integer value: "123"',
+      );
+      expect(() => parseLiteral('false')).to.throw(
+        'Int cannot represent non-integer value: false',
+      );
+      expect(() => parseLiteral('[1]')).to.throw(
+        'Int cannot represent non-integer value: [1]',
+      );
+      expect(() => parseLiteral('{ value: 1 }')).to.throw(
+        'Int cannot represent non-integer value: {value: 1}',
+      );
+      expect(() => parseLiteral('ENUM_VALUE')).to.throw(
+        'Int cannot represent non-integer value: ENUM_VALUE',
+      );
+      expect(() => parseLiteral('$var')).to.throw(
+        'Int cannot represent non-integer value: $var',
+      );
+    });
+
+    it('serialize', () => {
+      function serialize(value: mixed) {
+        return GraphQLInt.serialize(value);
+      }
+
+      expect(serialize(1)).to.equal(1);
+      expect(serialize('123')).to.equal(123);
+      expect(serialize(0)).to.equal(0);
+      expect(serialize(-1)).to.equal(-1);
+      expect(serialize(1e5)).to.equal(100000);
+      expect(serialize(false)).to.equal(0);
+      expect(serialize(true)).to.equal(1);
+
+      const customValueOfObj = {
+        value: 5,
+        valueOf() {
+          return this.value;
+        },
+      };
+      expect(serialize(customValueOfObj)).to.equal(5);
+
+      // The GraphQL specification does not allow serializing non-integer values
+      // as Int to avoid accidental data loss.
+      expect(() => serialize(0.1)).to.throw(
+        'Int cannot represent non-integer value: 0.1',
+      );
+      expect(() => serialize(1.1)).to.throw(
+        'Int cannot represent non-integer value: 1.1',
+      );
+      expect(() => serialize(-1.1)).to.throw(
+        'Int cannot represent non-integer value: -1.1',
+      );
+      expect(() => serialize('-1.1')).to.throw(
+        'Int cannot represent non-integer value: "-1.1"',
+      );
+
+      // Maybe a safe JavaScript int, but bigger than 2^32, so not
+      // representable as a GraphQL Int
+      expect(() => serialize(9876504321)).to.throw(
+        'Int cannot represent non 32-bit signed integer value: 9876504321',
+      );
+      expect(() => serialize(-9876504321)).to.throw(
+        'Int cannot represent non 32-bit signed integer value: -9876504321',
+      );
+
+      // Too big to represent as an Int in JavaScript or GraphQL
+      expect(() => serialize(1e100)).to.throw(
+        'Int cannot represent non 32-bit signed integer value: 1e+100',
+      );
+      expect(() => serialize(-1e100)).to.throw(
+        'Int cannot represent non 32-bit signed integer value: -1e+100',
+      );
+      expect(() => serialize('one')).to.throw(
+        'Int cannot represent non-integer value: "one"',
+      );
+
+      // Doesn't represent number
+      expect(() => serialize('')).to.throw(
+        'Int cannot represent non-integer value: ""',
+      );
+      expect(() => serialize(NaN)).to.throw(
+        'Int cannot represent non-integer value: NaN',
+      );
+      expect(() => serialize(Infinity)).to.throw(
+        'Int cannot represent non-integer value: Infinity',
+      );
+      expect(() => serialize([5])).to.throw(
+        'Int cannot represent non-integer value: [5]',
+      );
     });
   });
 
   describe('GraphQLFloat', () => {
     it('parseValue', () => {
-      function parseValue(value) {
+      function parseValue(value: mixed) {
         return GraphQLFloat.parseValue(value);
       }
 
@@ -139,7 +230,7 @@ describe('Type System: Specified scalar types', () => {
     });
 
     it('parseLiteral', () => {
-      function parseLiteral(str) {
+      function parseLiteral(str: string) {
         return GraphQLFloat.parseLiteral(parseValueToAST(str));
       }
 
@@ -149,21 +240,80 @@ describe('Type System: Specified scalar types', () => {
       expect(parseLiteral('0.1')).to.equal(0.1);
       expect(parseLiteral(Math.PI.toString())).to.equal(Math.PI);
 
-      expect(parseLiteral('null')).to.equal(undefined);
-      expect(parseLiteral('""')).to.equal(undefined);
-      expect(parseLiteral('"123"')).to.equal(undefined);
-      expect(parseLiteral('"123.5"')).to.equal(undefined);
-      expect(parseLiteral('false')).to.equal(undefined);
-      expect(parseLiteral('[0.1]')).to.equal(undefined);
-      expect(parseLiteral('{ value: 0.1 }')).to.equal(undefined);
-      expect(parseLiteral('ENUM_VALUE')).to.equal(undefined);
-      expect(parseLiteral('$var')).to.equal(undefined);
+      expect(() => parseLiteral('null')).to.throw(
+        'Float cannot represent non numeric value: null',
+      );
+      expect(() => parseLiteral('""')).to.throw(
+        'Float cannot represent non numeric value: ""',
+      );
+      expect(() => parseLiteral('"123"')).to.throw(
+        'Float cannot represent non numeric value: "123"',
+      );
+      expect(() => parseLiteral('"123.5"')).to.throw(
+        'Float cannot represent non numeric value: "123.5"',
+      );
+      expect(() => parseLiteral('false')).to.throw(
+        'Float cannot represent non numeric value: false',
+      );
+      expect(() => parseLiteral('[0.1]')).to.throw(
+        'Float cannot represent non numeric value: [0.1]',
+      );
+      expect(() => parseLiteral('{ value: 0.1 }')).to.throw(
+        'Float cannot represent non numeric value: {value: 0.1}',
+      );
+      expect(() => parseLiteral('ENUM_VALUE')).to.throw(
+        'Float cannot represent non numeric value: ENUM_VALUE',
+      );
+      expect(() => parseLiteral('$var')).to.throw(
+        'Float cannot represent non numeric value: $var',
+      );
+    });
+
+    it('serialize', () => {
+      function serialize(value: mixed) {
+        return GraphQLFloat.serialize(value);
+      }
+
+      expect(serialize(1)).to.equal(1.0);
+      expect(serialize(0)).to.equal(0.0);
+      expect(serialize('123.5')).to.equal(123.5);
+      expect(serialize(-1)).to.equal(-1.0);
+      expect(serialize(0.1)).to.equal(0.1);
+      expect(serialize(1.1)).to.equal(1.1);
+      expect(serialize(-1.1)).to.equal(-1.1);
+      expect(serialize('-1.1')).to.equal(-1.1);
+      expect(serialize(false)).to.equal(0.0);
+      expect(serialize(true)).to.equal(1.0);
+
+      const customValueOfObj = {
+        value: 5.5,
+        valueOf() {
+          return this.value;
+        },
+      };
+      expect(serialize(customValueOfObj)).to.equal(5.5);
+
+      expect(() => serialize(NaN)).to.throw(
+        'Float cannot represent non numeric value: NaN',
+      );
+      expect(() => serialize(Infinity)).to.throw(
+        'Float cannot represent non numeric value: Infinity',
+      );
+      expect(() => serialize('one')).to.throw(
+        'Float cannot represent non numeric value: "one"',
+      );
+      expect(() => serialize('')).to.throw(
+        'Float cannot represent non numeric value: ""',
+      );
+      expect(() => serialize([5])).to.throw(
+        'Float cannot represent non numeric value: [5]',
+      );
     });
   });
 
   describe('GraphQLString', () => {
     it('parseValue', () => {
-      function parseValue(value) {
+      function parseValue(value: mixed) {
         return GraphQLString.parseValue(value);
       }
 
@@ -193,27 +343,82 @@ describe('Type System: Specified scalar types', () => {
     });
 
     it('parseLiteral', () => {
-      function parseLiteral(str) {
+      function parseLiteral(str: string) {
         return GraphQLString.parseLiteral(parseValueToAST(str));
       }
 
       expect(parseLiteral('"foo"')).to.equal('foo');
       expect(parseLiteral('"""bar"""')).to.equal('bar');
 
-      expect(parseLiteral('null')).to.equal(undefined);
-      expect(parseLiteral('1')).to.equal(undefined);
-      expect(parseLiteral('0.1')).to.equal(undefined);
-      expect(parseLiteral('false')).to.equal(undefined);
-      expect(parseLiteral('["foo"]')).to.equal(undefined);
-      expect(parseLiteral('{ value: "foo" }')).to.equal(undefined);
-      expect(parseLiteral('ENUM_VALUE')).to.equal(undefined);
-      expect(parseLiteral('$var')).to.equal(undefined);
+      expect(() => parseLiteral('null')).to.throw(
+        'String cannot represent a non string value: null',
+      );
+      expect(() => parseLiteral('1')).to.throw(
+        'String cannot represent a non string value: 1',
+      );
+      expect(() => parseLiteral('0.1')).to.throw(
+        'String cannot represent a non string value: 0.1',
+      );
+      expect(() => parseLiteral('false')).to.throw(
+        'String cannot represent a non string value: false',
+      );
+      expect(() => parseLiteral('["foo"]')).to.throw(
+        'String cannot represent a non string value: ["foo"]',
+      );
+      expect(() => parseLiteral('{ value: "foo" }')).to.throw(
+        'String cannot represent a non string value: {value: "foo"}',
+      );
+      expect(() => parseLiteral('ENUM_VALUE')).to.throw(
+        'String cannot represent a non string value: ENUM_VALUE',
+      );
+      expect(() => parseLiteral('$var')).to.throw(
+        'String cannot represent a non string value: $var',
+      );
+    });
+
+    it('serialize', () => {
+      function serialize(value: mixed) {
+        return GraphQLString.serialize(value);
+      }
+
+      expect(serialize('string')).to.equal('string');
+      expect(serialize(1)).to.equal('1');
+      expect(serialize(-1.1)).to.equal('-1.1');
+      expect(serialize(true)).to.equal('true');
+      expect(serialize(false)).to.equal('false');
+
+      const valueOf = () => 'valueOf string';
+      const toJSON = () => 'toJSON string';
+
+      const valueOfAndToJSONValue = { valueOf, toJSON };
+      expect(serialize(valueOfAndToJSONValue)).to.equal('valueOf string');
+
+      const onlyToJSONValue = { toJSON };
+      expect(serialize(onlyToJSONValue)).to.equal('toJSON string');
+
+      expect(() => serialize(NaN)).to.throw(
+        'String cannot represent value: NaN',
+      );
+
+      expect(() => serialize([1])).to.throw(
+        'String cannot represent value: [1]',
+      );
+
+      const badObjValue = {};
+      expect(() => serialize(badObjValue)).to.throw(
+        'String cannot represent value: {}',
+      );
+
+      const badValueOfObjValue = { valueOf: 'valueOf string' };
+      expect(() => serialize(badValueOfObjValue)).to.throw(
+        'String cannot represent value: { valueOf: "valueOf string" }',
+      );
     });
   });
 
   describe('GraphQLBoolean', () => {
     it('parseValue', () => {
-      function parseValue(value) {
+      function parseValue(value: mixed) {
         return GraphQLBoolean.parseValue(value);
       }
 
@@ -250,29 +455,84 @@ describe('Type System: Specified scalar types', () => {
     });
 
     it('parseLiteral', () => {
-      function parseLiteral(str) {
+      function parseLiteral(str: string) {
         return GraphQLBoolean.parseLiteral(parseValueToAST(str));
       }
 
       expect(parseLiteral('true')).to.equal(true);
       expect(parseLiteral('false')).to.equal(false);
 
-      expect(parseLiteral('null')).to.equal(undefined);
-      expect(parseLiteral('0')).to.equal(undefined);
-      expect(parseLiteral('1')).to.equal(undefined);
-      expect(parseLiteral('0.1')).to.equal(undefined);
-      expect(parseLiteral('""')).to.equal(undefined);
-      expect(parseLiteral('"false"')).to.equal(undefined);
-      expect(parseLiteral('[false]')).to.equal(undefined);
-      expect(parseLiteral('{ value: false }')).to.equal(undefined);
-      expect(parseLiteral('ENUM_VALUE')).to.equal(undefined);
-      expect(parseLiteral('$var')).to.equal(undefined);
+      expect(() => parseLiteral('null')).to.throw(
+        'Boolean cannot represent a non boolean value: null',
+      );
+      expect(() => parseLiteral('0')).to.throw(
+        'Boolean cannot represent a non boolean value: 0',
+      );
+      expect(() => parseLiteral('1')).to.throw(
+        'Boolean cannot represent a non boolean value: 1',
+      );
+      expect(() => parseLiteral('0.1')).to.throw(
+        'Boolean cannot represent a non boolean value: 0.1',
+      );
+      expect(() => parseLiteral('""')).to.throw(
+        'Boolean cannot represent a non boolean value: ""',
+      );
+      expect(() => parseLiteral('"false"')).to.throw(
+        'Boolean cannot represent a non boolean value: "false"',
+      );
+      expect(() => parseLiteral('[false]')).to.throw(
+        'Boolean cannot represent a non boolean value: [false]',
+      );
+      expect(() => parseLiteral('{ value: false }')).to.throw(
+        'Boolean cannot represent a non boolean value: {value: false}',
+      );
+      expect(() => parseLiteral('ENUM_VALUE')).to.throw(
+        'Boolean cannot represent a non boolean value: ENUM_VALUE',
+      );
+      expect(() => parseLiteral('$var')).to.throw(
+        'Boolean cannot represent a non boolean value: $var',
+      );
+    });
+
+    it('serialize', () => {
+      function serialize(value: mixed) {
+        return GraphQLBoolean.serialize(value);
+      }
+
+      expect(serialize(1)).to.equal(true);
+      expect(serialize(0)).to.equal(false);
+      expect(serialize(true)).to.equal(true);
+      expect(serialize(false)).to.equal(false);
+      expect(
+        serialize({
+          value: true,
+          valueOf() {
+            return this.value;
+          },
+        }),
+      ).to.equal(true);
+
+      expect(() => serialize(NaN)).to.throw(
+        'Boolean cannot represent a non boolean value: NaN',
+      );
+      expect(() => serialize('')).to.throw(
+        'Boolean cannot represent a non boolean value: ""',
+      );
+      expect(() => serialize('true')).to.throw(
+        'Boolean cannot represent a non boolean value: "true"',
+      );
+      expect(() => serialize([false])).to.throw(
+        'Boolean cannot represent a non boolean value: [false]',
+      );
+      expect(() => serialize({})).to.throw(
+        'Boolean cannot represent a non boolean value: {}',
+      );
     });
   });
 
   describe('GraphQLID', () => {
     it('parseValue', () => {
-      function parseValue(value) {
+      function parseValue(value: mixed) {
         return GraphQLID.parseValue(value);
       }
 
@@ -310,7 +570,7 @@ describe('Type System: Specified scalar types', () => {
     });
 
     it('parseLiteral', () => {
-      function parseLiteral(str) {
+      function parseLiteral(str: string) {
         return GraphQLID.parseLiteral(parseValueToAST(str));
       }
 
@@ -326,13 +586,69 @@ describe('Type System: Specified scalar types', () => {
       expect(parseLiteral('90071992547409910')).to.equal('90071992547409910');
       expect(parseLiteral('-90071992547409910')).to.equal('-90071992547409910');
 
-      expect(parseLiteral('null')).to.equal(undefined);
-      expect(parseLiteral('0.1')).to.equal(undefined);
-      expect(parseLiteral('false')).to.equal(undefined);
-      expect(parseLiteral('["1"]')).to.equal(undefined);
-      expect(parseLiteral('{ value: "1" }')).to.equal(undefined);
-      expect(parseLiteral('ENUM_VALUE')).to.equal(undefined);
-      expect(parseLiteral('$var')).to.equal(undefined);
+      expect(() => parseLiteral('null')).to.throw(
+        'ID cannot represent a non-string and non-integer value: null',
+      );
+      expect(() => parseLiteral('0.1')).to.throw(
+        'ID cannot represent a non-string and non-integer value: 0.1',
+      );
+      expect(() => parseLiteral('false')).to.throw(
+        'ID cannot represent a non-string and non-integer value: false',
+      );
+      expect(() => parseLiteral('["1"]')).to.throw(
+        'ID cannot represent a non-string and non-integer value: ["1"]',
+      );
+      expect(() => parseLiteral('{ value: "1" }')).to.throw(
+        'ID cannot represent a non-string and non-integer value: {value: "1"}',
+      );
+      expect(() => parseLiteral('ENUM_VALUE')).to.throw(
+        'ID cannot represent a non-string and non-integer value: ENUM_VALUE',
+      );
+      expect(() => parseLiteral('$var')).to.throw(
+        'ID cannot represent a non-string and non-integer value: $var',
+      );
+    });
+
+    it('serialize', () => {
+      function serialize(value: mixed) {
+        return GraphQLID.serialize(value);
+      }
+
+      expect(serialize('string')).to.equal('string');
+      expect(serialize('false')).to.equal('false');
+      expect(serialize('')).to.equal('');
+      expect(serialize(123)).to.equal('123');
+      expect(serialize(0)).to.equal('0');
+      expect(serialize(-1)).to.equal('-1');
+
+      const valueOf = () => 'valueOf ID';
+      const toJSON = () => 'toJSON ID';
+
+      const valueOfAndToJSONValue = { valueOf, toJSON };
+      expect(serialize(valueOfAndToJSONValue)).to.equal('valueOf ID');
+
+      const onlyToJSONValue = { toJSON };
+      expect(serialize(onlyToJSONValue)).to.equal('toJSON ID');
+
+      const badObjValue = {
+        _id: false,
+        valueOf() {
+          return this._id;
+        },
+      };
+      expect(() => serialize(badObjValue)).to.throw(
+        'ID cannot represent value: { _id: false, valueOf: [function valueOf] }',
+      );
+
+      expect(() => serialize(true)).to.throw('ID cannot represent value: true');
+
+      expect(() => serialize(3.14)).to.throw('ID cannot represent value: 3.14');
+
+      expect(() => serialize({})).to.throw('ID cannot represent value: {}');
+
+      expect(() => serialize(['abc'])).to.throw(
+        'ID cannot represent value: ["abc"]',
+      );
     });
   });
 });
