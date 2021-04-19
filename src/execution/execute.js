@@ -1112,7 +1112,9 @@ function collectAndExecuteSubfields(
 ): PromiseOrValue<ObjMap<mixed>> {
   // Collect sub-fields to execute to complete this value.
   const subFieldNodes = collectSubfields(exeContext, returnType, fieldNodes);
-  return executeFields(exeContext, returnType, result, path, subFieldNodes);
+  return exeContext.operation.operation === 'mutation'
+    ? executeFieldsSerially(exeContext, returnType, result, path, subFieldNodes)
+    : executeFields(exeContext, returnType, result, path, subFieldNodes);
 }
 
 /**
